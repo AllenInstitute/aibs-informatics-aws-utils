@@ -1,0 +1,2 @@
+git+ssh://git@github.com/AllenInstitute/aibs-informatics-core.git@main#egg=aibs_informatics_core
+.
