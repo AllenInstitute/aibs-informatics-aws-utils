@@ -16,7 +16,35 @@ else:
     LayerTypeDef = dict
 
 
+from dataclasses import dataclass, field
+from typing import List
+
+from aibs_informatics_core.models.base.model import SchemaModel
+
+
+@dataclass
+class ReplicateImageRequest(SchemaModel):
+    source_image: ECRImage
+    destination_repository: ECRRepository
+    destination_image_tags: List[str] = field(default_factory=list)
+
+
+@dataclass
+class ReplicateImageResponse(SchemaModel):
+    destination_image: ECRImage
+
+
 class ECRImageReplicator(LoggingMixin):
+    def process_request(self, request: ReplicateImageRequest) -> ReplicateImageResponse:
+        self.log.info(f"processing request='{request}")
+        dest_image = self.replicate(
+            source_image=request.source_image,
+            destination_repository=request.destination_repository,
+            destination_image_tags=request.destination_image_tags,
+        )
+        self.log.info(f"Replicated image to repo with uri={dest_image.uri}")
+        return ReplicateImageResponse(destination_image=dest_image)
+
     def replicate(
         self,
         source_image: ECRImage,

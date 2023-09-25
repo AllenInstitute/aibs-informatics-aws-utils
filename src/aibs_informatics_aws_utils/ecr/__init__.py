@@ -15,6 +15,8 @@ __all__ = [
     "get_ecr_client",
     "resolve_image_uri",
     "ECRImageReplicator",
+    "ReplicateImageRequest",
+    "ReplicateImageResponse",
 ]
 
 from .core import (
@@ -34,4 +36,4 @@ from .core import (
     get_ecr_client,
     resolve_image_uri,
 )
-from .image_replicator import ECRImageReplicator
+from .image_replicator import ECRImageReplicator, ReplicateImageRequest, ReplicateImageResponse

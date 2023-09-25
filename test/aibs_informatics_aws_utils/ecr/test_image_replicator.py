@@ -1,27 +1,9 @@
-import json
-import re
-from contextlib import nullcontext as does_not_raise
 from test.aibs_informatics_aws_utils.ecr.base import ECRTestBase
-from typing import TYPE_CHECKING, Tuple
-from unittest import mock
 
 from moto import mock_ecr, mock_sts
-from pytest import mark, param, raises
-from requests.exceptions import HTTPError
 
-from aibs_informatics_aws_utils.ecr import (
-    ECRImage,
-    ECRImageReplicator,
-    ECRImageUri,
-    ECRRegistry,
-    ECRRegistryUri,
-    ECRRepository,
-    ECRRepositoryUri,
-    ResourceTag,
-    TagMode,
-    resolve_image_uri,
-)
-from aibs_informatics_aws_utils.exceptions import ResourceNotFoundError
+from aibs_informatics_aws_utils.ecr import ECRImageReplicator
+from aibs_informatics_aws_utils.ecr.image_replicator import ReplicateImageRequest
 
 
 @mock_sts
@@ -31,7 +13,7 @@ class ECRImageReplicatorTests(ECRTestBase):
         super().setUp()
         self.replicator = ECRImageReplicator()
 
-    def test__replicate__happy_case(self):
+    def test__process_request__happy_case(self):
         repo = self.create_repository("source")
         image = self.put_image(repo.repository_name, image_tag="latest")
         destination_repo = self.create_repository("destination")
@@ -39,9 +21,12 @@ class ECRImageReplicatorTests(ECRTestBase):
         # Unfortunately, moto doesn't support the ECR API call to batch check layer availability
         # so we will catch that it fails with NotImplementedError exception
         with self.assertRaises(NotImplementedError):
-            self.replicator.replicate(
-                source_image=image,
-                destination_repository=destination_repo,
+
+            self.replicator.process_request(
+                ReplicateImageRequest(
+                    source_image=image,
+                    destination_repository=destination_repo,
+                )
             )
 
     def test___upload_layers__happy_case(self):
