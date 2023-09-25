@@ -104,7 +104,7 @@ class SimpleModel(DBModel):
 
 @dataclass
 class SimpleTable(DynamoDBEnvBaseTable[SimpleModel, SimpleIndex]):
-    table_name: ClassVar[str] = SIMPLE_TABLE_NAME
+    pass
 
 
 def test__check_table_name_and_index_match__fails_for_mismatch():
@@ -177,6 +177,9 @@ class SimpleTableTests(AwsBaseTest):
     @property
     def ddb_resource(self):
         return get_dynamodb_resource(region=self.DEFAULT_REGION)
+
+    def test__table_name__works(self):
+        self.assertEqual(self.table.table_name, f"{self.env_base}-{SIMPLE_TABLE_NAME}")
 
     def test__put__get__works(self):
         entry = self.create_entry()

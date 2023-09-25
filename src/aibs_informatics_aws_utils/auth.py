@@ -39,7 +39,7 @@ class IamAWSRequestsAuth(requests.auth.AuthBase):
         awsrequest = AWSRequest(
             method=request.method,
             url=f"{url.scheme}://{url.netloc}{url.path}",
-            data=request.body,
+            data=request.body if hasattr(request, "body") else (request.json or request.data),
             params=dict(parse_qsl(url.query)),
         )
 
