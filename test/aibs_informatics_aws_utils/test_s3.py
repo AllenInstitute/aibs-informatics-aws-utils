@@ -16,7 +16,9 @@ from aibs_informatics_core.models.aws.s3 import (
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from pytest import mark, param, raises
 
+from aibs_informatics_aws_utils.exceptions import AWSError
 from aibs_informatics_aws_utils.s3 import (
+    SCRATCH_EXTRA_ARGS,
     PresignedUrlAction,
     delete_s3_path,
     download_s3_path,
@@ -33,6 +35,7 @@ from aibs_informatics_aws_utils.s3 import (
     is_object_prefix,
     list_s3_paths,
     move_s3_path,
+    process_transfer_requests,
     should_sync,
     sync_paths,
     update_s3_storage_class,
@@ -328,6 +331,15 @@ class S3Tests(AwsBaseTest):
             with self.assertRaises(Exception):
                 download_to_json_object(s3_path)
 
+    def test__download_to_json__fails_for_invalid_json(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            content = "asdf"
+            s3_path = self.get_s3_path("content.json")
+            self.put_object(s3_path.key, content)
+            with self.assertRaises(AWSError):
+                download_to_json(s3_path)
+
     def test__upload_path__does_not_upload_file_if_already_exists(self):
         root = self.tmp_path()
         previous_file = root / "previous"
@@ -401,6 +413,23 @@ class S3Tests(AwsBaseTest):
             download_s3_path(s3_path, non_existing_file, exist_ok=False)
             self.assertEqual(existing_file.read_text(), previous_file.read_text())
             self.assertEqual(non_existing_file.read_text(), previous_file.read_text())
+
+    def test__upload_path__handles_extra_args(self):
+        root = self.tmp_path()
+        previous_file = root / "previous"
+        previous_file.write_text("hello")
+
+        with moto.mock_s3():
+            self.setUpBucket()
+            s3_path = self.get_s3_path("path/to/file")
+            upload_path(previous_file, s3_path)
+            self.assertTrue(is_object(s3_path))
+            s3_object = get_object(s3_path)
+            self.assertEqual(s3_object.expiration, None)
+
+            upload_path(previous_file, s3_path, force=False, extra_args=SCRATCH_EXTRA_ARGS)
+            s3_object = get_object(s3_path)
+            self.assertEqual(s3_object.expiration, None)
 
     def test__download_s3_path__handles_existing_dir_for_file(self):
         root = self.tmp_path()
@@ -557,6 +586,56 @@ class S3Tests(AwsBaseTest):
                 get_object(source_path).get()["Body"].readlines(),
                 get_object(destination_path).get()["Body"].readlines(),
             )
+
+    def test__process_transfer_requests__works_around_the_horn(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            local_path = self.tmp_path() / "file"
+            local_path.write_text("hello")
+
+            s3_path = self.get_s3_path("path")
+            another_s3_path = self.get_s3_path("path2")
+            another_local_path = self.tmp_path() / "file2"
+            upload_request = S3UploadRequest(
+                source_path=local_path,
+                destination_path=s3_path,
+            )
+
+            copy_request = S3CopyRequest(
+                source_path=s3_path,
+                destination_path=another_s3_path,
+            )
+            download_request = S3DownloadRequest(
+                source_path=another_s3_path,
+                destination_path=another_local_path,
+            )
+            responses = process_transfer_requests(
+                upload_request,
+                copy_request,
+                download_request,
+            )
+            self.assertEqual(len(responses), 3)
+            self.assertEqual(responses[0].request, upload_request)
+            self.assertEqual(responses[1].request, copy_request)
+            self.assertEqual(responses[2].request, download_request)
+
+    def test__process_transfer_requests__handles_errors(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+
+            s3_path = self.get_s3_path("path")
+            another_s3_path = self.get_s3_path("path2")
+            request = S3CopyRequest(
+                source_path=s3_path,
+                destination_path=another_s3_path,
+            )
+            responses = process_transfer_requests(request, suppress_errors=True)
+            self.assertEqual(len(responses), 1)
+            self.assertEqual(responses[0].request, request)
+            self.assertEqual(responses[0].failed, True)
+
+            with self.assertRaises(Exception):
+                process_transfer_requests(request, suppress_errors=False)
 
     def test__move_s3_path__handles_folder(self):
         with moto.mock_s3():

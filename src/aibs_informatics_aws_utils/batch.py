@@ -104,7 +104,7 @@ def to_key_value_pairs(
         [
             KeyValuePairTypeDef(name=k, value=v)
             for k, v in environment.items()
-            if remove_null_values and v is not None
+            if not remove_null_values or v is not None
         ],
         key=lambda _: _.get("name"),
     )

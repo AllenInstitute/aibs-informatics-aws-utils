@@ -34,7 +34,7 @@ EFS_MOUNT_PATH_VAR = "EFS_MOUNT_PATH"
 
 
 def get_efs_mount_path(default_root: Optional[Union[str, Path]] = None) -> str:
-    root = get_env_var(EFS_MOUNT_PATH_VAR) or str(default_root)
+    root = get_env_var(EFS_MOUNT_PATH_VAR) or (str(default_root) if default_root else None)
     if root is None:
         raise ValueError("No EFS mounted file system could be resolved from env var")
     return root

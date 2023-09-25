@@ -8,6 +8,10 @@ from aibs_informatics_aws_utils.batch import (
     build_retry_strategy,
     get_batch_client,
     register_job_definition,
+    to_key_value_pairs,
+    to_mount_point,
+    to_resource_requirements,
+    to_volume,
 )
 
 DESCRIBE_JOB_DEFINITIONS = "describe_job_definitions"
@@ -240,3 +244,42 @@ class BatchTests(AwsBaseTest):
 
     def get_job_def_arn(self, job_def_name: str, revision: int) -> str:
         return f"arn:aws:batch:us-west-2:051791135335:job-definition/{job_def_name}:{revision}"
+
+
+def test__to_volume__works():
+    volume = to_volume("source", "name", None)
+    expected = {
+        "name": "name",
+        "host": {"sourcePath": "source"},
+    }
+    assert volume == expected
+
+
+def test__to_mount_point__works():
+    mount_point = to_mount_point("/test", False, None)
+    expected = {
+        "containerPath": "/test",
+        "readOnly": False,
+    }
+    assert mount_point == expected
+
+
+def test__to_resource_requirements__works():
+    resource_requirements = to_resource_requirements(None, 1, 2)
+    expected = [
+        {"value": "1", "type": "MEMORY"},
+        {"value": "2", "type": "VCPU"},
+    ]
+    assert resource_requirements == expected
+
+
+def test__to_key_value_pairs__works():
+    key_value_pairs = to_key_value_pairs(environment=dict(a="a", b=None), remove_null_values=True)
+
+    expected = [{"name": "a", "value": "a"}]
+    assert key_value_pairs == expected
+
+    key_value_pairs = to_key_value_pairs(environment=dict(a="a", b=None), remove_null_values=False)
+
+    expected = [{"name": "a", "value": "a"}, {"name": "b", "value": None}]
+    assert key_value_pairs == expected

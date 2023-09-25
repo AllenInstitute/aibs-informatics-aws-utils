@@ -1,27 +1,17 @@
-import base64
-import hashlib
 import json
 import re
-import uuid
 from contextlib import nullcontext as does_not_raise
-from datetime import datetime
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from test.aibs_informatics_aws_utils.ecr.base import ECRTestBase
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Tuple
 from unittest import mock
 
-import boto3
-from aibs_informatics_core.utils.tools.dict_helpers import remove_null_values
-from botocore.exceptions import ClientError
 from moto import mock_ecr, mock_sts
 from pytest import mark, param, raises
 from requests.exceptions import HTTPError
 
-from aibs_informatics_aws_utils.core import get_client
 from aibs_informatics_aws_utils.ecr.core import (
     ECRImage,
     ECRImageUri,
-    ECRLogin,
     ECRRegistry,
     ECRRegistryUri,
     ECRRepository,
@@ -32,23 +22,9 @@ from aibs_informatics_aws_utils.ecr.core import (
     LifecyclePolicySelection,
     ResourceTag,
     TagMode,
-    get_ecr_client,
     resolve_image_uri,
 )
-from aibs_informatics_aws_utils.exceptions import AWSError, ResourceNotFoundError
-
-if TYPE_CHECKING:  # pragma: no cover
-    from mypy_boto3_ecr.type_defs import (
-        BatchGetImageResponseTypeDef,
-        ImageDetailTypeDef,
-        ImageIdentifierTypeDef,
-        ImageTypeDef,
-    )
-else:
-    BatchGetImageResponseTypeDef = dict
-    ImageDetailTypeDef = dict
-    ImageIdentifierTypeDef = dict
-    ImageTypeDef = dict
+from aibs_informatics_aws_utils.exceptions import ResourceNotFoundError
 
 
 @mark.parametrize(
@@ -560,24 +536,24 @@ class ECRImageTests(ECRTestBase):
 @mock_sts
 @mock_ecr
 class ECRRegistryTests(ECRTestBase):
-    def test__ECRRegistry__get_ecr_login__works(self):
+    def test__get_ecr_login__works(self):
         registry = ECRRegistry(self.ACCOUNT_ID, self.REGION)
         login = registry.get_ecr_login()
         self.assertEqual(login.registry, registry.uri)
         self.assertTrue(login.username)
         self.assertTrue(login.password)
 
-    def test__ECRRegistry__from_uri__succeeds(self):
+    def test__from_uri__succeeds(self):
         registry = ECRRegistry(self.ACCOUNT_ID, self.REGION)
         new_registry = ECRRegistry.from_uri(registry.uri)
         self.assertEqual(registry, new_registry)
 
-    def test__ECRRegistry__from_env__succeeds(self):
+    def test__from_env__succeeds(self):
         registry = ECRRegistry(self.ACCOUNT_ID, self.REGION)
         new_registry = ECRRegistry.from_env(registry.region)
         self.assertEqual(registry, new_registry)
 
-    def test__ECRRegistry__get_repositories__no_filters(self):
+    def test__get_repositories__no_filters(self):
         tag1 = ResourceTag(Key="key1", Value="value")
         tag2a = ResourceTag(Key="key2", Value="a")
         tag2b = ResourceTag(Key="key2", Value="b")
@@ -609,7 +585,7 @@ class ECRRegistryTests(ECRTestBase):
         ]
         self.assertListEqual(actual, expected)
 
-    def test__ECRRegistry__get_repositories__filters_work(self):
+    def test__get_repositories__filters_work(self):
         tag1 = ResourceTag(Key="key1", Value="value")
         tag2a = ResourceTag(Key="key2", Value="a")
         tag2b = ResourceTag(Key="key2", Value="b")
@@ -639,11 +615,30 @@ class ECRRegistryTests(ECRTestBase):
         ]
         self.assertListEqual(actual, expected)
 
+        actual = registry.get_repositories(
+            repository_name="repoxyz", repository_tags=[tag1, tag2a]
+        )
+        self.assertEqual(len(actual), 2)
+
+        expected = [
+            ECRRepository(
+                account_id=self.ACCOUNT_ID,
+                region=self.REGION,
+                repository_name="repoxyz-1",
+            ),
+            ECRRepository(
+                account_id=self.ACCOUNT_ID,
+                region=self.REGION,
+                repository_name="repoxyz-3",
+            ),
+        ]
+        self.assertListEqual(actual, expected)
+
 
 @mock_sts
 @mock_ecr
 class ECRRepositoryTests(ECRTestBase):
-    def test__ECRRepository__from_uri__succeeds(self):
+    def test__from_uri__succeeds(self):
         ecr_repo = ECRRepository(
             account_id=self.ACCOUNT_ID,
             region=self.REGION,
@@ -652,7 +647,7 @@ class ECRRepositoryTests(ECRTestBase):
         new_ecr_repo = ECRRepository.from_uri(ecr_repo.uri)
         self.assertEqual(ecr_repo, new_ecr_repo)
 
-    def test__ECRRepository__from_arn__succeeds(self):
+    def test__from_arn__succeeds(self):
         ecr_repo = ECRRepository(
             account_id=self.ACCOUNT_ID,
             region=self.REGION,
@@ -661,7 +656,7 @@ class ECRRepositoryTests(ECRTestBase):
         new_ecr_repo = ECRRepository.from_arn(ecr_repo.arn)
         self.assertEqual(ecr_repo, new_ecr_repo)
 
-    def test__ECRRepository__from_name__succeeds(self):
+    def test__from_name__succeeds(self):
         ecr_repo = ECRRepository(
             account_id=self.ACCOUNT_ID,
             region=self.REGION,
@@ -672,7 +667,7 @@ class ECRRepositoryTests(ECRTestBase):
         )
         self.assertEqual(ecr_repo, new_ecr_repo)
 
-    def test__ECRRepository__create__creates_new_repo(self):
+    def test__create__creates_new_repo(self):
         repo = ECRRepository(
             account_id=self.ACCOUNT_ID,
             region=self.REGION,
@@ -684,7 +679,7 @@ class ECRRepositoryTests(ECRTestBase):
         self.assertTrue(repo.exists())
         self.assertListEqual(repo.get_resource_tags(), [tag])
 
-    def test__ECRRepository__create__handles_existing_repo(self):
+    def test__create__handles_existing_repo(self):
         repo = ECRRepository(
             account_id=self.ACCOUNT_ID,
             region=self.REGION,
@@ -708,7 +703,7 @@ class ECRRepositoryTests(ECRTestBase):
         with self.assertRaises(Exception):
             repo.create(exists_ok=False)
 
-    def test__ECRRepository__get_resource_tags__works(self):
+    def test__get_resource_tags__works(self):
         repo = self.create_repository("repository_name")
         self.assertListEqual(repo.get_resource_tags(), [])
 
@@ -717,7 +712,7 @@ class ECRRepositoryTests(ECRTestBase):
         repo2 = self.create_repository("repository_name2", tag1, tag2)
         self.assertListEqual(repo2.get_resource_tags(), [tag1, tag2])
 
-    def test__ECRRepository__update_resource_tags__appends_tags(self):
+    def test__update_resource_tags__appends_tags(self):
         tag1 = ResourceTag(Key="key1", Value="value1")
         tag2 = ResourceTag(Key="key2", Value="value2")
         tag3 = ResourceTag(Key="key3", Value="value3")
@@ -733,7 +728,7 @@ class ECRRepositoryTests(ECRTestBase):
         repo.update_resource_tags(tag1_new, mode=TagMode.APPEND)
         self.assertListEqual(repo.get_resource_tags(), [tag1_new, tag2, tag3])
 
-    def test__ECRRepository__update_resource_tags__overwrites_tags(self):
+    def test__update_resource_tags__overwrites_tags(self):
         tag1 = ResourceTag(Key="key1", Value="value1")
         tag2 = ResourceTag(Key="key2", Value="value2")
         tag3 = ResourceTag(Key="key3", Value="value3")
@@ -749,7 +744,7 @@ class ECRRepositoryTests(ECRTestBase):
         repo.update_resource_tags(tag1_new, mode=TagMode.OVERWRITE)
         self.assertListEqual(repo.get_resource_tags(), [tag1_new])
 
-    def test__ECRRepository__get_images__handles_no_images(self):
+    def test__get_images__handles_no_images(self):
         repo = ECRRepository(
             account_id=self.ACCOUNT_ID,
             region=self.REGION,
@@ -759,12 +754,35 @@ class ECRRepositoryTests(ECRTestBase):
         images = repo.get_images()
         self.assertListEqual(images, [])
 
-    def test__ECRRepository__get_images__returns_all_images(self):
+    def test__get_images__returns_all_images(self):
         repo = self.create_repository("repository_name")
         image1 = self.put_image(repo.repository_name, image_tag="latest", seed=123)
         image2 = self.put_image(repo.repository_name, image_tag="v2", seed=234)
         images = repo.get_images()
         self.assertListEqual(images, [image2, image1])
+
+    def test__get_image__returns_image_from_digest(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+        actual = repo.get_image(image_digest=image.image_digest)
+        self.assertEqual(actual, image)
+
+    def test__get_image__returns_image_from_tag(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+        actual = repo.get_image(image_tag="latest")
+        self.assertEqual(actual, image)
+
+    def test__get_image__fails_if_both_arguments_provided(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+        with self.assertRaises(ValueError):
+            repo.get_image(image_tag="latest", image_digest=image.image_digest)
+
+    def test__get_image__fails_if_no_found(self):
+        repo = self.create_repository("repository_name")
+        with self.assertRaises(ResourceNotFoundError):
+            repo.get_image(image_tag="latest")
 
     def test__resolve_image_uri__returns_latest_image_for_repo_uri(self):
         repo = self.create_repository("repository_name")
@@ -772,9 +790,11 @@ class ECRRepositoryTests(ECRTestBase):
         self.assertEqual(resolve_image_uri(repo.repository_name), image1.uri)
         self.assertEqual(resolve_image_uri(repo.uri), image1.uri)
 
-        image2 = self.put_image(repo.repository_name, image_tag="latest", seed=234)
+        image2 = self.put_image(repo.repository_name, image_tag="v2", seed=234)
         self.assertEqual(resolve_image_uri(repo.repository_name), image2.uri)
         self.assertEqual(resolve_image_uri(repo.uri), image2.uri)
+
+        self.assertEqual(resolve_image_uri(repo.repository_name, default_tag="latest"), image1.uri)
 
     def test__resolve_image_uri__works_with_image_uri(self):
         repo = self.create_repository("repository_name")
@@ -786,7 +806,7 @@ class ECRRepositoryTests(ECRTestBase):
 
     def test__resolve_image_uri__fails_for_invalid_uri(self):
         with self.assertRaises(ResourceNotFoundError):
-            resolve_image_uri("invalid_uri")
+            resolve_image_uri("invalid@#$uri")
 
         repo = self.create_repository("repository_name")
         with self.assertRaises(ResourceNotFoundError):

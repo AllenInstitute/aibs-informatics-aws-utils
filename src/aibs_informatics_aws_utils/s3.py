@@ -287,7 +287,7 @@ def get_object(s3_path: S3URI, **kwargs) -> Object:
     try:
         return s3.Object(s3_path.bucket, s3_path.key)
     except ClientError as e:
-        raise AWSError(f"Error finding s3 object: {s3_path} {e}")
+        raise AWSError(f"Error finding s3 object: {s3_path} {e}") from e
 
 
 def is_object(s3_path: S3URI, **kwargs) -> bool:

@@ -54,16 +54,16 @@ def start_query_execution(
         return metadata
     except ClientError as e:
         logger.error(f"Error executing : {request} {e}", exc_info=True)
-        raise AWSError(f"Error starting query execution: {request} {e}")
+        raise AWSError(f"Error starting query execution: {request} {e}") from e
 
 
 def get_query_execution(query_execution_id: str) -> GetQueryExecutionOutputTypeDef:
     athena = get_athena_client()
     try:
         return athena.get_query_execution(QueryExecutionId=query_execution_id)
-    except ClientError as e:
+    except Exception as e:
         logger.error(f"Error executing : {query_execution_id} {e}", exc_info=True)
-        raise AWSError(f"Error starting query execution: {query_execution_id} {e}")
+        raise AWSError(f"Error starting query execution: {query_execution_id} {e}") from e
 
 
 def query_waiter(
