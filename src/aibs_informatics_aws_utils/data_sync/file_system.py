@@ -1,3 +1,5 @@
+__all__ = ["BaseFileSystem", "LocalFileSystem", "S3FileSystem"]
+
 import errno
 import os
 from abc import abstractmethod
