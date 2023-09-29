@@ -22,9 +22,6 @@ from boto3 import Session
 from boto3.resources.base import ServiceResource
 from botocore.client import BaseClient, ClientError
 
-# Until Lambda functions install gcsutils as a dependency,
-# they will not work with these typing classes.
-# TODO: remove once lambda functions converted into package
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_apigateway import APIGatewayClient
     from mypy_boto3_athena import AthenaClient

@@ -1,7 +1,3 @@
-"""
-gcsutils.sqs
-Contains utility functions for interacting with SQS
-"""
 import json
 import logging
 
