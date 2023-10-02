@@ -40,7 +40,7 @@ from aibs_informatics_core.utils.json import JSON
 from aibs_informatics_core.utils.logging import get_logger
 from aibs_informatics_core.utils.multiprocessing import parallel_starmap
 from aibs_informatics_core.utils.time import get_current_time
-from aibs_informatics_core.utils.tools.string_helpers import is_prefixed
+from aibs_informatics_core.utils.tools.strtools import is_prefixed
 from boto3.s3.transfer import TransferConfig as TransferConfig
 from botocore.client import Config
 from botocore.exceptions import (

@@ -6,8 +6,8 @@ from aibs_informatics_core.models.aws.batch import JobName, ResourceRequirements
 from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.hashing import sha256_hexdigest
 from aibs_informatics_core.utils.logging import get_logger
-from aibs_informatics_core.utils.tools.dict_helpers import convert_key_case, remove_null_values
-from aibs_informatics_core.utils.tools.string_helpers import pascalcase
+from aibs_informatics_core.utils.tools.dicttools import convert_key_case, remove_null_values
+from aibs_informatics_core.utils.tools.strtools import pascalcase
 from botocore.exceptions import ClientError
 
 from aibs_informatics_aws_utils.core import AWS_REGION_VAR, AWSService, get_region

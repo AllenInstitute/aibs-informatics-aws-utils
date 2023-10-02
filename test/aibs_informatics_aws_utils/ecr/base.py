@@ -5,7 +5,7 @@ from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from typing import TYPE_CHECKING, List, Optional, Union
 
 import boto3
-from aibs_informatics_core.utils.tools.dict_helpers import remove_null_values
+from aibs_informatics_core.utils.tools.dicttools import remove_null_values
 from moto import mock_ecr, mock_sts
 
 from aibs_informatics_aws_utils.core import get_client

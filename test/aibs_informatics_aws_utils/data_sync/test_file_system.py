@@ -15,7 +15,7 @@ import pytz
 import requests
 from aibs_informatics_core.models.aws.s3 import S3URI, S3PathStats
 from aibs_informatics_core.utils.time import get_current_time
-from aibs_informatics_core.utils.tools.string_helpers import removeprefix
+from aibs_informatics_core.utils.tools.strtools import removeprefix
 from pytest import mark, param, raises
 
 from aibs_informatics_aws_utils.data_sync.file_system import LocalFileSystem, Node, S3FileSystem

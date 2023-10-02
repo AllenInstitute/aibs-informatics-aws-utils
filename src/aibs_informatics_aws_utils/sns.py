@@ -10,7 +10,7 @@ import logging
 import re
 from typing import TYPE_CHECKING, Mapping, Optional
 
-from aibs_informatics_core.utils.tools.dict_helpers import remove_null_values
+from aibs_informatics_core.utils.tools.dicttools import remove_null_values
 from botocore.exceptions import ClientError
 
 from aibs_informatics_aws_utils.core import AWSService, get_region

@@ -16,7 +16,7 @@ from aibs_informatics_core.models.base.model import SchemaModel
 from aibs_informatics_core.utils.logging import get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from aibs_informatics_core.utils.time import BEGINNING_OF_TIME
-from aibs_informatics_core.utils.tools.string_helpers import removeprefix
+from aibs_informatics_core.utils.tools.strtools import removeprefix
 
 from aibs_informatics_aws_utils.s3 import get_s3_resource
 
