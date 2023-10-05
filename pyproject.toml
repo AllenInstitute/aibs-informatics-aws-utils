@@ -24,12 +24,12 @@ requires-python = ">=3.9"
 
 dependencies = [
     "boto3~=1.26.49",
-    "aibs-informatics-core==0.0.1",
+    "aibs-informatics-core @ git+ssh://git@github.com/AllenInstitute/aibs-informatics-core.git@main",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "aibs-informatics-test-resources",
+    "aibs-informatics-test-resources @ git+ssh://git@github.com/AllenInstitute/aibs-informatics-test-resources.git@main",
     "boto3-stubs[athena,apigateway,batch,ecr,ecs,efs,essential,logs,secretsmanager,ses,sns,ssm,sts,stepfunctions]",
     "moto[all]",
 ]
