@@ -86,7 +86,7 @@ link-packages: ## Link local packages to virtualenv
 		for dependency in $$dependencies; do \
 			if [ $$local_package == $$dependency ]; then \
 				echo "Reinstalling $$local_package dependency to local override"; \
-				$(PIP) install -e $$parent_dir/$$local_package; \
+				$(PIP) install -e $$parent_dir/$$local_package --no-deps; \
 			fi \
 		done; \
 	done
