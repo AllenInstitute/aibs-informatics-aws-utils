@@ -7,11 +7,6 @@
 requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# [build-system]
-# requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2", "wheel"]
-# build-backend = "setuptools.build_meta"
-
-# [tool.setuptools_scm]
 
 # -----------------------------------------------------------------------------
 [project]
@@ -33,9 +28,6 @@ dev = [
     "boto3-stubs[athena,apigateway,batch,ecr,ecs,efs,essential,logs,secretsmanager,ses,sns,ssm,sts,stepfunctions]",
     "moto[all]",
 ]
-
-# [tool.setuptools.dynamic]
-# version = {attr = "aibs_informatics_aws_utils.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
