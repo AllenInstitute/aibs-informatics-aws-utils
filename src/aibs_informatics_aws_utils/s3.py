@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+from collections import defaultdict
 from datetime import datetime, timezone
 from enum import Enum
 from multiprocessing.pool import ThreadPool
@@ -17,6 +18,7 @@ from typing import (
     Mapping,
     Optional,
     Pattern,
+    Set,
     Tuple,
     Union,
 )
@@ -615,22 +617,48 @@ def copy_s3_object(
         )
 
 
-def delete_s3_path(s3_path: S3URI, **kwargs):
-    logger.info(f"Deleting S3 path {s3_path}")
-    s3_paths = list_s3_paths(s3_path, **kwargs)
+def delete_s3_path(
+    s3_path: S3URI,
+    include: Optional[List[Pattern]] = None,
+    exclude: Optional[List[Pattern]] = None,
+    **kwargs,
+):
+    """Deletes an S3 path (object or prefix)
 
+    Args:
+        s3_path (S3URI): Path or key prefix to delete
+    """
+    logger.info(f"Deleting S3 path {s3_path}")
+    s3_paths = list_s3_paths(s3_path, include=include, exclude=exclude, **kwargs)
+    delete_s3_objects(s3_paths, **kwargs)
+
+
+def delete_s3_objects(s3_paths: List[S3URI], **kwargs):
+    """Deletes a list of S3 objects
+
+    Args:
+        s3_paths (List[S3URI]): List of S3 paths to delete
+    """
     logger.info(f"Found {len(s3_paths)} objects to delete.")
     s3 = get_s3_client(**kwargs)
+
+    bucket_objects: Dict[str, Set[str]] = defaultdict(set)
+    for s3_path in s3_paths:
+        bucket_objects[s3_path.bucket].add(s3_path.key)
+
     # Can only specify a max of 1000 objects per request.
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.delete_objects
     MAX_KEYS_PER_REQUEST = 1000
-    for i in range(0, len(s3_paths), MAX_KEYS_PER_REQUEST):
-        i_max = min(len(s3_paths), i + MAX_KEYS_PER_REQUEST)
-        logger.info(f"Deleting objects {i + 1}..{i_max + 1}")
-        s3.delete_objects(
-            Bucket=s3_path.bucket,
-            Delete={"Objects": [{"Key": s3_paths[j].key} for j in range(i, i_max)]},
-        )
+
+    for bucket, keys in bucket_objects.items():
+        key_list = list(keys)
+        for i in range(0, len(keys), MAX_KEYS_PER_REQUEST):
+            i_max = min(len(keys), i + MAX_KEYS_PER_REQUEST)
+            logger.info(f"Deleting objects {i + 1}..{i_max + 1} in {bucket} bucket")
+            s3.delete_objects(
+                Bucket=bucket,
+                Delete={"Objects": [{"Key": key_list[j]} for j in range(i, i_max)]},
+            )
 
 
 def move_s3_path(
@@ -652,7 +680,7 @@ def move_s3_path(
         transfer_config (Optional[TransferConfig], optional): transfer config.
     """
     logger.info(f"Moving {source_path} to {destination_path}. Starting copy")
-    sync_paths(
+    responses = sync_paths(
         source_path=source_path,
         destination_path=destination_path,
         include=include,
@@ -662,7 +690,8 @@ def move_s3_path(
         **kwargs,
     )
     logger.info(f"Copy complete. Starting deletion of {source_path}")
-    delete_s3_path(s3_path=source_path, **kwargs)
+    paths_to_delete = [_.request.source_path for _ in responses if not _.failed]
+    delete_s3_objects(paths_to_delete, **kwargs)
 
 
 def list_s3_paths(

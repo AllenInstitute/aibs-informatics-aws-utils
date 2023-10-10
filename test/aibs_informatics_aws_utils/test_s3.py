@@ -648,6 +648,19 @@ class S3Tests(AwsBaseTest):
             self.assertEqual(0, len(list_s3_paths(source_path)))
             self.assertEqual(2, len(list_s3_paths(destination_path)))
 
+    def test__move_s3_path__handles_prefix(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            source_path = self.get_s3_path("source")
+            destination_path = self.get_s3_path("destination")
+            path1 = self.put_object("source/obj.txt", "hello")
+            path2 = self.put_object("source/obj.txt.metadata", "metadata")
+            move_s3_path(source_path=path1, destination_path=destination_path)
+            self.assertEqual(1, len(list_s3_paths(source_path)))
+            self.assertFalse(is_object(path1))
+            self.assertTrue(is_object(path2))
+            self.assertTrue(is_object(destination_path))
+
     def test__delete_s3_path__handles_non_existent_object(self):
         with moto.mock_s3():
             self.setUpBucket()
