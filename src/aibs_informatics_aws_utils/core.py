@@ -27,6 +27,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_athena import AthenaClient
     from mypy_boto3_batch import BatchClient
     from mypy_boto3_dynamodb import DynamoDBClient, DynamoDBServiceResource
+    from mypy_boto3_ec2 import EC2Client, EC2ServiceResource
     from mypy_boto3_ecr import ECRClient
     from mypy_boto3_ecs import ECSClient
     from mypy_boto3_efs import EFSClient
@@ -46,6 +47,7 @@ else:
     BatchClient = object
     CloudWatchLogsClient = object
     DynamoDBClient, DynamoDBServiceResource = object, object
+    EC2Client, EC2ServiceResource = object, object
     ECRClient = object
     ECSClient = object
     EFSClient = object
@@ -181,6 +183,7 @@ def client_error_code_check(client_error: ClientError, *error_codes: str) -> boo
 
 Resources = Literal[
     "dynamodb",
+    "ec2",
     "s3",
     "sns",
     "sqs",
@@ -190,6 +193,7 @@ Clients = Literal[
     "apigateway",
     "batch",
     "dynamodb",
+    "ec2",
     "ecr",
     "ecs",
     "efs",
@@ -296,6 +300,7 @@ class AWSService:
     API_GATEWAY = AWSServiceProvider[APIGatewayClient]("apigateway")
     BATCH = AWSServiceProvider[BatchClient]("batch")
     DYNAMO_DB = AWSServiceAndResourceProvider[DynamoDBClient, DynamoDBServiceResource]("dynamodb")
+    EC2 = AWSServiceAndResourceProvider[EC2Client, EC2ServiceResource]("ec2")
     ECR = AWSServiceProvider[ECRClient]("ecr")
     ECS = AWSServiceProvider[ECSClient]("ecs")
     EFS = AWSServiceProvider[EFSClient]("efs")
