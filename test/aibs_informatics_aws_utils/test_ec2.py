@@ -12,6 +12,8 @@ from aibs_informatics_aws_utils.ec2 import (
     get_instance_type_spot_price,
     get_instance_types_by_az,
     get_regions,
+    instance_type_sort_key,
+    network_performance_sort_key,
     normalize_range,
 )
 
@@ -56,6 +58,55 @@ def test__normalize_range(
             raise_on_invalid=raise_on_invalid,
             treat_single_value_as_max=treat_single_value_as_max,
         )
+    if expected:
+        assert actual == expected
+
+
+@mark.parametrize(
+    "instance_type, expected, raise_expectation",
+    [
+        param("t3.nano", ("t3", 0, 0), does_not_raise()),
+        param("t3.micro", ("t3", 1, 0), does_not_raise()),
+        param("t3.small", ("t3", 2, 0), does_not_raise()),
+        param("t3.medium", ("t3", 3, 0), does_not_raise()),
+        param("t3.large", ("t3", 4, 0), does_not_raise()),
+        param("t3.metal", ("t3", 5, 0), does_not_raise()),
+        param("m7i-flex.xlarge", ("m7i-flex", 4, 1), does_not_raise()),
+        param("m7i-flex.32xlarge", ("m7i-flex", 4, 32), does_not_raise()),
+        param("m7i-flex.metal", ("m7i-flex", 5, 0), does_not_raise()),
+        # Invalid cases
+        param("m7_metal", None, raises(ValueError), id="incorrect delimiter"),
+        param("m7.wood", None, raises(ValueError), id="incorrect size"),
+        param("m.7.large", None, raises(ValueError), id="too many dots"),
+        param("m7.xxlarge", None, raises(ValueError), id="incorrect factor"),
+        param("m7.x123large", None, raises(ValueError), id="another incorrect factor"),
+    ],
+)
+def test__instance_type_sort_key__works(
+    instance_type,
+    expected,
+    raise_expectation,
+):
+    with raise_expectation:
+        actual = instance_type_sort_key(instance_type=instance_type)
+    if expected:
+        assert actual == expected
+
+
+@mark.parametrize(
+    "network_performance, expected, raise_expectation",
+    [
+        param("Low", 0.05, does_not_raise()),
+        param("Moderate", 0.3, does_not_raise()),
+        param("High", 1.0, does_not_raise()),
+        param("Up to 10 Gigabit", 10.0, does_not_raise()),
+        param("10 Gigabit", 10.0, does_not_raise()),
+        param("37.5 Gigabit", 37.5, does_not_raise()),
+    ],
+)
+def test__network_performance_sort_key__works(network_performance, expected, raise_expectation):
+    with raise_expectation:
+        actual = network_performance_sort_key(network_performance=network_performance)
     if expected:
         assert actual == expected
 
@@ -149,13 +200,15 @@ def test__describe_instance_types_by_props__all_args(aws_credentials_fixture):
     instance_types = describe_instance_types_by_props(
         architectures=["x86_64"],
         vcpu_limits=(1, 4),
-        memory_limits=(1, 1 << 10),
+        memory_limits=(1, 1 << 100),
         gpu_limits=(0, 1),
         on_demand_support=True,
         spot_support=True,
         regions=["us-west-2"],
     )
     assert len(instance_types) > 0
+    for it in instance_types:
+        assert it.get("ProcessorInfo", {}).get("SupportedArchitectures", []) == ["x86_64"]
 
 
 @mock_ec2

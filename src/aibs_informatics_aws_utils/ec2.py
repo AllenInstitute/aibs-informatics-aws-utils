@@ -15,6 +15,7 @@ __all__ = [
 
 import json
 import logging
+import re
 from collections import defaultdict
 from functools import reduce
 from typing import (
@@ -121,6 +122,71 @@ def normalize_range(
         return (lower_limit, upper_limit)
     else:
         raise TypeError(f"Limit must be a number or a tuple of numbers, got {type(raw_range)}")
+
+
+def instance_type_sort_key(instance_type: str) -> Tuple[str, int, int]:
+    """Converts Instance Type into sort key (family, size rank, factor)
+
+    Size Rank:
+        1. nano
+        2. micro
+        3. small
+        4. medium
+        5. large
+        6. metal
+
+
+    Examples:
+        - c5.2xlarge -> ('c5', 4, 2)
+        - m7i-flex.metal -> ('m7i-flex', 5, 0)
+
+    Args:
+        instance_type (str): The instance type to split
+
+    Returns:
+        Tuple[str, int, int]: The instance type components (family, size rank, factor)
+    """
+    # Split instance type into prefix and size
+    pattern = re.compile(r"([\w-]+)\.((\d*)x)?(nano|micro|small|medium|large|metal)")
+    match = pattern.match(instance_type)
+
+    if match is None:
+        raise ValueError(f"Invalid instance type: {instance_type}. Cannot match regex {pattern}")
+
+    family, factorstr, factornum, size = match.groups()
+
+    # Define a dictionary to map sizes to numbers for sorting
+    size_dict = {"nano": 0, "micro": 1, "small": 2, "medium": 3, "large": 4, "metal": 5}
+    # If size is a number followed by 'xlarge', extract the number
+    size_rank = size_dict[size]
+    factor = int(factornum) if factornum else (1 if factorstr and "x" in factorstr else 0)
+    return (family, size_rank, factor)
+
+
+def network_performance_sort_key(network_performance: str) -> float:
+    """Converts network performance description into a numerical sort key
+
+    Args:
+        network_performance (str): The network performance description
+            e.g. "Low", "Moderate", "High", "Up to 10 Gigabit", "25 Gigabit", etc.
+
+    Returns:
+        float: The upper limit network performance value in Gbps
+    """
+    # If it matches a pattern like "10 Gigabit", "25 Gigabit", etc.
+    pattern = re.compile(r"(\d+(?:.\d*)?)\s*Gigabit")
+    # These are approximate values for the network performance
+    conversion_dict = {
+        "Low": 0.05,
+        "Moderate": 0.3,
+        "High": 1.0,
+    }
+    if network_performance in conversion_dict:
+        return conversion_dict[network_performance]
+    elif match := pattern.search(network_performance):
+        return float(match.group(1))
+    else:
+        raise ValueError(f"Invalid network performance: {network_performance}")
 
 
 def describe_regions():
@@ -233,7 +299,7 @@ def describe_instance_type_offerings(
 
 def describe_instance_types(
     instance_types: Optional[List[str]] = None,
-    filters: Optional[Dict[str, List[str]]] = None,
+    filters: Optional[Union[Dict[str, List[str]], List[Tuple[str, List[str]]]]] = None,
 ) -> List[InstanceTypeInfoTypeDef]:
     """Describe instance types
 
@@ -250,7 +316,10 @@ def describe_instance_types(
     if instance_types is not None:
         kwargs["InstanceTypes"] = instance_types
     if filters is not None:
-        kwargs["Filters"] = [dict(Name=k, Values=v) for k, v in filters.items()]
+        kwargs["Filters"] = [
+            dict(Name=k, Values=v)
+            for k, v in (filters.items() if isinstance(filters, dict) else filters)
+        ]
 
     return [
         _
@@ -291,17 +360,14 @@ def describe_instance_types_by_props(
         List[InstanceTypeInfoTypeDef]: List of instance type details matching the specified filters
     """
 
-    filters: Dict[str, List[str]] = {}
+    filters: List[Tuple[str, List[str]]] = []
 
     if architectures is not None:
-        filters["processor-info.supported-architecture"] = architectures  # type: ignore[assignment]
-    if on_demand_support or spot_support:
-        values = []
-        if on_demand_support:
-            values.append("on-demand")
-        if spot_support:
-            values.append("spot")
-        filters["supported-usage-class"] = values
+        filters.append(("processor-info.supported-architecture", architectures))  # type: ignore[arg-type]
+    if on_demand_support is not None and on_demand_support:
+        filters.append(("supported-usage-class", ["on-demand"]))
+    if spot_support is not None and spot_support:
+        filters.append(("supported-usage-class", ["spot"]))
 
     instance_type_details = describe_instance_types(filters=filters)
 
