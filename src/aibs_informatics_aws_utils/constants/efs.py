@@ -3,8 +3,6 @@ from dataclasses import dataclass
 EFS_MOUNT_PATH_VAR = "EFS_MOUNT_PATH"
 
 
-EFS_GWO_FILE_SYSTEM_NAME = "gwo-file-system"
-
 # fmt: off
 EFS_ROOT_PATH           = "/"
 EFS_SHARED_PATH         = "/shared"
