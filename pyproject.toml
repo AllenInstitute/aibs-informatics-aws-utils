@@ -65,6 +65,17 @@ source = [
 omit = [
     "test/*"
 ]
+exclude_lines = [
+    'pragma: no cover',
+    'raise NotImplementedError',
+    'if TYPE_CHECKING:',
+    'if typing.TYPE_CHECKING:',
+    '@overload',
+    '@typing.overload',
+    '\(Protocol\):$',
+    'typing.assert_never',
+    'assert_never',
+]
 skip_empty = true
 
 [tool.coverage.html]
