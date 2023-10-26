@@ -82,6 +82,10 @@ SCRATCH_EXTRA_ARGS = {
     "Tagging": parse.urlencode({S3_SCRATCH_TAGGING_KEY: S3_SCRATCH_TAGGING_VALUE})
 }
 
+KB = 1024
+MB = KB * KB
+AWS_S3_DEFAULT_CHUNK_SIZE_BYTES = 8 * MB
+
 # https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
 AWS_S3_MULTIPART_LIMIT = 10000
 
@@ -841,11 +845,13 @@ def should_sync(
     dest_last_modified: Optional[datetime] = None
     dest_size_bytes: Optional[int] = None
     dest_hash: Optional[Callable[[], str]] = None
+    multipart_chunk_size_bytes: Optional[int] = None
 
     if isinstance(destination_path, S3URI) and is_object(destination_path):
         dest_s3_object = get_object(destination_path, **kwargs)
         dest_last_modified = dest_s3_object.last_modified
         dest_size_bytes = dest_s3_object.content_length
+        multipart_chunk_size_bytes = determine_multipart_chunk_size(destination_path, **kwargs)
         if not size_only:
             dest_hash = lambda: dest_s3_object.e_tag
     elif isinstance(destination_path, Path) and destination_path.exists():
@@ -854,7 +860,7 @@ def should_sync(
         dest_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         dest_size_bytes = local_stats.st_size
         if not size_only:
-            dest_hash = lambda: get_local_etag(dest_local_path)
+            dest_hash = lambda: get_local_etag(dest_local_path, multipart_chunk_size_bytes)
     else:
         return True
 
@@ -862,6 +868,7 @@ def should_sync(
         src_s3_object = get_object(source_path, **kwargs)
         source_last_modified = src_s3_object.last_modified
         source_size_bytes = src_s3_object.content_length
+        multipart_chunk_size_bytes = determine_multipart_chunk_size(source_path, **kwargs)
         if not size_only:
             source_hash = lambda: src_s3_object.e_tag
     elif isinstance(source_path, Path) and source_path.exists():
@@ -870,7 +877,7 @@ def should_sync(
         source_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         source_size_bytes = local_stats.st_size
         if not size_only:
-            source_hash = lambda: get_local_etag(src_local_path)
+            source_hash = lambda: get_local_etag(src_local_path, multipart_chunk_size_bytes)
     else:
         raise ValueError(
             f"Cannot transfer, source path {source_path} does not exist! "
@@ -889,6 +896,62 @@ def should_sync(
     if not size_only and source_hash and dest_hash and source_hash() != dest_hash():
         return True
     return False
+
+
+def check_paths_in_sync(
+    source_path: Union[Path, S3URI],
+    destination_path: Union[Path, S3URI],
+    size_only: bool = False,
+    **kwargs,
+) -> bool:
+    """Checks whether source and destination paths are in sync.
+
+    Args:
+        source_path (Union[Path, S3URI]): source path
+        destination_path (Union[Path, S3URI]): destination path
+        size_only (bool, optional): Limits content comparison to just size and date (no checksum/ETag).
+            Defaults to False.
+
+    Raises:
+        ValueError: if the source path does not exist.
+
+    Returns:
+        bool: True if paths are in sync, False, otherwise
+    """
+    source_paths: Union[List[Path], List[S3URI]] = (
+        (
+            sorted(map(Path, find_paths(source_path, include_dirs=False)))
+            if source_path.is_dir()
+            else [source_path]
+        )
+        if isinstance(source_path, Path)
+        else (
+            list_s3_paths(source_path, **kwargs) if not is_object(source_path) else [source_path]
+        )
+    )
+    destination_paths: Union[List[Path], List[S3URI]] = (
+        (
+            sorted(map(Path, find_paths(destination_path, include_dirs=False)))
+            if destination_path.is_dir()
+            else [destination_path]
+        )
+        if isinstance(destination_path, Path)
+        else (
+            list_s3_paths(destination_path, **kwargs)
+            if not is_object(destination_path)
+            else [destination_path]
+        )
+    )
+    if len(source_paths) == 0:
+        raise ValueError(f"Source path {source_path} does not exist")
+    if len(source_paths) != len(destination_paths):
+        return False
+    for sp, dp in zip(source_paths, destination_paths):
+        if str(sp).removeprefix(str(source_path)) != str(dp).removeprefix(str(destination_path)):
+            return False
+        if should_sync(source_path=sp, destination_path=dp, size_only=size_only, **kwargs):
+            return False
+    return True
 
 
 def update_s3_storage_class(
@@ -1028,9 +1091,28 @@ def _get_prefix_last_modified(bucket_name: str, key_prefix: str, **kwargs) -> da
     return last_modified
 
 
-def determine_chunk_size(path: Path, default_chunk_size_bytes: int = 8388608) -> int:
+def determine_multipart_chunk_size(s3_path: S3URI, **kwargs) -> Optional[int]:
+    """Determines the multipart chunk size for a given S3 path, if it is a multipart upload
+
+    If the S3 path is not a multipart upload, returns None
+
+    Args:
+        s3_path (S3URI): S3 object to check
+
+    Returns:
+        Optional[int]: The multipart chunk size in bytes, or None if not a multipart upload
+    """
+    s3_client = get_s3_client(**kwargs)
+    head_object = s3_client.head_object(Bucket=s3_path.bucket, Key=s3_path.key, PartNumber=1)
+    if head_object.get("PartsCount", 1) > 1 and "ContentLength" in head_object:
+        return head_object["ContentLength"]
+    return None
+
+
+def determine_chunk_size(path: Path, default_chunk_size_bytes: Optional[int] = None) -> int:
     """Function to determine the chunk size that `aws s3 cp` would use for a very large file"""
     file_size = path.stat().st_size
+    default_chunk_size_bytes = default_chunk_size_bytes or AWS_S3_DEFAULT_CHUNK_SIZE_BYTES
     correct_chunk_size_bytes = default_chunk_size_bytes
     while math.ceil(file_size / correct_chunk_size_bytes) > AWS_S3_MULTIPART_LIMIT:
         correct_chunk_size_bytes *= 2

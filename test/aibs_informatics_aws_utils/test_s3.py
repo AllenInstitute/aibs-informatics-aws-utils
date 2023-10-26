@@ -14,12 +14,14 @@ from aibs_informatics_core.models.aws.s3 import (
     S3UploadRequest,
 )
 from aibs_informatics_core.utils.os_operations import find_all_paths
+from boto3.s3.transfer import TransferConfig
 from pytest import mark, param, raises
 
 from aibs_informatics_aws_utils.exceptions import AWSError
 from aibs_informatics_aws_utils.s3 import (
     SCRATCH_EXTRA_ARGS,
     PresignedUrlAction,
+    check_paths_in_sync,
     delete_s3_path,
     download_s3_path,
     download_to_json,
@@ -800,7 +802,7 @@ class S3Tests(AwsBaseTest):
             ):
                 update_s3_storage_class(s3_path, S3StorageClass.OUTPOSTS)
 
-    def test__should_transfer__local_to_s3__outdated__SHOULD(self):
+    def test__should_sync__local_to_s3__outdated__SHOULD(self):
         with moto.mock_s3():
             self.setUpBucket()
             s3_path = self.put_object("source", "hello")
@@ -808,47 +810,172 @@ class S3Tests(AwsBaseTest):
             local_path = self.tmp_file(content="hello")
             assert should_sync(local_path, s3_path) is True
 
-    def test__should_transfer__local_to_s3__size_mismatch__SHOULD(self):
+    def test__should_sync__local_to_s3__size_mismatch__SHOULD(self):
         with moto.mock_s3():
             self.setUpBucket()
             local_path = self.tmp_file(content="hello")
             s3_path = self.put_object("source", "helloo")
             assert should_sync(local_path, s3_path) is True
 
-    def test__should_transfer__local_to_s3__content_mismatch__SHOULD(self):
+    def test__should_sync__local_to_s3__content_mismatch__SHOULD(self):
         with moto.mock_s3():
             self.setUpBucket()
             local_path = self.tmp_file(content="hello")
             s3_path = self.put_object("source", "olleh")
             assert should_sync(local_path, s3_path) is True
 
-    def test__should_transfer__local_to_s3__size_only__content_mismatch__SHOULD_NOT(self):
+    def test__should_sync__local_to_s3__size_only__content_mismatch__SHOULD_NOT(self):
         with moto.mock_s3():
             self.setUpBucket()
             local_path = self.tmp_file(content="hello")
             s3_path = self.put_object("source", "olleh")
             assert should_sync(local_path, s3_path, size_only=True) is False
 
-    def test__should_transfer__s3_to_local__size_mismatch__SHOULD(self):
+    def test__should_sync__s3_to_local__size_mismatch__SHOULD(self):
         with moto.mock_s3():
             self.setUpBucket()
             s3_path = self.put_object("source", "helloo")
             local_path = self.tmp_file(content="hello")
             assert should_sync(s3_path, local_path) is True
 
-    def test__should_transfer__s3_to_local__content_mismatch__SHOULD(self):
+    def test__should_sync__s3_to_local__content_mismatch__SHOULD(self):
         with moto.mock_s3():
             self.setUpBucket()
             s3_path = self.put_object("source", "olleh")
             local_path = self.tmp_file(content="hello")
             assert should_sync(s3_path, local_path) is True
 
-    def test__should_transfer__s3_to_local__size_only__content_mismatch__SHOULD_NOT(self):
+    def test__should_sync__s3_to_local__size_only__content_mismatch__SHOULD_NOT(self):
         with moto.mock_s3():
             self.setUpBucket()
             s3_path = self.put_object("source", "olleh")
             local_path = self.tmp_file(content="hello")
             assert should_sync(s3_path, local_path, size_only=True) is False
+
+    def test__should_sync__s3_to_local__multipart_upload_with_custom_chunk_size_works(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            s3 = self.s3_client
+            orig_file = self.tmp_file(content="0" * (5 * 1024 * 1024 + 1))
+            source_path = self.get_s3_path("source")
+            destination_path = self.tmp_path() / "destination"
+
+            s3.upload_file(
+                Filename=str(orig_file),
+                **source_path.as_dict(),
+                Config=TransferConfig(multipart_threshold=1024, multipart_chunksize=1024),
+            )
+            destination_path.write_text(orig_file.read_text())
+
+            assert should_sync(orig_file, source_path) is False
+            assert should_sync(source_path, destination_path) is False
+
+    def test__should_sync__source_missing_raises_error(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            s3_path = self.get_s3_path("source")
+            local_path = self.tmp_file(content="hello")
+            with self.assertRaises(ValueError):
+                should_sync(s3_path, local_path)
+
+    def test__check_paths_in_sync__simple__files_in_sync(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            source_path = self.tmp_file(content="hello")
+            source_s3_path = self.put_object(key="source", content="hello")
+            destination_path = self.tmp_file(content="hello")
+            destination_s3_path = self.put_object(key="destination", content="hello")
+            assert check_paths_in_sync(source_path, destination_path) is True
+            assert check_paths_in_sync(source_path, destination_s3_path) is True
+            assert check_paths_in_sync(source_s3_path, destination_path) is True
+            assert check_paths_in_sync(source_s3_path, destination_s3_path) is True
+
+    def test__check_paths_in_sync__simple__files_different(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            source_path = self.tmp_file(content="a")
+            source_s3_path = self.put_object(key="source", content="b")
+            destination_path = self.tmp_file(content="c")
+            destination_s3_path = self.put_object(key="destination", content="d")
+            assert check_paths_in_sync(source_path, destination_path) is False
+            assert check_paths_in_sync(source_path, destination_s3_path) is False
+            assert check_paths_in_sync(source_s3_path, destination_path) is False
+            assert check_paths_in_sync(source_s3_path, destination_s3_path) is False
+
+    def test__check_paths_in_sync__simple__dest_does_not_exist(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            source_path = self.tmp_file(content="a")
+            source_s3_path = self.put_object(key="source", content="b")
+            destination_path = self.tmp_path() / "destination"
+            destination_s3_path = self.get_s3_path(key="destination")
+            assert check_paths_in_sync(source_path, destination_path) is False
+            assert check_paths_in_sync(source_path, destination_s3_path) is False
+            assert check_paths_in_sync(source_s3_path, destination_path) is False
+            assert check_paths_in_sync(source_s3_path, destination_s3_path) is False
+
+    def test__check_paths_in_sync__simple__folders_in_sync(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            source_path = self.tmp_path()
+            (source_path / "a").write_text("hello")
+            (source_path / "b").write_text("again")
+
+            source_s3_path = self.get_s3_path("source")
+            self.put_object(key="source/a", content="hello")
+            self.put_object(key="source/b", content="again")
+
+            destination_path = self.tmp_path()
+            (destination_path / "a").write_text("hello")
+            (destination_path / "b").write_text("again")
+
+            destination_s3_path = self.get_s3_path("destination")
+            self.put_object(key="destination/a", content="hello")
+            self.put_object(key="destination/b", content="again")
+
+            assert check_paths_in_sync(source_path, destination_path) is True
+            assert check_paths_in_sync(source_path, destination_s3_path) is True
+            assert check_paths_in_sync(source_s3_path, destination_path) is True
+            assert check_paths_in_sync(source_s3_path, destination_s3_path) is True
+
+    def test__check_paths_in_sync__simple__folders_different(self):
+        with moto.mock_s3():
+            self.setUpBucket()
+            source_path = self.tmp_path()
+            (source_path / "a").write_text("hello")
+            (source_path / "b").write_text("again")
+
+            source_s3_path = self.get_s3_path("source")
+            self.put_object(key="source/a", content="hello")
+            self.put_object(key="source/b", content="again")
+
+            destination_path = self.tmp_path()
+            (destination_path / "A").write_text("hello")
+            (destination_path / "B").write_text("again")
+
+            destination_s3_path = self.get_s3_path("destination")
+            self.put_object(key="destination/A", content="hello")
+            self.put_object(key="destination/B", content="again")
+
+            destination_path2 = self.tmp_path()
+            (destination_path2 / "a").write_text("helloo")
+            (destination_path2 / "b").write_text("againn")
+
+            destination_s3_path2 = self.get_s3_path("destination2")
+            self.put_object(key="destination2/a", content="helloo")
+            self.put_object(key="destination2/b", content="againn")
+
+            # Should fail for filename mismatch
+            assert check_paths_in_sync(source_path, destination_path) is False
+            assert check_paths_in_sync(source_path, destination_s3_path) is False
+            assert check_paths_in_sync(source_s3_path, destination_path) is False
+            assert check_paths_in_sync(source_s3_path, destination_s3_path) is False
+
+            # Should fail for content mismatch
+            assert check_paths_in_sync(source_path, destination_path2) is False
+            assert check_paths_in_sync(source_path, destination_s3_path2) is False
+            assert check_paths_in_sync(source_s3_path, destination_path2) is False
+            assert check_paths_in_sync(source_s3_path, destination_s3_path2) is False
 
 
 @mark.parametrize(
