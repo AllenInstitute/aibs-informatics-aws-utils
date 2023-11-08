@@ -6,6 +6,7 @@ import os
 from collections import defaultdict
 from datetime import datetime, timezone
 from enum import Enum
+from functools import lru_cache
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -120,6 +121,17 @@ def download_s3_path(
 ):
     """Download an S3 Object or Folder to a local path
 
+    This mimics the behavior of `aws s3 cp`, both with and without the `--recursive` flag.
+
+    The logic for using recursive behavior is as follows:
+    - for non-trailing-slash S3 paths,
+        - If S3 path is an object, it will be downloaded as a file.
+        - If S3 path is an object prefix, it will be downloaded as a folder.
+    - for trailing-slash S3 paths,
+        - If S3 path is a non-empty object and object prefix, an error will be raised.
+        - If S3 path is an object prefix, it will be downloaded as a folder.
+        - If S3 path is an object, it will be downloaded as a file.
+
     Args:
         s3_path (S3URI): URI of the object of folder
         local_path (Path): local destination path.
@@ -128,7 +140,23 @@ def download_s3_path(
     Raises:
         ApplicationException: If S3 URI does not exist.
     """
-    if is_object(s3_path, **kwargs):
+    path_is_object = is_object(s3_path, **kwargs)
+    path_is_prefix = is_object_prefix(s3_path, **kwargs)
+    path_has_folder_slash = s3_path.key.endswith("/")
+    path_is_non_empty_object_fn = lru_cache(None)(
+        lambda: path_is_object and get_object(s3_path, **kwargs).content_length != 0
+    )
+
+    # Scenarios for object download:
+    #   1. path IS OBJECT and NOT HAS FOLDER SLASH
+    #   2. path IS OBJECT and HAS FOLDER SLASH but NOT OBJECT PREFIX
+    # Scenarios for object prefix download:
+    #   1. path IS OBJECT PREFIX and NOT OBJECT
+    #   2. path IS OBJECT PREFIX and HAS FOLDER SLASH and (NOT OBJECT or IS NON-EMPTY OBJECT)
+    # Scenarios for raising error:
+    #   1. path is NOT OBJECT and NOT OBJECT PREFIX
+    #   2. path is OBJECT and OBJECT PREFIX and HAS FOLDER SLASH and IS NON-EMPTY OBJECT
+    if (path_is_object and not path_has_folder_slash) or (path_is_object and not path_is_prefix):
         logger.info(f"{s3_path} is an object. Downloading to {local_path} as file.")
         download_s3_object(
             s3_path=s3_path,
@@ -138,27 +166,85 @@ def download_s3_path(
             force=force,
             **kwargs,
         )
-    elif is_object_prefix(s3_path, **kwargs):
-        logger.info(f"{s3_path} is an object prefix. Downloading to {local_path} as .")
-        s3_object_paths = list_s3_paths(s3_path=s3_path, **kwargs)
-        logger.info(f"Downloading {len(s3_object_paths)} objects under {local_path}")
-
-        if local_path.exists() and not exist_ok:
-            raise ValueError(f"{local_path} already exists. Cannot download to the directory")
-        for s3_object_path in s3_object_paths:
-            relative_key = s3_object_path.key[len(s3_path.key) :].lstrip("/")
-            local_filepath = (local_path / relative_key).resolve()
-            download_s3_object(
-                s3_path=s3_object_path,
-                local_path=local_filepath,
-                exist_ok=exist_ok,
-                transfer_config=transfer_config,
-                force=force,
-                size_only=size_only,
-                **kwargs,
-            )
-    else:
+    elif (path_is_prefix and not path_is_object) or (
+        path_is_prefix and path_has_folder_slash and not path_is_non_empty_object_fn()
+    ):
+        logger.info(f"{s3_path} is an object prefix. Downloading to {local_path} as folder.")
+        download_s3_object_prefix(
+            s3_path=s3_path,
+            local_path=local_path,
+            exist_ok=exist_ok,
+            transfer_config=transfer_config,
+            force=force,
+            size_only=size_only,
+            **kwargs,
+        )
+    elif not path_is_object and not path_is_prefix:
         raise AWSError(f"{s3_path} is neither an object or prefix. Does it exist?")
+    elif (
+        path_is_object
+        and path_is_prefix
+        and path_has_folder_slash
+        and path_is_non_empty_object_fn()
+    ):
+        raise AWSError(
+            f"{s3_path} is an object and object prefix and has folder suffix and is non-empty. This is not supported"
+        )
+    else:
+        raise AWSError(
+            f"Unhandled scenario for {s3_path}: is_object={path_is_object}, "
+            f"is_object_prefix={path_is_prefix}, "
+            f"has_folder_slash={path_has_folder_slash}, "
+            f"is_non_empty_object={path_is_non_empty_object_fn()}"
+        )
+
+
+def download_s3_object_prefix(
+    s3_path: S3URI,
+    local_path: Path,
+    exist_ok: bool = False,
+    transfer_config: Optional[TransferConfig] = None,
+    force: bool = True,
+    size_only: bool = False,
+    **kwargs,
+):
+    """Download an S3 object prefix to a local path
+
+    Args:
+        s3_path (S3URI): URI of the object of folder
+        local_path (Path): local destination path.
+        exist_ok (bool, optional): If true, local path may exist previously. Defaults to False.
+
+    """
+
+    s3_object_paths = list_s3_paths(s3_path=s3_path, **kwargs)
+    logger.info(f"Downloading {len(s3_object_paths)} objects under {local_path}")
+
+    if not exist_ok and local_path.exists() and local_path.is_dir() and any(local_path.iterdir()):
+        raise AWSError(
+            f"{local_path} already exists and is not empty. Cannot download to the directory"
+        )
+    for s3_object_path in s3_object_paths:
+        relative_key = s3_object_path.key[len(s3_path.key) :].lstrip("/")
+        if s3_object_path.has_folder_suffix():
+            if get_object(s3_object_path, **kwargs).content_length != 0:
+                err_msg = (
+                    f"Cannot download S3 object {s3_path} to {local_path}. Downloads of "
+                    "objects with '/' suffixed keys and of non-zero size are NOT supported."
+                )
+                logger.error(err_msg)
+                raise AWSError(err_msg)
+            continue
+        local_filepath = (local_path / relative_key).resolve()
+        download_s3_object(
+            s3_path=s3_object_path,
+            local_path=local_filepath,
+            exist_ok=exist_ok,
+            transfer_config=transfer_config,
+            force=force,
+            size_only=size_only,
+            **kwargs,
+        )
 
 
 @retry((ConnectionClosedError, EndpointConnectionError, ResponseStreamingError))
@@ -232,28 +318,54 @@ def upload_path(
     if local_path.is_file():
         logger.info(f"{local_path} is a file.")
         upload_file(
-            local_path=local_path, s3_path=s3_path, force=force, size_only=size_only, **kwargs
+            local_path=local_path,
+            s3_path=s3_path,
+            extra_args=extra_args,
+            transfer_config=transfer_config,
+            force=force,
+            size_only=size_only,
+            **kwargs,
         )
     elif local_path.is_dir():
         logger.info(f"{local_path} is a directory. Uploading all nested files to {s3_path}")
-        local_paths = find_paths(local_path, include_dirs=False, include_files=True)
-        for source_path in local_paths:
-            destination_key = os.path.normpath(s3_path.key + source_path[len(str(local_path)) :])
-            destination_path = S3URI.build(bucket_name=s3_path.bucket, key=destination_key)
-            upload_file(
-                local_path=source_path,
-                s3_path=destination_path,
-                extra_args=extra_args,
-                transfer_config=transfer_config,
-                force=force,
-                size_only=size_only,
-                **kwargs,
-            )
-        logger.info(f"Uploaded {len(local_paths)} files to {s3_path}.")
+        upload_folder(
+            local_path=local_path,
+            s3_path=s3_path,
+            extra_args=extra_args,
+            transfer_config=transfer_config,
+            force=force,
+            size_only=size_only,
+            **kwargs,
+        )
     else:
         msg = f"Cannot upload {local_path} to S3. Path does not exist!"
         logger.error(msg)
         raise ValueError(msg)
+
+
+def upload_folder(
+    local_path: Path,
+    s3_path: S3URI,
+    extra_args: Optional[Dict[str, Any]] = None,
+    transfer_config: Optional[TransferConfig] = None,
+    force: bool = True,
+    size_only: bool = False,
+    **kwargs,
+):
+    local_paths = find_paths(local_path, include_dirs=False, include_files=True)
+    for source_path in local_paths:
+        destination_key = os.path.normpath(s3_path.key + source_path[len(str(local_path)) :])
+        destination_path = S3URI.build(bucket_name=s3_path.bucket, key=destination_key)
+        upload_file(
+            local_path=source_path,
+            s3_path=destination_path,
+            extra_args=extra_args,
+            transfer_config=transfer_config,
+            force=force,
+            size_only=size_only,
+            **kwargs,
+        )
+        logger.info(f"Uploaded {len(local_paths)} files to {s3_path}.")
 
 
 @retry(ResponseStreamingError)
@@ -435,7 +547,7 @@ def sync_paths(
             exclude=exclude,
             **kwargs,
         )
-        if is_object(source_path, **kwargs):
+        if is_object(source_path, **kwargs) and source_path not in nested_source_paths:
             nested_source_paths.insert(0, source_path)
     else:
         nested_source_paths = [
@@ -564,13 +676,22 @@ def process_transfer_requests(
                     **kwargs,
                 )
             elif isinstance(request, S3DownloadRequest):
-                download_s3_object(
-                    s3_path=request.source_path,
-                    local_path=request.destination_path,
-                    transfer_config=transfer_config,
-                    force=request.force,
-                    **kwargs,
-                )
+                # This is a special case where s3 object path has a trailing slash.
+                # This should be ignored if the object is empty and raise an error otherwise.
+                if request.source_path.has_folder_suffix():
+                    if get_object(request.source_path, **kwargs).content_length != 0:
+                        raise ValueError(
+                            "Cannot download S3 object to local path. Downloads of objects "
+                            "with '/' suffixed keys and of non-zero size are NOT supported."
+                        )
+                else:
+                    download_s3_object(
+                        s3_path=request.source_path,
+                        local_path=request.destination_path,
+                        transfer_config=transfer_config,
+                        force=request.force,
+                        **kwargs,
+                    )
             transfer_responses.append(S3TransferResponse(request, False))
         except Exception as e:
             msg = f"Failed to copy {request.source_path} to {request.destination_path}: {e}"
