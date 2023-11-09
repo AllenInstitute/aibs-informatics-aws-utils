@@ -4,7 +4,6 @@ from aibs_informatics_aws_utils.core import AWSService, get_region
 from aibs_informatics_aws_utils.exceptions import ResourceNotFoundError
 
 if TYPE_CHECKING:  # pragma: no cover
-
     from mypy_boto3_apigateway.type_defs import RestApiTypeDef
 else:
     RestApiTypeDef = dict

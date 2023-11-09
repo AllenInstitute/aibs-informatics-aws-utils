@@ -53,11 +53,15 @@ from botocore.exceptions import (
     ResponseStreamingError,
 )
 
-from aibs_informatics_aws_utils.core import AWSService, client_error_code_check
+from aibs_informatics_aws_utils.core import (
+    AWSService,
+    client_error_code_check,
+    get_client_error_code,
+    get_client_error_message,
+)
 from aibs_informatics_aws_utils.exceptions import AWSError
 
 if TYPE_CHECKING:  # pragma: no cover
-
     from mypy_boto3_s3 import S3Client
     from mypy_boto3_s3.service_resource import Object
 else:
@@ -391,6 +395,11 @@ def upload_file(
         )
     elif extra_args:
         # This handles scenario where extra args are specified but destination is more recent
+        if "Tagging" in extra_args and "TaggingDirective" not in extra_args:
+            extra_args["TaggingDirective"] = "REPLACE"
+        if "Metadata" in extra_args and "MetadataDirective" not in extra_args:
+            extra_args["MetadataDirective"] = "REPLACE"
+
         copy_s3_object(
             source_path=s3_path,
             destination_path=s3_path,
@@ -636,7 +645,6 @@ def generate_transfer_request(
         else:
             return S3UploadRequest(source_path, new_destination_path, force, extra_args=extra_args)
     elif isinstance(source_path, S3URI) and isinstance(destination_path, Path):
-
         local_destination_path: Path = (
             Path(get_path_with_root(relative_source_path, destination_path))
             if relative_source_path
@@ -720,17 +728,34 @@ def copy_s3_object(
 ):
     s3 = get_s3_client(**kwargs)
     logger.info(f"S3: Copying {source_path} to {destination_path}")
+
+    # This handles scenario where extra args are specified but destination is more recent
+    if extra_args and "Tagging" in extra_args and "TaggingDirective" not in extra_args:
+        extra_args["TaggingDirective"] = "REPLACE"
+    if extra_args and "Metadata" in extra_args and "MetadataDirective" not in extra_args:
+        extra_args["MetadataDirective"] = "REPLACE"
+
     if force or should_sync(
         source_path=source_path, destination_path=destination_path, size_only=size_only, **kwargs
     ):
-        s3.copy(
-            CopySource=source_path.as_dict(),
-            Bucket=destination_path.bucket,
-            Key=destination_path.key,
-            ExtraArgs=extra_args or {},
-            Config=transfer_config or TransferConfig(),
-        )
-    elif extra_args:
+        try:
+            s3.copy(
+                CopySource=source_path.as_dict(),
+                Bucket=destination_path.bucket,
+                Key=destination_path.key,
+                ExtraArgs=extra_args or {},
+                Config=transfer_config or TransferConfig(),
+            )
+        except ClientError as e:
+            skippable_err_msg = (
+                "This copy request is illegal because it is trying to copy an object "
+                "to itself without changing the object's metadata, storage class, "
+                "website redirect location or encryption attributes."
+            )
+            if get_client_error_message(e) != skippable_err_msg:
+                raise e
+
+    elif extra_args is not None:
         # This handles scenario where extra args are specified but destination is more recent
         copy_s3_object(
             source_path=destination_path,
@@ -1226,6 +1251,8 @@ def determine_multipart_chunk_size(s3_path: S3URI, **kwargs) -> Optional[int]:
     s3_client = get_s3_client(**kwargs)
     head_object = s3_client.head_object(Bucket=s3_path.bucket, Key=s3_path.key, PartNumber=1)
     if head_object.get("PartsCount", 1) > 1 and "ContentLength" in head_object:
+        return head_object["ContentLength"]
+    elif head_object.get("ContentLength") > AWS_S3_DEFAULT_CHUNK_SIZE_BYTES:
         return head_object["ContentLength"]
     return None
 

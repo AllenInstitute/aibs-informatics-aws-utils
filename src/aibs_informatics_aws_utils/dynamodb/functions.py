@@ -13,7 +13,6 @@ from aibs_informatics_aws_utils.dynamodb.conditions import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-
     from mypy_boto3_dynamodb.type_defs import (
         BatchGetItemInputRequestTypeDef,
         GetItemInputRequestTypeDef,
@@ -96,7 +95,6 @@ def table_get_items(
         keys[i : i + MAX_KEYS_PER_API_CALL] for i in range(0, len(keys), MAX_KEYS_PER_API_CALL)
     ]
     for keys_subset in keys_subset_list:
-
         serialized_keys = [
             {key: serializer.serialize(value) for key, value in attr_value.items()}
             for attr_value in keys_subset
@@ -342,7 +340,6 @@ def table_get_key_schema(table_name: str) -> Dict[str, str]:
 
 
 def execute_partiql_statement(statement: str, region: str = None) -> List[Dict[str, Any]]:
-
     db = get_dynamodb_client(region=region)
 
     response = db.execute_statement(Statement=statement)

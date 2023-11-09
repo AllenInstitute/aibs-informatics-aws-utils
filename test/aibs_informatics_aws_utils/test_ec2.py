@@ -213,7 +213,6 @@ def test__describe_instance_types_by_props__all_args(aws_credentials_fixture):
 
 @mock_ec2
 def test__describe_instance_types_by_props__all_args_reduce_to_none(aws_credentials_fixture):
-
     assert len(describe_instance_types_by_props(vcpu_limits=(5000, None))) == 0
     assert len(describe_instance_types_by_props(vcpu_limits=(None, 0))) == 0
     assert len(describe_instance_types_by_props(memory_limits=(20 << (10 * 3), None))) == 0

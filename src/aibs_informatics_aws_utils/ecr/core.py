@@ -75,7 +75,6 @@ ECR_IMAGE_URI_PATTERN = re.compile(
 
 
 class ECRRegistryUri(ValidatedStr):
-
     regex_pattern = ECR_REGISTRY_URI_PATTERN
 
     @property
@@ -108,7 +107,6 @@ class ECRRegistryUri(ValidatedStr):
 
 
 class ECRRepositoryUri(ECRRegistryUri):
-
     regex_pattern = ECR_REPO_URI_PATTERN
 
     @property
@@ -203,7 +201,6 @@ class ECRLogin:
 
 @dataclass
 class LifecyclePolicySelection(DataClassModel):
-
     tag_status: Literal["tagged", "untagged", "any"] = field(
         metadata=config(letter_case=LetterCase.CAMEL)
     )
@@ -834,7 +831,6 @@ def resolve_image_uri(name: str, default_tag: Optional[str] = None) -> str:
     """
 
     try:
-
         uri = name
 
         if not ECRRegistryUri.is_prefixed(uri):

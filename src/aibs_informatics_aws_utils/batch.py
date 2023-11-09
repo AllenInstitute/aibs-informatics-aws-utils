@@ -14,7 +14,6 @@ from aibs_informatics_aws_utils.core import AWS_REGION_VAR, AWSService, get_regi
 from aibs_informatics_aws_utils.logs import build_log_stream_url
 
 if TYPE_CHECKING:  # pragma: no cover
-
     from mypy_boto3_batch.literals import JobDefinitionTypeType
     from mypy_boto3_batch.type_defs import (
         ContainerOverridesTypeDef,
@@ -33,7 +32,6 @@ if TYPE_CHECKING:  # pragma: no cover
         VolumeTypeDef,
     )
 else:
-
     JobDefinitionTypeType = object
 
     ContainerOverridesTypeDef = dict
@@ -274,7 +272,6 @@ class BatchJobBuilder:
 
     @property
     def container_properties(self) -> ContainerPropertiesTypeDef:
-
         return ContainerPropertiesTypeDef(
             image=self.image,
             command=self.command,
@@ -286,7 +283,6 @@ class BatchJobBuilder:
 
     @property
     def container_overrides(self) -> ContainerOverridesTypeDef:
-
         return ContainerOverridesTypeDef(
             environment=to_key_value_pairs(self.environment),
             resourceRequirements=self._normalized_resource_requirements(),

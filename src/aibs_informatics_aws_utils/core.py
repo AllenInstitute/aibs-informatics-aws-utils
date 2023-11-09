@@ -288,7 +288,6 @@ class AWSServiceProvider(Generic[ClientType]):
 class AWSServiceAndResourceProvider(
     AWSServiceProvider[ClientType], Generic[ClientType, ResourceType]
 ):
-
     service_name: Resources
 
     def get_resource(self, region: Optional[str] = None, **kwargs) -> ResourceType:

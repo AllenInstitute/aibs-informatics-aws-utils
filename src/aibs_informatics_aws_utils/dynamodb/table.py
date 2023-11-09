@@ -223,7 +223,6 @@ def build_optimized_condition_expression_set(
             non_candidate_conditions.append(_)
 
     for index in candidate_indexes:
-
         if index.key_name in candidate_conditions and isinstance(
             candidate_conditions[index.key_name], Equals
         ):
@@ -246,7 +245,6 @@ def build_optimized_condition_expression_set(
 
 @dataclass
 class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
-
     # env_base: EnvBase = field(default_factory=EnvBase.from_env)
 
     def __post_init__(self):
@@ -611,7 +609,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         condition_expression: Optional[ConditionBase] = None,
         **table_put_item_kwargs,
     ) -> DB_MODEL:
-
         # Convert our ConditionBase class to a readable string (for logging/debugging purposes)
         if condition_expression:
             expression = ConditionExpressionBuilder().build_expression(condition_expression)
@@ -732,7 +729,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         partition_key: Union[DynamoDBPrimaryKeyItemValue, ConditionBase],
         sort_key_condition_expression: Optional[ConditionBase] = None,
     ) -> ConditionBase:
-
         partition_key_name = index.key_name
         sort_key_name = index.sort_key_name
 
@@ -804,7 +800,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
 
 @dataclass
 class DynamoDBEnvBaseTable(DynamoDBTable[DB_MODEL, DB_INDEX], Generic[DB_MODEL, DB_INDEX]):
-
     env_base: EnvBase = field(default_factory=EnvBase.from_env)
 
     @property

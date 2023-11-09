@@ -65,7 +65,6 @@ class AWSGetterTests(AwsBaseTest):
     def test__get_account_id__succeeds(self):
         # moto sets account to be 123456789012
         with moto.mock_sts() as sts:
-
             self.assertEqual(get_account_id(), self.ACCOUNT_ID)
 
     def test__get_user_id__succeeds(self):

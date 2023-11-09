@@ -30,7 +30,6 @@ class SNSTests(AwsBaseTest):
         sns.delete_topic(TopicArn=topic_arn)
 
         with self.assertRaises(AWSError):
-
             publish_to_topic(
                 topic_arn=SNSTopicArn(topic_arn),
                 message="test_message",

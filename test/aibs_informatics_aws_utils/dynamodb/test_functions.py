@@ -41,7 +41,7 @@ class DynamoDBTests(AwsBaseTest):
         table_name: str = None,
         key_schema: List[Dict[str, str]] = None,
         attr_definitions: List[Dict[str, str]] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         table_name = table_name or self.DEFAULT_TABLE_NAME
         self.ddb.create_table(
@@ -49,7 +49,7 @@ class DynamoDBTests(AwsBaseTest):
             KeySchema=key_schema or self.DEFAULT_KEY_SCHEMA,
             AttributeDefinitions=attr_definitions or self.DEFAULT_ATTR_DEFS,
             ProvisionedThroughput=self.DEFAULT_PROV_THROUGHPUT,
-            **kwargs
+            **kwargs,
         )
         return table_name
 
@@ -103,7 +103,6 @@ class DynamoDBTests(AwsBaseTest):
 
 @pytest.fixture(scope="function")
 def mock_dynamodb_fixture(aws_credentials_fixture, request):
-
     default_attr_def = [
         {"AttributeName": "PK", "AttributeType": "S"},
         {"AttributeName": "SK", "AttributeType": "S"},

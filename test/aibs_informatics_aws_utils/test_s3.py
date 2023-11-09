@@ -19,9 +19,10 @@ from pytest import mark, param, raises
 
 from aibs_informatics_aws_utils.exceptions import AWSError
 from aibs_informatics_aws_utils.s3 import (
-    SCRATCH_EXTRA_ARGS,
+    AWS_S3_DEFAULT_CHUNK_SIZE_BYTES,
     PresignedUrlAction,
     check_paths_in_sync,
+    copy_s3_object,
     delete_s3_path,
     download_s3_path,
     download_to_json,
@@ -30,6 +31,7 @@ from aibs_informatics_aws_utils.s3 import (
     generate_transfer_request,
     get_object,
     get_s3_client,
+    get_s3_path_collection_stats,
     get_s3_path_stats,
     get_s3_resource,
     is_folder,
@@ -361,13 +363,19 @@ class S3Tests(AwsBaseTest):
         new_root = self.tmp_path()
         existing_folder = new_root / "existing"
         existing_folder.mkdir()
+        existing_non_empty_folder = new_root / "existing_non_empty"
+        existing_non_empty_folder.mkdir()
+        (existing_non_empty_folder / "file").touch()
         non_existing_folder = new_root / "non-existing"
+
         s3_path = self.get_s3_path("path/to/folder/")
         upload_path(orig_root, s3_path)
         self.assertTrue(is_folder(s3_path))
         # assert fails when folder exists and not allowed to exist
         with self.assertRaises(Exception):
-            download_s3_path(s3_path, existing_folder, exist_ok=False)
+            download_s3_path(s3_path, existing_non_empty_folder, exist_ok=False)
+        # assert succeeds when folder exists and not allowed to exist but is empty
+        download_s3_path(s3_path, existing_folder, exist_ok=False)
         # assert succeeds when folder exists and allowed to exist
         download_s3_path(s3_path, existing_folder, exist_ok=True)
         # assert succeeds when folder does not exist and not allowed to exist
@@ -407,9 +415,17 @@ class S3Tests(AwsBaseTest):
         s3_object = get_object(s3_path)
         self.assertEqual(s3_object.expiration, None)
 
-        upload_path(previous_file, s3_path, force=False, extra_args=SCRATCH_EXTRA_ARGS)
+        upload_path(
+            previous_file,
+            s3_path,
+            force=False,
+            extra_args={
+                "Tagging": "time-to-live=1",
+                "Metadata": {"foo": "bar"},
+            },
+        )
         s3_object = get_object(s3_path)
-        self.assertEqual(s3_object.expiration, None)
+        self.assertEqual(s3_object.metadata, {"foo": "bar"})
 
     def test__upload_path__download_s3_path__fails_for_non_existent_paths(self):
         root = self.tmp_path()
@@ -451,6 +467,60 @@ class S3Tests(AwsBaseTest):
         self.assertEqual(existing_file.read_text(), "hello")
         self.assertEqual(existing_empty_dir.read_text(), "hello")
 
+    def test__download_s3_path__handles_trailing_slash_objects(self):
+        s3_empty = self.get_s3_path("empty/")
+        s3_empty_prefix = self.get_s3_path("empty_prefix/")
+        s3_not_empty = self.get_s3_path("not_empty/")
+        s3_not_empty_prefix = self.get_s3_path("not_empty_prefix/")
+
+        self.put_object(s3_empty.key, "")
+        self.put_object(s3_empty_prefix.key, "")
+        self.put_object(s3_empty_prefix.key + "file", "")
+        self.put_object(s3_not_empty.key, "asdf")
+        self.put_object(s3_not_empty_prefix.key, "asdf")
+        self.put_object(s3_not_empty_prefix.key + "file", "asdf")
+
+        local_path = self.tmp_path()
+        download_s3_path(s3_empty, local_path / "empty")
+        download_s3_path(s3_empty_prefix, local_path / "empty_prefix")
+        download_s3_path(s3_not_empty, local_path / "not_empty")
+
+        with self.assertRaises(ValueError):
+            download_s3_path(s3_not_empty_prefix, local_path / "not_empty_prefix")
+
+    def test__download_s3_path__handles_nested_trailing_slash_objects(self):
+        s3_empty_prefix = self.get_s3_path("empty_prefix/")
+        s3_not_empty_prefix = self.get_s3_path("not_empty_prefix/")
+
+        self.put_object(s3_empty_prefix.key + "dir/", "")
+        self.put_object(s3_empty_prefix.key + "dir/file", "")
+        self.put_object(s3_not_empty_prefix.key + "dir/", "asdf")
+        self.put_object(s3_not_empty_prefix.key + "dir/file", "asdf")
+
+        local_path = self.tmp_path()
+        download_s3_path(s3_empty_prefix, local_path / "empty_prefix")
+
+        with self.assertRaises(ValueError):
+            download_s3_path(s3_not_empty_prefix, local_path / "not_empty_prefix")
+
+    def test__copy_s3_object__handles_same_path(self):
+        s3_path = self.put_object("path/to/file", "hello")
+        copy_s3_object(s3_path, s3_path)
+        self.assertTrue(is_object(s3_path))
+
+    def test__copy_s3_object__handles_same_path_with_new_metadata(self):
+        s3_path = self.put_object("path/to/file", "hello")
+
+        copy_s3_object(
+            s3_path,
+            s3_path,
+            extra_args={
+                "Tagging": "time-to-live=1",
+                "Metadata": {"foo": "bar"},
+            },
+        )
+        self.assertEqual(get_object(s3_path).metadata, {"foo": "bar"})
+
     def test__get_s3_path_stats__handles_file(self):
         root = self.tmp_path()
         local_path = root / "file"
@@ -458,6 +528,19 @@ class S3Tests(AwsBaseTest):
         s3_path = self.get_s3_path("path/to/file")
         upload_file(local_path, s3_path)
         s3_path_stats = get_s3_path_stats(s3_path)
+        self.assertEqual(s3_path_stats.size_bytes, 3)
+        self.assertEqual(s3_path_stats.object_count, 1)
+
+    def test__get_s3_path_collection_stats__handles_file(self):
+        root = self.tmp_path()
+        local_path = root / "file"
+        local_path.write_text("abc")
+        s3_path = self.get_s3_path("path/to/file")
+        upload_file(local_path, s3_path)
+        s3_path_stats_collection = get_s3_path_collection_stats(s3_path)
+        assert len(s3_path_stats_collection) == 1
+        assert s3_path in s3_path_stats_collection
+        s3_path_stats = s3_path_stats_collection[s3_path]
         self.assertEqual(s3_path_stats.size_bytes, 3)
         self.assertEqual(s3_path_stats.object_count, 1)
 
@@ -577,7 +660,6 @@ class S3Tests(AwsBaseTest):
         self.assertEqual(responses[2].request, download_request)
 
     def test__process_transfer_requests__handles_errors(self):
-
         s3_path = self.get_s3_path("path")
         another_s3_path = self.get_s3_path("path2")
         request = S3CopyRequest(
@@ -779,6 +861,25 @@ class S3Tests(AwsBaseTest):
             Filename=str(orig_file),
             **source_path.as_dict(),
             Config=TransferConfig(multipart_threshold=1024, multipart_chunksize=1024),
+        )
+        destination_path.write_text(orig_file.read_text())
+
+        assert should_sync(orig_file, source_path) is False
+        assert should_sync(source_path, destination_path) is False
+
+    def test__should_sync__s3_to_local__multipart_upload_chunksize__gt__default(self):
+        s3 = self.s3_client
+        orig_file = self.tmp_file(content="0" * (AWS_S3_DEFAULT_CHUNK_SIZE_BYTES + 1))
+        source_path = self.get_s3_path("source")
+        destination_path = self.tmp_path() / "destination"
+
+        s3.upload_file(
+            Filename=str(orig_file),
+            **source_path.as_dict(),
+            Config=TransferConfig(
+                multipart_threshold=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES * 2,
+                multipart_chunksize=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES * 2,
+            ),
         )
         destination_path.write_text(orig_file.read_text())
 

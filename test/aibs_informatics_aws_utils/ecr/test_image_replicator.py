@@ -21,7 +21,6 @@ class ECRImageReplicatorTests(ECRTestBase):
         # Unfortunately, moto doesn't support the ECR API call to batch check layer availability
         # so we will catch that it fails with NotImplementedError exception
         with self.assertRaises(NotImplementedError):
-
             self.replicator.process_request(
                 ReplicateImageRequest(
                     source_image=image,

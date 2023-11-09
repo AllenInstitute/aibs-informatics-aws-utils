@@ -68,7 +68,6 @@ else:
 def test_StateMachineArn_validation(arn: str, expected: Tuple[str, ...], raises_error):
     region, account, state_machine_name = expected
     with raises_error:
-
         sm_arn = StateMachineArn(arn)
 
         assert sm_arn.region == region
@@ -123,7 +122,6 @@ START_EXECUTION = "start_execution"
 
 
 class StepFnTests(AwsBaseTest):
-
     # SFN CALLS
     DESCRIBE_EXECUTION = "describe_execution"
     LIST_EXECUTIONS = "list_executions"
@@ -342,7 +340,6 @@ class StepFnTests(AwsBaseTest):
         status: str = "RUNNING",
         start_date: datetime = datetime(2022, 3, 22, 0, 0),
     ):
-
         return ExecutionListItemTypeDef(
             **remove_null_values(
                 dict(

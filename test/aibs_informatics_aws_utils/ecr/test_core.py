@@ -279,7 +279,6 @@ def test__LifecyclePolicy__sorts_rules(rules, expected, raises_error):
 def test_ECRRegistryUri_validation(uri: str, expected: Tuple[str, ...], raises_error):
     expected_account, expected_region = expected
     with raises_error:
-
         ecr_registry_uri = ECRRegistryUri(uri)
         assert ecr_registry_uri.account_id == expected_account
         assert ecr_registry_uri.region == expected_region
@@ -465,7 +464,6 @@ class ECRImageTests(ECRTestBase):
         self.assertEqual(actual, image)
 
     def test__get_repository__constructs_repository_object(self):
-
         repo = self.create_repository("repository_name")
         image = self.put_image(repo.repository_name, image_tag="latest")
         actual = image.get_repository()

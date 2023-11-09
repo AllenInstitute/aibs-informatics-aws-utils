@@ -25,7 +25,6 @@ else:
 @mock_sts
 @mock_ecr
 class ECRTestBase(AwsBaseTest):
-
     IMAGE_MANIFEST_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.v2+json"
     IMAGE_MANIFEST_CONFIG_MEDIA_TYPE = "application/vnd.docker.container.image.v1+json"
     IMAGE_MANIFEST_LAYER_MEDIA_TYPE = "application/vnd.docker.image.rootfs.diff.tar.gzip"

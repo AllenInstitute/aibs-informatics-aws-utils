@@ -31,7 +31,6 @@ class IamAWSRequestsAuth(requests.auth.AuthBase):
         )
 
     def __call__(self, request):
-
         # Parse request URL
         url = urlparse(request.url)
 

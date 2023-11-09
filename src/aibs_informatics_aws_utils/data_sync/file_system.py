@@ -152,7 +152,6 @@ class Node:
 
 @dataclass  # type: ignore[misc] # mypy #5374
 class BaseFileSystem:
-
     node: Node = field(init=False)
 
     def __post_init__(self):

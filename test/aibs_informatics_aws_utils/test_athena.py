@@ -29,12 +29,10 @@ def test__start_query_execution__works(athena_client):
 def test__start_query_execution__fails(athena_client):
     query_string = "SELECT * FROM table"
     with raises(AWSError):
-
         start_query_execution(query_string, work_group="test", execution_parameters=["test"])
 
 
 def test__get_query_execution__works(athena_client):
-
     query_string = "SELECT * FROM table"
     metadata = start_query_execution(query_string, execution_parameters=["test"])
 
