@@ -15,15 +15,17 @@ from aibs_informatics_core.models.aws.s3 import (
 )
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from boto3.s3.transfer import TransferConfig
-from pytest import mark, param, raises
+from pytest import fixture, mark, param, raises
 
 from aibs_informatics_aws_utils.exceptions import AWSError
 from aibs_informatics_aws_utils.s3 import (
     AWS_S3_DEFAULT_CHUNK_SIZE_BYTES,
+    MB,
     PresignedUrlAction,
     check_paths_in_sync,
     copy_s3_object,
     delete_s3_path,
+    determine_multipart_attributes,
     download_s3_path,
     download_to_json,
     download_to_json_object,
@@ -868,18 +870,98 @@ class S3Tests(AwsBaseTest):
         assert should_sync(source_path, destination_path) is False
 
     def test__should_sync__s3_to_local__multipart_upload_chunksize__gt__default(self):
-        s3 = self.s3_client
         orig_file = self.tmp_file(content="0" * (AWS_S3_DEFAULT_CHUNK_SIZE_BYTES + 1))
-        source_path = self.get_s3_path("source")
+        source_path1 = self.get_s3_path("source1")
+        source_path2 = self.get_s3_path("source2")
         destination_path = self.tmp_path() / "destination"
 
-        s3.upload_file(
+        # This does not upload as multipart for custom chunk size
+        self.s3_client.upload_file(
             Filename=str(orig_file),
-            **source_path.as_dict(),
+            **source_path1.as_dict(),
             Config=TransferConfig(
                 multipart_threshold=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES * 2,
                 multipart_chunksize=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES * 2,
             ),
+        )
+        # This one uploads as multipart even though there is only one part
+        self.s3_client.upload_file(
+            Filename=str(orig_file),
+            **source_path2.as_dict(),
+            Config=TransferConfig(
+                multipart_threshold=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES,
+                multipart_chunksize=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES * 2,
+            ),
+        )
+
+        destination_path.write_text(orig_file.read_text())
+
+        assert should_sync(orig_file, source_path1) is False
+        assert should_sync(orig_file, source_path2) is False
+        assert should_sync(source_path1, destination_path) is False
+        assert should_sync(source_path2, destination_path) is False
+
+    def test__should_sync__handles_multipart_upload_chunksize(self):
+        orig_file = self.tmp_file(content="0" * (MB + 1))
+        source_path = self.get_s3_path("source")
+        destination_path = self.tmp_path() / "destination"
+
+        # This does not upload as multipart for custom chunk size
+        self.s3_client.upload_file(
+            Filename=str(orig_file),
+            **source_path.as_dict(),
+            Config=TransferConfig(multipart_threshold=MB, multipart_chunksize=MB),
+        )
+
+        destination_path.write_text(orig_file.read_text())
+
+        assert should_sync(orig_file, source_path) is False
+        assert should_sync(source_path, destination_path) is False
+
+    def test__should_sync__handles_multipart_upload_chunksize__single_part(self):
+        orig_file = self.tmp_file(content="0" * (MB + 1))
+        source_path = self.get_s3_path("source")
+        destination_path = self.tmp_path() / "destination"
+
+        # This does not upload as multipart for custom chunk size
+        self.s3_client.upload_file(
+            Filename=str(orig_file),
+            **source_path.as_dict(),
+            Config=TransferConfig(multipart_threshold=MB, multipart_chunksize=2 * MB),
+        )
+
+        destination_path.write_text(orig_file.read_text())
+
+        assert should_sync(orig_file, source_path) is False
+        assert should_sync(source_path, destination_path) is False
+
+    def test__should_sync__handles_multipart_upload__threshold_not_passed(self):
+        orig_file = self.tmp_file(content="0" * (2 * MB))
+        source_path = self.get_s3_path("source")
+        destination_path = self.tmp_path() / "destination"
+
+        # This does not upload as multipart for custom chunk size
+        self.s3_client.upload_file(
+            Filename=str(orig_file),
+            **source_path.as_dict(),
+            Config=TransferConfig(multipart_threshold=3 * MB, multipart_chunksize=MB),
+        )
+
+        destination_path.write_text(orig_file.read_text())
+
+        assert should_sync(orig_file, source_path) is False
+        assert should_sync(source_path, destination_path) is False
+
+    def test__should_sync__handles_multipart_upload__gt_threshold_passed(self):
+        orig_file = self.tmp_file(content="0" * (3 * MB))
+        source_path = self.get_s3_path("source")
+        destination_path = self.tmp_path() / "destination"
+
+        # This does not upload as multipart for custom chunk size
+        self.s3_client.upload_file(
+            Filename=str(orig_file),
+            **source_path.as_dict(),
+            Config=TransferConfig(multipart_threshold=2 * MB, multipart_chunksize=MB),
         )
         destination_path.write_text(orig_file.read_text())
 
@@ -980,6 +1062,105 @@ class S3Tests(AwsBaseTest):
         assert check_paths_in_sync(source_path, destination_s3_path2) is False
         assert check_paths_in_sync(source_s3_path, destination_path2) is False
         assert check_paths_in_sync(source_s3_path, destination_s3_path2) is False
+
+
+@fixture(scope="function")
+def s3_bucket_fixture(aws_credentials_fixture, request):
+    with moto.mock_s3():
+        s3 = get_s3_resource()
+        s3_bucket = s3.Bucket(request.param)
+        s3_bucket.create(CreateBucketConfiguration={"LocationConstraint": "us-west-2"})
+        yield s3_bucket
+
+
+@fixture(scope="function")
+def create_file(tmp_path_factory, request):
+    temp_file = tmp_path_factory.mktemp("data") / "temp_file.txt"
+    temp_file.write_text("*" * request.param)
+    yield temp_file
+
+
+@mark.parametrize(
+    "s3_bucket_fixture, create_file, transfer_config, expected_threshold, expected_chunksize",
+    [
+        param(
+            "bucket-name",
+            MB,
+            TransferConfig(multipart_threshold=2 * MB, multipart_chunksize=2 * MB),
+            None,
+            None,
+            id="file_size<threshold=chunksize<5MB",
+        ),
+        param(
+            "bucket-name",
+            MB,
+            TransferConfig(multipart_threshold=MB, multipart_chunksize=2 * MB),
+            MB,
+            None,
+            id="threshold=file_size<chunksize",
+        ),
+        param(
+            "bucket-name",
+            4 * MB,
+            TransferConfig(multipart_threshold=MB, multipart_chunksize=2 * MB),
+            4 * MB,
+            None,
+            id="threshold<chunksize<file_size<5MB",
+        ),
+        param(
+            "bucket-name",
+            7 * MB,
+            TransferConfig(multipart_threshold=8 * MB, multipart_chunksize=6 * MB),
+            None,
+            None,
+            id="chunksize<file_size<threshold",
+        ),
+        param(
+            "bucket-name",
+            7 * MB,
+            TransferConfig(multipart_threshold=7 * MB, multipart_chunksize=6 * MB),
+            6 * MB,
+            6 * MB,
+            id="chunksize<threshold<file_size",
+        ),
+        param(
+            "bucket-name",
+            20 * MB,
+            TransferConfig(multipart_threshold=10 * MB, multipart_chunksize=4 * MB),
+            # Minimum value is 5 MiB
+            5 * MB,
+            5 * MB,
+            id="chunksize<5MB<threshold<<file_size",
+        ),
+        param(
+            "bucket-name",
+            12 * MB,
+            TransferConfig(multipart_threshold=MB, multipart_chunksize=6 * MB),
+            6 * MB,
+            6 * MB,
+            id="threshold<5MB<chunksize<<file_size",
+        ),
+        param(
+            "bucket-name",
+            9 * MB,
+            TransferConfig(multipart_threshold=10 * MB, multipart_chunksize=10 * MB),
+            9 * MB + 1,
+            9 * MB + 1,
+            id="default<file_size<threshold=chunksize",
+        ),
+    ],
+    indirect=["s3_bucket_fixture", "create_file"],
+)
+def test__determine_multipart_attributes__works(
+    s3_bucket_fixture, create_file, transfer_config, expected_threshold, expected_chunksize
+):
+    local_file = create_file
+    s3_bucket_fixture.upload_file(Filename=str(local_file), Key="path", Config=transfer_config)
+    s3_path = S3URI(f"s3://{s3_bucket_fixture.name}/path")
+
+    chunksize, threshold = determine_multipart_attributes(s3_path)
+    assert threshold == expected_threshold
+    assert chunksize == expected_chunksize
 
 
 @mark.parametrize(

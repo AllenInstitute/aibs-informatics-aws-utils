@@ -1,17 +1,10 @@
-import os
-import re
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
-from test.base import does_not_raise
-from typing import Dict, List, Mapping, Optional, Set, Tuple, Union
+from typing import Union
 
 import moto
-import requests
 from aibs_informatics_core.models.aws.s3 import S3URI
 from aibs_informatics_core.utils.os_operations import find_all_paths
-from pytest import mark, param, raises
 
 from aibs_informatics_aws_utils.constants.efs import EFS_MOUNT_PATH_VAR
 from aibs_informatics_aws_utils.data_sync.operations import sync_data
@@ -22,6 +15,7 @@ def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3URI:
     return S3URI.build(bucket, key)
 
 
+@moto.mock_s3
 class OperationsTests(AwsBaseTest):
     def setUp(self) -> None:
         super().setUp()
@@ -77,215 +71,200 @@ class OperationsTests(AwsBaseTest):
         return self.s3_client.list_objects_v2(**kwargs)
 
     def test__sync_data__s3_to_s3__folder__succeeds(self):
-        with moto.mock_s3():
-            self.setUpBucket()
-            source_path = self.get_s3_path("source/path/")
-            destination_path = self.get_s3_path("destination/path/")
-            path1 = self.put_object("source/path/obj1", "hello")
-            path2 = self.put_object("source/path/dir1/obj2", "did you hear me")
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 2)
+        self.setUpBucket()
+        source_path = self.get_s3_path("source/path/")
+        destination_path = self.get_s3_path("destination/path/")
+        path1 = self.put_object("source/path/obj1", "hello")
+        path2 = self.put_object("source/path/dir1/obj2", "did you hear me")
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 2)
 
     def test__sync_data__s3_to_s3__file__succeeds(self):
-        with moto.mock_s3():
-            self.setUpBucket()
-            source_path = self.put_object("source/path/obj1", "hello")
-            destination_path = self.get_s3_path("destination/path/")
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 1)
+        self.setUpBucket()
+        source_path = self.put_object("source/path/obj1", "hello")
+        destination_path = self.get_s3_path("destination/path/")
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def test__sync_data__s3_to_s3__file__succeeds__source_deleted(self):
-        with moto.mock_s3():
-            self.setUpBucket()
-            source_path = self.put_object("source/path/obj1", "hello")
-            destination_path = self.get_s3_path("destination/path/")
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-                retain_source_data=False,
-            )
-            assert self.get_object(destination_path.key) == "hello"
-            assert not is_object(source_path)
+        self.setUpBucket()
+        source_path = self.put_object("source/path/obj1", "hello")
+        destination_path = self.get_s3_path("destination/path/")
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            retain_source_data=False,
+        )
+        assert self.get_object(destination_path.key) == "hello"
+        assert not is_object(source_path)
 
     def test__sync_data__local_to_local__folder__succeeds(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            source_path = fs / "source"
-            destination_path = fs / "destination"
-            self.put_file(source_path / "file1", "hello")
-            self.put_file(source_path / "file2", "did you hear me")
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path / "file1", "hello")
+        self.put_file(source_path / "file2", "did you hear me")
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 2)
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 2)
 
     def test__sync_data__local_to_local__file__succeeds(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            source_path = fs / "source"
-            destination_path = fs / "destination"
-            self.put_file(source_path, "hello")
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path, "hello")
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 1)
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def test__sync_data__local_to_local__relative_file__succeeds(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            source_path = fs / "source"
-            destination_path = fs / "destination"
-            self.put_file(source_path, "hello")
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path, "hello")
 
-            sync_data(
-                source_path=Path("source"),
-                destination_path=Path("destination"),
-            )
-            self.assertPathsEqual(source_path, destination_path, 1)
+        sync_data(
+            source_path=Path("source"),
+            destination_path=Path("destination"),
+        )
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def test__sync_data__local_to_local__file__source_deleted(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            source_path = fs / "source"
-            destination_path = fs / "destination"
-            self.put_file(source_path, "hello")
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path, "hello")
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-                retain_source_data=False,
-            )
-            assert destination_path.read_text() == "hello"
-            assert not source_path.exists()
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            retain_source_data=False,
+        )
+        assert destination_path.read_text() == "hello"
+        assert not source_path.exists()
 
     def test__sync_data__s3_to_local__folder__succeeds(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            self.setUpBucket()
-            source_path = self.get_s3_path("source/path/")
-            self.put_object("source/path/obj1", "hello")
-            self.put_object("source/path/dir1/obj2", "did you hear me")
-            destination_path = fs / "destination2"
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = self.get_s3_path("source/path/")
+        self.put_object("source/path/obj1", "hello")
+        self.put_object("source/path/dir1/obj2", "did you hear me")
+        destination_path = fs / "destination2"
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 2)
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 2)
 
     def test__sync_data__s3_to_local__folder__cached_results_mtime_updated(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            self.setUpBucket()
-            source_path = self.get_s3_path("source/path/")
-            self.put_object("source/path/obj1", "hello")
-            self.put_object("source/path/dir1/obj2", "did you hear me")
-            destination_path = fs / "destination"
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = self.get_s3_path("source/path/")
+        self.put_object("source/path/obj1", "hello")
+        self.put_object("source/path/dir1/obj2", "did you hear me")
+        destination_path = fs / "destination"
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 2)
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 2)
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 2)
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 2)
 
     def test__sync_data__s3_to_local__file__succeeds(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            self.setUpBucket()
-            source_path = self.put_object("source", "hello")
-            destination_path = fs / "destination"
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 1)
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = self.put_object("source", "hello")
+        destination_path = fs / "destination"
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def test__sync_data__s3_to_local__file__lock_required__succeeds(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            self.setUpBucket()
-            source_path = self.put_object("source", "hello")
-            destination_path = fs / "destination"
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-                require_lock=True,
-            )
-            self.assertPathsEqual(source_path, destination_path, 1)
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = self.put_object("source", "hello")
+        destination_path = fs / "destination"
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            require_lock=True,
+        )
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def test__sync_data__s3_to_local__file__source_not_deleted_despite_flag(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            self.setUpBucket()
-            source_path = self.put_object("source", "hello")
-            destination_path = fs / "destination"
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = self.put_object("source", "hello")
+        destination_path = fs / "destination"
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-                retain_source_data=False,
-            )
-            self.assertPathsEqual(source_path, destination_path, 1)
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            retain_source_data=False,
+        )
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def test__sync_data__local_to_s3__folder__succeeds(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            self.setUpBucket()
-            source_path = fs / "source"
-            destination_path = self.get_s3_path("destination/path")
-            self.put_file(source_path / "file1", "hello")
-            self.put_file(source_path / "file2", "did you hear me")
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = fs / "source"
+        destination_path = self.get_s3_path("destination/path")
+        self.put_file(source_path / "file1", "hello")
+        self.put_file(source_path / "file2", "did you hear me")
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 2)
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 2)
 
     def test__sync_data__local_to_s3__file__succeeds(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            self.setUpBucket()
-            source_path = fs / "source"
-            destination_path = self.get_s3_path("destination/path")
-            self.put_file(source_path, "hello")
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = fs / "source"
+        destination_path = self.get_s3_path("destination/path")
+        self.put_file(source_path, "hello")
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-            )
-            self.assertPathsEqual(source_path, destination_path, 1)
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+        )
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def test__sync_data__local_to_s3__file__source_deleted(self):
-        with moto.mock_s3():
-            fs = self.setUpLocalFS()
-            self.setUpBucket()
-            source_path = fs / "source"
-            destination_path = self.get_s3_path("destination/path")
-            self.put_file(source_path, "hello")
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = fs / "source"
+        destination_path = self.get_s3_path("destination/path")
+        self.put_file(source_path, "hello")
 
-            sync_data(
-                source_path=source_path,
-                destination_path=destination_path,
-                retain_source_data=False,
-            )
-            assert not source_path.exists()
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            retain_source_data=False,
+        )
+        assert not source_path.exists()
 
     def assertPathsEqual(
         self, src_path: Union[Path, S3URI], dst_path: Union[Path, S3URI], expected_num_files: int

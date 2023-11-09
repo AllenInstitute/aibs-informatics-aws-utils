@@ -992,12 +992,15 @@ def should_sync(
     dest_size_bytes: Optional[int] = None
     dest_hash: Optional[Callable[[], str]] = None
     multipart_chunk_size_bytes: Optional[int] = None
+    multipart_threshold_bytes: Optional[int] = None
 
     if isinstance(destination_path, S3URI) and is_object(destination_path):
         dest_s3_object = get_object(destination_path, **kwargs)
         dest_last_modified = dest_s3_object.last_modified
         dest_size_bytes = dest_s3_object.content_length
-        multipart_chunk_size_bytes = determine_multipart_chunk_size(destination_path, **kwargs)
+        multipart_chunk_size_bytes, multipart_threshold_bytes = determine_multipart_attributes(
+            destination_path, **kwargs
+        )
         if not size_only:
             dest_hash = lambda: dest_s3_object.e_tag
     elif isinstance(destination_path, Path) and destination_path.exists():
@@ -1006,7 +1009,9 @@ def should_sync(
         dest_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         dest_size_bytes = local_stats.st_size
         if not size_only:
-            dest_hash = lambda: get_local_etag(dest_local_path, multipart_chunk_size_bytes)
+            dest_hash = lambda: get_local_etag(
+                dest_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
+            )
     else:
         return True
 
@@ -1014,7 +1019,9 @@ def should_sync(
         src_s3_object = get_object(source_path, **kwargs)
         source_last_modified = src_s3_object.last_modified
         source_size_bytes = src_s3_object.content_length
-        multipart_chunk_size_bytes = determine_multipart_chunk_size(source_path, **kwargs)
+        multipart_chunk_size_bytes, multipart_threshold_bytes = determine_multipart_attributes(
+            source_path, **kwargs
+        )
         if not size_only:
             source_hash = lambda: src_s3_object.e_tag
     elif isinstance(source_path, Path) and source_path.exists():
@@ -1023,7 +1030,9 @@ def should_sync(
         source_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         source_size_bytes = local_stats.st_size
         if not size_only:
-            source_hash = lambda: get_local_etag(src_local_path, multipart_chunk_size_bytes)
+            source_hash = lambda: get_local_etag(
+                src_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
+            )
     else:
         raise ValueError(
             f"Cannot transfer, source path {source_path} does not exist! "
@@ -1237,30 +1246,54 @@ def _get_prefix_last_modified(bucket_name: str, key_prefix: str, **kwargs) -> da
     return last_modified
 
 
-def determine_multipart_chunk_size(s3_path: S3URI, **kwargs) -> Optional[int]:
-    """Determines the multipart chunk size for a given S3 path, if it is a multipart upload
+def determine_multipart_attributes(
+    s3_path: S3URI, **kwargs
+) -> Tuple[Optional[int], Optional[int]]:
+    """Determines multipart upload chunk size and approximate threshold, if applicable
 
-    If the S3 path is not a multipart upload, returns None
+    Multipart attributes are the following:
+        - chunk size: The size of each part in bytes
+        - threshold: The size in bytes at which a multipart upload is created
 
+    Notes:
+        - The threshold is only an approximation, as it is not possible to determine the exact threshold used.
+        - This assumes chunk size is constant for all parts. This is not necessarily always true, although rare.
+        - The chunksize for a multipart upload has the following constraints: https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
+            - Most importantly, must be between 5MB and 5GB
     Args:
         s3_path (S3URI): S3 object to check
 
     Returns:
-        Optional[int]: The multipart chunk size in bytes, or None if not a multipart upload
+        Tuple[Optional[int], Optional[int]]: (chunk_size, threshold)
     """
     s3_client = get_s3_client(**kwargs)
-    head_object = s3_client.head_object(Bucket=s3_path.bucket, Key=s3_path.key, PartNumber=1)
-    if head_object.get("PartsCount", 1) > 1 and "ContentLength" in head_object:
-        return head_object["ContentLength"]
-    elif head_object.get("ContentLength") > AWS_S3_DEFAULT_CHUNK_SIZE_BYTES:
-        return head_object["ContentLength"]
-    return None
+    head_object_part = s3_client.head_object(Bucket=s3_path.bucket, Key=s3_path.key, PartNumber=1)
+
+    object_parts = head_object_part.get("PartsCount", 1)
+    object_part_content_length = head_object_part.get("ContentLength", 0)
+
+    threshold, chunk_size = None, None
+    if object_parts > 1:
+        threshold, chunk_size = object_part_content_length, object_part_content_length
+    else:
+        head_object = s3_client.head_object(Bucket=s3_path.bucket, Key=s3_path.key)
+        is_multipart_etag = head_object["ETag"].endswith('-1"')
+        if is_multipart_etag:
+            # This should ensure that multipart etag is created as expected
+            threshold = object_part_content_length
+        if object_part_content_length > AWS_S3_DEFAULT_CHUNK_SIZE_BYTES:
+            chunk_size = object_part_content_length
+            if not is_multipart_etag:
+                chunk_size += 1
+                threshold = chunk_size
+    return chunk_size, threshold
 
 
-def determine_chunk_size(path: Path, default_chunk_size_bytes: Optional[int] = None) -> int:
+def determine_chunk_size(
+    path: Path, default_chunk_size_bytes: int = AWS_S3_DEFAULT_CHUNK_SIZE_BYTES
+) -> int:
     """Function to determine the chunk size that `aws s3 cp` would use for a very large file"""
     file_size = path.stat().st_size
-    default_chunk_size_bytes = default_chunk_size_bytes or AWS_S3_DEFAULT_CHUNK_SIZE_BYTES
     correct_chunk_size_bytes = default_chunk_size_bytes
     while math.ceil(file_size / correct_chunk_size_bytes) > AWS_S3_MULTIPART_LIMIT:
         correct_chunk_size_bytes *= 2
@@ -1268,7 +1301,9 @@ def determine_chunk_size(path: Path, default_chunk_size_bytes: Optional[int] = N
 
 
 @retry(OSError)
-def get_local_etag(path: Path, chunk_size_bytes: Optional[int] = None) -> str:
+def get_local_etag(
+    path: Path, chunk_size_bytes: Optional[int] = None, threshold_bytes: Optional[int] = None
+) -> str:
     """Calculates an expected AWS s3 upload etag for a local on-disk file.
     Takes into account multipart uploads, but does NOT account for additional encryption
     (like KMS keys)
@@ -1281,9 +1316,13 @@ def get_local_etag(path: Path, chunk_size_bytes: Optional[int] = None) -> str:
     Returns:
         str: The expected etag
     """
-
     if chunk_size_bytes is None:
         chunk_size_bytes = determine_chunk_size(path)
+
+    if threshold_bytes is None:
+        threshold_bytes = determine_chunk_size(path)
+
+    size_bytes = path.stat().st_size
 
     md5s = []
 
@@ -1294,13 +1333,13 @@ def get_local_etag(path: Path, chunk_size_bytes: Optional[int] = None) -> str:
                 break
             md5s.append(hashlib.md5(data))
 
-    if len(md5s) > 1:  # We are dealing with a multipart upload
+    if len(md5s) == 0:  # Empty file (can never be multipart upload)
+        expected_etag = f'"{hashlib.md5().hexdigest()}"'
+    elif len(md5s) == 1 and size_bytes < threshold_bytes:  # File smaller than threshold
+        expected_etag = f'"{md5s[0].hexdigest()}"'
+    else:  # We are dealing with a multipart upload
         digests = b"".join(m.digest() for m in md5s)
         multipart_md5 = hashlib.md5(digests)
         expected_etag = f'"{multipart_md5.hexdigest()}-{len(md5s)}"'
-    elif len(md5s) == 1:  # File smaller than chunk size
-        expected_etag = f'"{md5s[0].hexdigest()}"'
-    else:  # Empty file
-        expected_etag = f'"{hashlib.md5().hexdigest()}"'
 
     return expected_etag
