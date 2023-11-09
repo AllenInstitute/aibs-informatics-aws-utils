@@ -28,6 +28,6 @@ jobs:
           token: ${{ secrets.AI_PACKAGES_TOKEN }}
           ssh_private_key: ${{ secrets.AIBSGITHUB_PRIVATE_KEY }}
       - name: Run Release
+        shell: bash
         run: |
           make release
-        shell: bash
