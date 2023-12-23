@@ -7,6 +7,7 @@ __all__ = [
     "get_resource",
     "get_session",
     "AWSService",
+    "AWS_REGION_VAR",
 ]
 import logging
 import os
@@ -15,7 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Generic, Literal, Optional, Pattern, TypeVar, cast
 
 import boto3
-from aibs_informatics_core.collections import ValidatedStr
+from aibs_informatics_core.models.aws.core import AWSRegion
 from aibs_informatics_core.models.aws.iam import IAMArn, UserId
 from aibs_informatics_core.utils.decorators import cache
 from boto3 import Session
@@ -31,6 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_ecr import ECRClient
     from mypy_boto3_ecs import ECSClient
     from mypy_boto3_efs import EFSClient
+    from mypy_boto3_lambda import LambdaClient
     from mypy_boto3_logs import CloudWatchLogsClient
     from mypy_boto3_s3 import S3Client, S3ServiceResource
     from mypy_boto3_secretsmanager import SecretsManagerClient
@@ -52,6 +54,7 @@ else:
     ECSClient = object
     EFSClient = object
     GetCallerIdentityResponseTypeDef = dict
+    LambdaClient = object
     S3Client, S3ServiceResource = object, object
     SecretsManagerClient = object
     SESClient = object
@@ -71,20 +74,8 @@ logger = logging.getLogger(__name__)  # type: logging.Logger
 # AWS Session / Account / Region utilties
 # ----------------------------------------------------------------------------
 
+
 AWS_REGION_VAR = "AWS_REGION"
-
-AWS_REGION_PATTERN = re.compile(
-    r"(us(?:-gov)?|ap|ca|cn|eu|sa)-(central|(?:north|south)?(?:east|west)?)-(\d)"
-)
-AWS_ACCOUNT_PATTERN = re.compile(r"[\d]{10-12}")
-
-
-class AWSAccountId(ValidatedStr):
-    regex_pattern: ClassVar[Pattern] = AWS_ACCOUNT_PATTERN
-
-
-class AWSRegion(ValidatedStr):
-    regex_pattern: ClassVar[Pattern] = AWS_REGION_PATTERN
 
 
 def get_session(session: Optional[Session] = None) -> Session:
@@ -197,6 +188,7 @@ Clients = Literal[
     "ecr",
     "ecs",
     "efs",
+    "lambda",
     "logs",
     "s3",
     "secretsmanager",
@@ -303,6 +295,7 @@ class AWSService:
     ECR = AWSServiceProvider[ECRClient]("ecr")
     ECS = AWSServiceProvider[ECSClient]("ecs")
     EFS = AWSServiceProvider[EFSClient]("efs")
+    LAMBDA = AWSServiceProvider[LambdaClient]("lambda")
     LOGS = AWSServiceProvider[CloudWatchLogsClient]("logs")
     S3 = AWSServiceAndResourceProvider[S3Client, S3ServiceResource]("s3")
     SECRETSMANAGER = AWSServiceProvider[SecretsManagerClient]("secretsmanager")

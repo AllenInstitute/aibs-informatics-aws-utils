@@ -6,7 +6,6 @@ import moto
 from aibs_informatics_core.models.aws.s3 import S3URI
 from aibs_informatics_core.utils.os_operations import find_all_paths
 
-from aibs_informatics_aws_utils.constants.efs import EFS_MOUNT_PATH_VAR
 from aibs_informatics_aws_utils.data_sync.operations import sync_data
 from aibs_informatics_aws_utils.s3 import get_s3_client, get_s3_resource, is_object, list_s3_paths
 
@@ -24,7 +23,6 @@ class OperationsTests(AwsBaseTest):
 
     def setUpLocalFS(self) -> Path:
         fs = self.tmp_path()
-        self.set_env_vars((EFS_MOUNT_PATH_VAR, str(fs)))
         return fs
 
     def setUpBucket(self, bucket_name: str = None) -> str:
@@ -134,11 +132,11 @@ class OperationsTests(AwsBaseTest):
         source_path = fs / "source"
         destination_path = fs / "destination"
         self.put_file(source_path, "hello")
-
-        sync_data(
-            source_path=Path("source"),
-            destination_path=Path("destination"),
-        )
+        with self.chdir(fs):
+            sync_data(
+                source_path=Path("source"),
+                destination_path=Path("destination"),
+            )
         self.assertPathsEqual(source_path, destination_path, 1)
 
     def test__sync_data__local_to_local__file__source_deleted(self):

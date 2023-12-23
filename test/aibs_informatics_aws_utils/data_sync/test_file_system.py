@@ -5,20 +5,28 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
+from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
 from test.base import BaseTest, does_not_raise
 from typing import Dict, List, Mapping, Optional, Set, Tuple, Union
 from unittest import mock
 from urllib import parse
 
-import moto
 import pytz
 import requests
+from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3URI, S3PathStats
 from aibs_informatics_core.utils.time import get_current_time
 from aibs_informatics_core.utils.tools.strtools import removeprefix
+from moto import mock_sts
 from pytest import mark, param, raises
 
-from aibs_informatics_aws_utils.data_sync.file_system import LocalFileSystem, Node, S3FileSystem
+from aibs_informatics_aws_utils.data_sync.file_system import (
+    EFSFileSystem,
+    LocalFileSystem,
+    Node,
+    S3FileSystem,
+)
+from aibs_informatics_aws_utils.efs import MountPointConfiguration
 
 
 def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3URI:
@@ -270,6 +278,61 @@ class LocalFileSystemTests(BaseTest):
         local_node_paths = {removeprefix(node.path, f"{local_path}/") for node in local_nodes}
 
         self.assertSetEqual(expected_node_paths, local_node_paths)
+
+
+@mock_sts
+class EFSFileSystemTests(EFSTestsBase):
+    def setUpEFSFileSystem(
+        self, name: str, access_point_path: Optional[Union[str, Path]] = None
+    ) -> Tuple[Path, EFSPath]:
+        mount_point_path = self.tmp_path()
+        file_system_id = self.create_file_system()
+        if access_point_path is not None:
+            mount_point_id = self.create_access_point(
+                file_system_id=file_system_id,
+                access_point_name=name,
+                access_point_path=access_point_path,
+            )
+        else:
+            mount_point_id = file_system_id
+        self.set_env_vars(
+            *MountPointConfiguration.to_env_vars(mount_point_path, mount_point_id).items()
+        )
+        return mount_point_path, EFSPath.build(
+            resource_id=file_system_id, path=access_point_path or "/"
+        )
+
+    def test__from_path__resolves_efs_path(self):
+        mount_point_path, efs_path = self.setUpEFSFileSystem("ap", access_point_path="/A/B")
+        self.populate_file_system(mount_point_path, {"X": (1,)})
+        efs_root = EFSFileSystem.from_path(str(efs_path))
+        assert efs_root.path == mount_point_path
+        assert efs_root.efs_path == efs_path
+
+    def test__from_path__resolves_local_path(self):
+        mount_point_path, efs_path = self.setUpEFSFileSystem("ap", access_point_path="/A/B")
+        self.populate_file_system(mount_point_path, {"X": (1,)})
+        efs_root = EFSFileSystem.from_path(str(mount_point_path))
+        assert efs_root.path == mount_point_path
+        assert efs_root.efs_path == efs_path
+
+    def test__partition__partitions_by_size__partitions_to_object_level(self):
+        mount_point_path, efs_path = self.setUpEFSFileSystem("ap", access_point_path="/A/B")
+        self.populate_file_system(mount_point_path, {"X": (1,), "Y": (1,)})
+        efs_root = EFSFileSystem.from_path(efs_path)
+
+        efs_root.from_path(efs_path)
+        efs_nodes = efs_root.partition(size_bytes_limit=1)
+        efs_node_paths = {node.path for node in efs_nodes}
+        assert efs_node_paths == {f"{efs_path}/X", f"{efs_path}/Y"}
+
+    def populate_file_system(
+        self, path: Path, file_stats_map: Mapping[Union[Path, str], Tuple[int]]
+    ):
+        for relative_path, (size,) in file_stats_map.items():
+            full_path = path / relative_path
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text("0" * size)
 
 
 # HACK: this is recreating the ObjectSummary class that does not explicitly

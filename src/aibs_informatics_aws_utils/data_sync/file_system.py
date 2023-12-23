@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = ["BaseFileSystem", "LocalFileSystem", "S3FileSystem"]
 
 import errno
@@ -10,6 +12,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import pytz
+from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3URI
 from aibs_informatics_core.models.base import CustomAwareDateTime, custom_field
 from aibs_informatics_core.models.base.model import SchemaModel
@@ -18,6 +21,7 @@ from aibs_informatics_core.utils.os_operations import find_all_paths
 from aibs_informatics_core.utils.time import BEGINNING_OF_TIME
 from aibs_informatics_core.utils.tools.strtools import removeprefix
 
+from aibs_informatics_aws_utils.efs import get_efs_path, get_local_path
 from aibs_informatics_aws_utils.s3 import get_s3_resource
 
 logger = get_logger(__name__)
@@ -159,11 +163,11 @@ class BaseFileSystem:
 
     @abstractmethod
     def initialize_node(self) -> Node:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError()
 
     @abstractmethod
     def refresh(self, **kwargs):
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError()
 
     def partition(
         self,
@@ -219,17 +223,16 @@ class BaseFileSystem:
 
     @classmethod
     @abstractmethod
-    def from_path(cls, path: str, **kwargs) -> "BaseFileSystem":
-        raise NotImplementedError()  # pragma: no cover
+    def from_path(cls, path: str, **kwargs) -> BaseFileSystem:
+        pass
 
 
-# TODO: figure out better package to house this and the base class
 @dataclass
 class LocalFileSystem(BaseFileSystem):
     path: Path
 
     def initialize_node(self) -> Node:
-        return Node(path_part=str(self.path))
+        return Node(path_part=self.path.as_posix())
 
     def refresh(self, **kwargs):
         self.node = self.initialize_node()
@@ -259,11 +262,32 @@ class LocalFileSystem(BaseFileSystem):
                     raise ose
 
     @classmethod
-    def from_path(cls, path: Union[str, Path], **kwargs) -> "LocalFileSystem":
+    def from_path(cls, path: Union[str, Path], **kwargs) -> LocalFileSystem:
         local_path = Path(path)
         local_root = LocalFileSystem(path=local_path)
         local_root.refresh(**kwargs)
         return local_root
+
+
+@dataclass
+class EFSFileSystem(LocalFileSystem):
+    efs_path: EFSPath
+
+    def initialize_node(self) -> Node:
+        return Node(path_part=self.efs_path)
+
+    @classmethod
+    def from_path(cls, path: Union[str, Path], **kwargs) -> EFSFileSystem:
+        if isinstance(path, str) and EFSPath.is_valid(path):
+            efs_path = EFSPath(path)
+            local_path = get_local_path(efs_path=efs_path)
+        else:
+            local_path = Path(path)
+            efs_path = get_efs_path(local_path=local_path)
+
+        efs_root = EFSFileSystem(path=local_path, efs_path=efs_path)
+        efs_root.refresh(**kwargs)
+        return efs_root
 
 
 @dataclass
@@ -295,8 +319,17 @@ class S3FileSystem(BaseFileSystem):
             )
 
     @classmethod
-    def from_path(cls, path: str, **kwargs) -> "S3FileSystem":
+    def from_path(cls, path: str, **kwargs) -> S3FileSystem:
         s3_path = S3URI(path)
         s3_root = S3FileSystem(bucket=s3_path.bucket, key=s3_path.key)
         s3_root.refresh(**kwargs)
         return s3_root
+
+
+def get_file_system(path: Optional[Union[str, Path]]) -> BaseFileSystem:
+    if isinstance(path, str) and S3URI.is_valid(path):
+        return S3FileSystem.from_path(path)
+    elif isinstance(path, str) and EFSPath.is_valid(path):
+        return EFSFileSystem.from_path(path)
+    else:
+        return LocalFileSystem.from_path(path)

@@ -1,8 +1,17 @@
+from __future__ import annotations
+
+__all__ = [
+    "get_efs_client",
+    "list_efs_file_systems",
+    "get_efs_file_system",
+    "list_efs_access_points",
+    "get_efs_access_point",
+]
+
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
-from aibs_informatics_core.utils.os_operations import get_env_var
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
 
 from aibs_informatics_aws_utils.core import AWSService
@@ -29,22 +38,27 @@ logger = logging.getLogger(__name__)
 
 get_efs_client = AWSService.EFS.get_client
 
-
-EFS_MOUNT_PATH_VAR = "EFS_MOUNT_PATH"
-
-
-def get_efs_mount_path(default_root: Optional[Union[str, Path]] = None) -> str:
-    root = get_env_var(EFS_MOUNT_PATH_VAR) or (str(default_root) if default_root else None)
-    if root is None:
-        raise ValueError("No EFS mounted file system could be resolved from env var")
-    return root
+StrPath = Union[Path, str]
 
 
-def get_efs_file_systems(
+def list_efs_file_systems(
     file_system_id: Optional[str] = None,
     name: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
 ) -> List[FileSystemDescriptionTypeDef]:
+    """List EFS file systems.
+
+    You can filter on id, name and tags.
+
+    Args:
+        file_system_id (Optional[str], optional): Optionally filter on file system id.
+        name (Optional[str], optional): Optionally filter on name.
+        tags (Optional[Dict[str, str]], optional): Optionally filter on tags. They should be a dict
+            of key-value pairs.
+
+    Returns:
+        List[FileSystemDescriptionTypeDef]: List of matching file systems
+    """
     efs = get_efs_client()
     paginator = efs.get_paginator("describe_file_systems")
 
@@ -67,7 +81,24 @@ def get_efs_file_system(
     name: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
 ) -> FileSystemDescriptionTypeDef:
-    file_systems = get_efs_file_systems(file_system_id=file_system_id, name=name, tags=tags)
+    """Get EFS file system.
+
+    You can filter on id, name and tags.
+
+    Args:
+        file_system_id (Optional[str], optional): Optionally filter on file system id.
+        name (Optional[str], optional): Optionally filter on name.
+        tags (Optional[Dict[str, str]], optional): Optionally filter on tags. They should be a dict
+            of key-value pairs.
+
+    Raises:
+        ValueError: If no file system is found based on the filters.
+        ValueError: If more than one file system is found based on the filters.
+
+    Returns:
+        FileSystemDescriptionTypeDef: The file system description.
+    """
+    file_systems = list_efs_file_systems(file_system_id=file_system_id, name=name, tags=tags)
     if len(file_systems) > 1:
         raise ValueError(
             f"Found more than one file systems ({len(file_systems)}) "
@@ -80,7 +111,7 @@ def get_efs_file_system(
     return file_systems[0]
 
 
-def get_efs_access_points(
+def list_efs_access_points(
     access_point_id: Optional[str] = None,
     access_point_name: Optional[str] = None,
     access_point_tags: Optional[Dict[str, str]] = None,
@@ -88,13 +119,30 @@ def get_efs_access_points(
     file_system_name: Optional[str] = None,
     file_system_tags: Optional[Dict[str, str]] = None,
 ) -> List[AccessPointDescriptionTypeDef]:
+    """List EFS access points.
+
+    You can filter on id, name and tags for both access point and file system.
+
+    Args:
+        access_point_id (Optional[str], optional): Optionally filter on access point id.
+        access_point_name (Optional[str], optional): Optionally filter on name.
+        access_point_tags (Optional[Dict[str, str]], optional): Optionally filter on access point
+            tags. They should be a dict of key-value pairs.
+        file_system_id (Optional[str], optional): Optionally filter on file system id.
+        file_system_name (Optional[str], optional): Optionally filter on file system name.
+        file_system_tags (Optional[Dict[str, str]], optional): Optionally filter on file system
+            tags. They should be a dict of key-value pairs.
+
+    Returns:
+        List[AccessPointDescriptionTypeDef]: List of matching access points
+    """
     efs = get_efs_client()
 
     file_system_ids: List[Optional[str]] = []
     if file_system_id:
         file_system_ids.append(file_system_id)
     elif file_system_name or file_system_tags:
-        file_systems = get_efs_file_systems(
+        file_systems = list_efs_file_systems(
             file_system_id=file_system_id, name=file_system_name, tags=file_system_tags
         )
         file_system_ids.extend(map(lambda _: _["FileSystemId"], file_systems))
@@ -141,7 +189,28 @@ def get_efs_access_point(
     file_system_name: Optional[str] = None,
     file_system_tags: Optional[Dict[str, str]] = None,
 ) -> AccessPointDescriptionTypeDef:
-    access_points = get_efs_access_points(
+    """Get EFS access point.
+
+    You can filter on id, name and tags for both access point and file system.
+
+    Args:
+        access_point_id (Optional[str], optional): Optionally filter on access point id.
+        access_point_name (Optional[str], optional): Optionally filter on name.
+        access_point_tags (Optional[Dict[str, str]], optional): Optionally filter on access point
+            tags. They should be a dict of key-value pairs.
+        file_system_id (Optional[str], optional): Optionally filter on file system id.
+        file_system_name (Optional[str], optional): Optionally filter on file system name.
+        file_system_tags (Optional[Dict[str, str]], optional): Optionally filter on file system
+            tags. They should be a dict of key-value pairs.
+
+    Raises:
+        ValueError: If no access point is found based on the filters.
+        ValueError: If more than one access point is found based on the filters.
+
+    Returns:
+        AccessPointDescriptionTypeDef: The access point description.
+    """
+    access_points = list_efs_access_points(
         access_point_id=access_point_id,
         access_point_name=access_point_name,
         access_point_tags=access_point_tags,
