@@ -18,8 +18,10 @@ readme = "README.md"
 requires-python = ">=3.9"
 
 dependencies = [
-    "boto3~=1.26.49",
     "aibs-informatics-core @ git+ssh://git@github.com/AllenInstitute/aibs-informatics-core.git@main",
+    "boto3~=1.26.49",
+    "cloudpathlib~=0.17",
+    "memoization~=0.4.0",
 ]
 
 [project.optional-dependencies]
