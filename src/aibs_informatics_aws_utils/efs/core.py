@@ -12,9 +12,11 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
+from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
+from botocore.exceptions import ClientError
 
-from aibs_informatics_aws_utils.core import AWSService
+from aibs_informatics_aws_utils.core import AWSService, client_error_code_check
 
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_efs.type_defs import (
@@ -40,7 +42,10 @@ get_efs_client = AWSService.EFS.get_client
 
 StrPath = Union[Path, str]
 
+throttling_exception_callback = lambda ex: client_error_code_check(ex, "ThrottlingException")
 
+
+@retry(ClientError, [throttling_exception_callback])
 def list_efs_file_systems(
     file_system_id: Optional[str] = None,
     name: Optional[str] = None,
@@ -111,6 +116,7 @@ def get_efs_file_system(
     return file_systems[0]
 
 
+@retry(ClientError, [throttling_exception_callback])
 def list_efs_access_points(
     access_point_id: Optional[str] = None,
     access_point_name: Optional[str] = None,
