@@ -202,12 +202,12 @@ def build_optimized_condition_expression_set(
                 new_condition = Key(k).eq(v)
                 if (
                     k in candidate_conditions
-                    and candidate_conditions[k]._values[1:] != new_condition._values[1:]
+                    and candidate_conditions[k]._values[1:] != new_condition._values[1:]  # type: ignore[union-attr]
                 ):
                     raise DBQueryException(f"Multiple values provided for attribute {k}!")
                 candidate_conditions[k] = Key(k).eq(v)
-        elif len(_._values) and isinstance(_._values[0], (Key, Attr)):
-            attr_name = cast(str, _._values[0].name)
+        elif len(_._values) and isinstance(_._values[0], (Key, Attr)):  # type: ignore[union-attr]
+            attr_name = cast(str, _._values[0].name)  # type: ignore[union-attr]
             if attr_name not in index_all_key_names or not isinstance(
                 _, SupportedKeyComparisonTypes
             ):
@@ -215,7 +215,7 @@ def build_optimized_condition_expression_set(
                 continue
             if (
                 attr_name in candidate_conditions
-                and candidate_conditions[attr_name]._values[1:] != _._values[1:]
+                and candidate_conditions[attr_name]._values[1:] != _._values[1:]  # type: ignore[union-attr]
             ):
                 raise DBQueryException(f"Multiple values provided for attribute {attr_name}!")
             candidate_conditions[attr_name] = _
@@ -228,12 +228,12 @@ def build_optimized_condition_expression_set(
         ):
             target_index = index
             partition_key = candidate_conditions.pop(index.key_name)
-            partition_key._values = (Key(index.key_name), *partition_key._values[1:])
+            partition_key._values = (Key(index.key_name), *partition_key._values[1:])  # type: ignore[union-attr]
             if index.sort_key_name is not None and index.sort_key_name in candidate_conditions:
                 sort_key_condition_expression = candidate_conditions.pop(index.sort_key_name)
-                sort_key_condition_expression._values = (
+                sort_key_condition_expression._values = (  # type: ignore[union-attr]
                     Key(index.sort_key_name),
-                    *sort_key_condition_expression._values[1:],
+                    *sort_key_condition_expression._values[1:],  # type: ignore[union-attr]
                 )
             break
 
@@ -315,7 +315,9 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
             return key
         index = cls.index_or_default(index)
         return (
-            index.get_primary_key(*key) if isinstance(key, tuple) else index.get_primary_key(key)
+            index.get_primary_key(key[0], key[1])
+            if isinstance(key, tuple)
+            else index.get_primary_key(key)
         )
 
     # --------------------------------------------------------------------------
@@ -386,8 +388,8 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         items = table_get_items(table_name=self.table_name, keys=item_keys)
         if len(items) != len(item_keys) and not ignore_missing:
             missing_keys = set(
-                [(_[index.key_name], _.get(index.sort_key_name)) for _ in item_keys]
-            ).difference((_[index.key_name], _.get(index.sort_key_name)) for _ in items)
+                [(_[index.key_name], _.get(index.sort_key_name or "")) for _ in item_keys]
+            ).difference((_[index.key_name], _.get(index.sort_key_name or "")) for _ in items)
 
             raise DBReadException(f"Could not find items for {missing_keys}")
         entries = [self.build_entry(_, partial=partial) for _ in items]
@@ -704,7 +706,7 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         e_msg = f"{self.table_name} - Delete failed for the following primary key: {key}"
         try:
             deleted_attributes = table_delete_item(
-                table_name=self.table_name, key=key, return_values="ALL_OLD"
+                table_name=self.table_name, key=key, return_values="ALL_OLD"  # type: ignore[arg-type] # expected type more general than specified here
             )
 
             if not deleted_attributes:

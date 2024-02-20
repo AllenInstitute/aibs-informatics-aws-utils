@@ -225,7 +225,7 @@ class MountPointConfiguration:
     def as_env_vars(self, name: Optional[str] = None) -> Dict[str, str]:
         """Converts the mount point configuration to environment variables."""
         if self.access_point and self.access_point.get("AccessPointId"):
-            mount_point_id = self.access_point.get("AccessPointId")
+            mount_point_id = self.access_point["AccessPointId"]  # type: ignore  # pylance complains even though we checked
         else:
             mount_point_id = self.file_system["FileSystemId"]
 

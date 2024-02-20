@@ -33,7 +33,10 @@ class ExpressionComponentsBase:
     @cached_property
     def expression_attribute_values__serialized(self) -> Dict[str, Dict[str, Any]]:
         serializer = TypeSerializer()
-        return {k: serializer.serialize(v) for k, v in self.expression_attribute_values.items()}
+        return {
+            k: cast(Dict[str, Any], serializer.serialize(v))
+            for k, v in self.expression_attribute_values.items()
+        }
 
 
 @dataclass

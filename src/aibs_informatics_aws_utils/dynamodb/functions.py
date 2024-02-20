@@ -61,15 +61,15 @@ def table_put_item(
 
 
 def table_get_item(
-    table_name: str, key: Mapping[str, Any], attrs: str = None
+    table_name: str, key: Mapping[str, Any], attrs: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     table = table_as_resource(table_name)
-    props: GetItemInputRequestTypeDef = {"Key": key, "ReturnConsumedCapacity": "NONE"}
+    props: GetItemInputRequestTypeDef = {"Key": key, "ReturnConsumedCapacity": "NONE"}  # type: ignore  # we modify use of this type (no table name is needed here)
 
     if attrs is not None:
         props["ProjectionExpression"] = attrs
 
-    response = table.get_item(**props)
+    response = table.get_item(**props)  # type: ignore  # pylance complains about extra fields
 
     logger.info("Response from table.get_item: %s", response)
 
@@ -79,8 +79,8 @@ def table_get_item(
 def table_get_items(
     table_name: str,
     keys: List[Mapping[str, Any]],
-    attrs: str = None,
-    region: str = None,
+    attrs: Optional[str] = None,
+    region: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     db = get_dynamodb_client(region=region)
     serializer = TypeSerializer()
@@ -183,7 +183,7 @@ def table_query(
     key_condition_expression: ConditionBase,
     index_name: Optional[str] = None,
     filter_expression: Optional[ConditionBase] = None,
-    region: str = None,
+    region: Optional[str] = None,
     consistent_read: bool = False,
 ) -> List[Dict[str, Any]]:
     """Query a table
@@ -252,7 +252,7 @@ def table_query(
     items: List[Dict[str, Any]] = []
     paginator = db.get_paginator("query")
     logger.info(f"Performing DB 'query' on {table.name} with following parameters: {db_request}")
-    for i, response in enumerate(paginator.paginate(**db_request)):
+    for i, response in enumerate(paginator.paginate(**db_request)):  # type: ignore  # pylance complains about extra fields
         new_items = response.get("Items", [])
         items.extend(new_items)
         logger.debug(f"Iter #{i+1}: item count from table. Query: {len(new_items)}")
@@ -266,7 +266,7 @@ def table_scan(
     table_name: str,
     index_name: Optional[str] = None,
     filter_expression: Optional[ConditionBase] = None,
-    region: str = None,
+    region: Optional[str] = None,
     consistent_read: bool = False,
 ) -> List[Dict[str, Any]]:
     """Scan a table
@@ -319,7 +319,7 @@ def table_scan(
     items: List[Dict[str, Any]] = []
     paginator = db.get_paginator("scan")
     logger.info(f"Performing DB 'scan' on {table.name} with following parameters: {db_request}")
-    for i, response in enumerate(paginator.paginate(**db_request)):
+    for i, response in enumerate(paginator.paginate(**db_request)):  # type: ignore  # pylance complains about extra fields
         new_items = response.get("Items", [])
         items.extend(new_items)
         logger.debug(f"Iter #{i+1}: item count from table. Scan: {len(new_items)}")
@@ -339,7 +339,9 @@ def table_get_key_schema(table_name: str) -> Dict[str, str]:
     return {k["KeyType"]: k["AttributeName"] for k in table.key_schema}
 
 
-def execute_partiql_statement(statement: str, region: str = None) -> List[Dict[str, Any]]:
+def execute_partiql_statement(
+    statement: str, region: Optional[str] = None
+) -> List[Dict[str, Any]]:
     db = get_dynamodb_client(region=region)
 
     response = db.execute_statement(Statement=statement)
@@ -351,7 +353,7 @@ def execute_partiql_statement(statement: str, region: str = None) -> List[Dict[s
     return results
 
 
-def table_as_resource(table: str, region: str = None):
+def table_as_resource(table: str, region: Optional[str] = None):
     """Helper method to get the table as a resource for given env_label
     if provided.
     """

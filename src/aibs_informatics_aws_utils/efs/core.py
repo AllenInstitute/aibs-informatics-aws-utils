@@ -69,7 +69,7 @@ def list_efs_file_systems(
 
     file_systems: List[FileSystemDescriptionTypeDef] = []
     paginator_kwargs = remove_null_values(dict(FileSystemId=file_system_id))
-    for results in paginator.paginate(**paginator_kwargs):
+    for results in paginator.paginate(**paginator_kwargs):  # type: ignore
         for fs in results["FileSystems"]:
             if name and fs.get("Name") != name:
                 continue
@@ -159,12 +159,12 @@ def list_efs_access_points(
 
     for fs_id in file_system_ids:
         response = efs.describe_access_points(
-            **remove_null_values(dict(AccessPointId=access_point_id, FileSystemId=fs_id))
+            **remove_null_values(dict(AccessPointId=access_point_id, FileSystemId=fs_id))  # type: ignore
         )
         access_points.extend(response["AccessPoints"])
         while response.get("NextToken"):
             response = efs.describe_access_points(
-                **remove_null_values(
+                **remove_null_values(  # type: ignore
                     dict(
                         AccessPointId=access_point_id,
                         FileSystemId=fs_id,
