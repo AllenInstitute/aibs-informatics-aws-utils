@@ -13,7 +13,17 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Generic, Literal, Optional, Pattern, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Generic,
+    Literal,
+    Optional,
+    Pattern,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import boto3
 from aibs_informatics_core.models.aws.core import AWSRegion
@@ -22,6 +32,7 @@ from aibs_informatics_core.utils.decorators import cache
 from boto3 import Session
 from boto3.resources.base import ServiceResource
 from botocore.client import BaseClient, ClientError
+from botocore.session import Session as BotocoreSession
 
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_apigateway import APIGatewayClient
@@ -78,8 +89,13 @@ logger = logging.getLogger(__name__)  # type: logging.Logger
 AWS_REGION_VAR = "AWS_REGION"
 
 
-def get_session(session: Optional[Session] = None) -> Session:
-    return session or Session()
+def get_session(session: Optional[Union[Session, BotocoreSession]] = None) -> Session:
+    if not session:
+        return Session()
+    elif isinstance(session, BotocoreSession):
+        return Session(botocore_session=session)
+    else:
+        return session
 
 
 def get_region(region: Optional[str] = None) -> str:
