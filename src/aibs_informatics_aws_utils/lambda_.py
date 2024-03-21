@@ -59,7 +59,7 @@ def call_lambda_function_url(
     headers: Optional[dict] = None,
     auth: Optional[AuthBase] = None,
     **request_kwargs,
-) -> dict | str | None:
+) -> Union[dict, str, None]:
     if LambdaFunctionName.is_valid(function_name):
         function_url = get_lambda_function_url(LambdaFunctionName(function_name), region=region)
         if function_url is None:
@@ -106,3 +106,4 @@ def call_lambda_function_url(
             return response.text
     else:
         response.raise_for_status()
+        return None
