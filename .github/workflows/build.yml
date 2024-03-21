@@ -3,8 +3,12 @@ name: Build and Test
 on:
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - '**/_version.py'
   push:
     branches: [ main ]
+    paths-ignore:
+      - '**/_version.py'
 
 jobs:
   test:
@@ -14,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -23,11 +27,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
       - name: Set up AllenInstitute Repo Authorization
-        uses: ./.github/actions/setup-ai-github-urls
+        uses: ./.github/actions/configure-org-repo-authorization
         with:
           token: ${{ secrets.AI_PACKAGES_TOKEN }}
           ssh_private_key: ${{ secrets.AIBSGITHUB_PRIVATE_KEY }}
       - name: Run Release
-        shell: bash
         run: |
           make release
+        shell: bash

@@ -11,10 +11,9 @@ build-backend = "setuptools.build_meta"
 # -----------------------------------------------------------------------------
 [project]
 name = "aibs-informatics-aws-utils"
-version = "0.0.1"
 description = "Library of AWS utility code for informatics projects at the Allen Institute for Brain Science"
 readme = "README.md"
-# dynamic = [ "version"]
+dynamic = [ "version"]
 requires-python = ">=3.9"
 
 dependencies = [
@@ -34,6 +33,9 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "*" = ['py.typed']
+
+[tool.setuptools.dynamic]
+version = {attr = "aibs_informatics_aws_utils._version.__version__"}
 
 # -----------------------------------------------------------------------------
 ##  Pyright Configurations
