@@ -5,11 +5,12 @@ from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 from botocore.compat import parse_qsl, urlparse
 from botocore.session import Session
+from requests.auth import AuthBase
 
 from aibs_informatics_aws_utils.core import get_session
 
 
-class IamAWSRequestsAuth(requests.auth.AuthBase):
+class IamAWSRequestsAuth(AuthBase):
     """
     IAM authorizer.
 
@@ -24,8 +25,12 @@ class IamAWSRequestsAuth(requests.auth.AuthBase):
 
     def __init__(self, session: Optional[Session] = None, service_name: str = "execute-api"):
         self.boto3_session = get_session(session)
+        credentials = self.boto3_session.get_credentials()
+        if not credentials:
+            raise ValueError("No AWS credentials found")
+
         self.sigv4 = SigV4Auth(
-            credentials=self.boto3_session.get_credentials().get_frozen_credentials(),
+            credentials=credentials.get_frozen_credentials(),
             service_name=service_name,
             region_name=self.boto3_session.region_name,
         )
