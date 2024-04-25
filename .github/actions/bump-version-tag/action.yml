@@ -70,7 +70,7 @@ runs:
         patch=$(echo $new_version | cut -d. -f3)
         increment=0
         version_type=${{ steps.bump-version-tag.outputs.part }}
-        previous_version=$(git describe --tags --abbrev=0 | sed 's/^v//') 
+        previous_version=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//') 
 
         echo "major=$major" >> $GITHUB_OUTPUT
         echo "minor=$minor" >> $GITHUB_OUTPUT
