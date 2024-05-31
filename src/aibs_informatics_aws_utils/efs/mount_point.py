@@ -237,14 +237,27 @@ class MountPointConfiguration:
         mount_point: StrPath,
         access_point: Optional[Union[str, AccessPointDescriptionTypeDef]] = None,
         file_system: Optional[Union[str, FileSystemDescriptionTypeDef]] = None,
+        access_point_tags: Optional[Dict[str, str]] = None,
+        file_system_tags: Optional[Dict[str, str]] = None,
     ) -> MountPointConfiguration:
         """Creates a new config from the given mount point and access point or file system.
 
+        Important: Must provide either access point or file system.
+
         Args:
             mount_point (StrPath): Intended mount point of the EFS file system on the host.
-            access_point (Optional[Union[str, AccessPointDescriptionTypeDef]]): Identifier of the access point or the access point description. If specified as a string, can be either the access point id or name. Defaults to None.
-            file_system (Optional[Union[str, FileSystemDescriptionTypeDef]]): Identifier of the file system or the file system description. If specified as a string, can be either the file system id or name. Defaults to None.
-
+            access_point (Optional[Union[str, AccessPointDescriptionTypeDef]]):
+                Identifier of the access point or the access point description.
+                If specified as a string, can be either the access point id or name.
+                Defaults to None.
+            file_system (Optional[Union[str, FileSystemDescriptionTypeDef]]):
+                Identifier of the file system or the file system description.
+                If specified as a string, can be either the file system id or name.
+                Defaults to None.
+            access_point_tags (Optional[Dict[str, str]]): Tags to filter the access point.
+                Defaults to None.
+            file_system_tags (Optional[Dict[str, str]]): Tags to filter the file system.
+                Defaults to None.
         Raises:
             ValueError: if neither access point nor file system is provided.
 
@@ -263,7 +276,9 @@ class MountPointConfiguration:
                 if FileSystemId.is_valid(file_system)
                 else (None, file_system)
             )
-            file_system = get_efs_file_system(name=fs_name, file_system_id=fs_id)
+            file_system = get_efs_file_system(
+                name=fs_name, file_system_id=fs_id, tags=file_system_tags
+            )
             file_system_id = file_system["FileSystemId"]
             logger.info(f"Resolved file system id {file_system_id}")
 
@@ -279,6 +294,7 @@ class MountPointConfiguration:
                 access_point_name=ap_name,
                 access_point_id=ap_id,
                 file_system_id=file_system_id,
+                access_point_tags=access_point_tags,
             )
             access_point_id = access_point.get("AccessPointId")
             logger.info(f"Resolved access point id {access_point_id}")
