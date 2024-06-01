@@ -10,7 +10,7 @@ __all__ = [
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
@@ -144,7 +144,7 @@ def list_efs_access_points(
     """
     efs = get_efs_client()
 
-    file_system_ids: List[Optional[str]] = []
+    file_system_ids: List[str] = []
     if file_system_id:
         file_system_ids.append(file_system_id)
     elif file_system_name or file_system_tags:
@@ -152,27 +152,28 @@ def list_efs_access_points(
             file_system_id=file_system_id, name=file_system_name, tags=file_system_tags
         )
         file_system_ids.extend(map(lambda _: _["FileSystemId"], file_systems))
-    else:
-        file_system_ids.append(None)
 
     access_points: List[AccessPointDescriptionTypeDef] = []
 
-    for fs_id in file_system_ids:
+    if access_point_id or not file_system_ids:
         response = efs.describe_access_points(
-            **remove_null_values(dict(AccessPointId=access_point_id, FileSystemId=fs_id))  # type: ignore
+            **remove_null_values(dict(AccessPointId=access_point_id))  # type: ignore
         )
-        access_points.extend(response["AccessPoints"])
-        while response.get("NextToken"):
-            response = efs.describe_access_points(
-                **remove_null_values(  # type: ignore
-                    dict(
-                        AccessPointId=access_point_id,
-                        FileSystemId=fs_id,
-                        NextToken=response["NextToken"],
-                    )
-                )
-            )
+        # If file_system_ids is empty, we want to include all access points. Otherwise,
+        # we only want to include access points that belong to the file systems
+        # in file_system_ids.
+        for access_point in response["AccessPoints"]:
+            if not file_system_ids or access_point.get("FileSystemId") in file_system_ids:
+                access_points.append(access_point)
+    else:
+        for fs_id in file_system_ids:
+            response = efs.describe_access_points(FileSystemId=fs_id)
             access_points.extend(response["AccessPoints"])
+            while response.get("NextToken"):
+                response = efs.describe_access_points(
+                    FileSystemId=fs_id, NextToken=response["NextToken"]
+                )
+                access_points.extend(response["AccessPoints"])
 
     filtered_access_points: List[AccessPointDescriptionTypeDef] = []
 
@@ -227,13 +228,13 @@ def get_efs_access_point(
     if len(access_points) > 1:
         raise ValueError(
             f"Found more than one access points ({len(access_points)}) "
-            f"based on access point filters (id={access_point_id}, name={access_point_id}, tags={access_point_tags}) "
+            f"based on access point filters (id={access_point_id}, name={access_point_name}, tags={access_point_tags}) "
             f"and on file system filters (id={file_system_id}, name={file_system_name}, tags={file_system_tags}) "
         )
     elif len(access_points) == 0:
         raise ValueError(
             f"Found no access points "
-            f"based on access point filters (id={access_point_id}, name={access_point_id}, tags={access_point_tags}) "
+            f"based on access point filters (id={access_point_id}, name={access_point_name}, tags={access_point_tags}) "
             f"and on file system filters (id={file_system_id}, name={file_system_name}, tags={file_system_tags}) "
         )
     return access_points[0]

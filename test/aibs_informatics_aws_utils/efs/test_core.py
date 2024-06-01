@@ -60,6 +60,24 @@ class EFSTests(EFSTestsBase):
         self.assertEqual(len(access_points), 1)
         self.assertEqual(access_points[0].get("AccessPointId"), access_point_id1)
 
+    def test__list_efs_access_points__all_filters_provided(self):
+        file_system_id = self.create_file_system("fs1", env="dev")
+        access_point_id1 = self.create_access_point(
+            file_system_id=file_system_id, access_point_name="ap1", env="dev"
+        )
+        access_point_id2 = self.create_access_point(
+            file_system_id=file_system_id, access_point_name="ap2", env="prod"
+        )
+        access_points = list_efs_access_points(
+            file_system_id=file_system_id,
+            file_system_name="fs1",
+            access_point_id=access_point_id1,
+            access_point_name="ap1",
+            access_point_tags=dict(env="dev"),
+        )
+        self.assertEqual(len(access_points), 1)
+        self.assertEqual(access_points[0].get("AccessPointId"), access_point_id1)
+
     def test__list_efs_access_points__filters_based_on_name(self):
         file_system_id = self.create_file_system("fs1", env="dev")
         access_point_id1 = self.create_access_point(
