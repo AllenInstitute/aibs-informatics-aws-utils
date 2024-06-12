@@ -57,7 +57,8 @@ class DataSyncOperations(LoggingMixin):
             destination_path=destination_path,
             transfer_config=self.s3_transfer_config,
             config=self.botocore_config,
-            force=False,
+            force=self.config.force,
+            size_only=self.config.size_only,
             delete=True,
         )
         if not self.config.retain_source_data:
@@ -93,7 +94,8 @@ class DataSyncOperations(LoggingMixin):
             destination_path=destination_path,
             transfer_config=self.s3_transfer_config,
             config=self.botocore_config,
-            force=False,
+            force=self.config.force,
+            size_only=self.config.size_only,
             delete=True,
         )
 
@@ -131,7 +133,8 @@ class DataSyncOperations(LoggingMixin):
             source_path_prefix=source_path_prefix,
             transfer_config=self.s3_transfer_config,
             config=self.botocore_config,
-            force=False,
+            force=self.config.force,
+            size_only=self.config.size_only,
             delete=True,
         )
         if not self.config.retain_source_data:
@@ -195,21 +198,25 @@ def sync_data(
     max_concurrency: int = 10,
     retain_source_data: bool = True,
     require_lock: bool = False,
+    force: bool = False,
+    size_only: bool = False,
 ):
     request = DataSyncRequest(
         source_path=source_path,
         destination_path=destination_path,
-        source_path_prefix=source_path_prefix,
+        source_path_prefix=S3KeyPrefix(source_path_prefix) if source_path_prefix else None,
         max_concurrency=max_concurrency,
         retain_source_data=retain_source_data,
         require_lock=require_lock,
+        force=force,
+        size_only=size_only,
     )
     return DataSyncOperations.sync_request(request=request)
 
 
 def refresh_local_path__mtime(path: Path, min_mtime: Union[int, float]):
     paths = find_all_paths(path, include_dirs=False, include_files=True)
-    for path in paths:
-        path_stats = os.stat(path)
+    for subpath in paths:
+        path_stats = os.stat(subpath)
         if path_stats.st_mtime < min_mtime:
-            os.utime(path, times=(path_stats.st_atime, min_mtime))
+            os.utime(subpath, times=(path_stats.st_atime, min_mtime))
