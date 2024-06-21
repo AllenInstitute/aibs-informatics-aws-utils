@@ -688,7 +688,7 @@ def process_transfer_requests(
     """
     transfer_responses = []
 
-    for request in transfer_requests:
+    for i, request in enumerate(transfer_requests):
         try:
             if isinstance(request, S3CopyRequest):
                 copy_s3_object(
@@ -729,6 +729,7 @@ def process_transfer_requests(
                         **kwargs,
                     )
             transfer_responses.append(S3TransferResponse(request, False))
+            logger.info(f"Processed s3 transfer request {i + 1} of {len(transfer_requests)}")
         except Exception as e:
             msg = f"Failed to copy {request.source_path} to {request.destination_path}: {e}"
             if not suppress_errors:
@@ -1046,7 +1047,6 @@ def should_sync(
                 dest_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
             )
     else:
-        logger.warning(f"Destination path {destination_path} does not exist as a file or object.")
         return True
 
     if isinstance(source_path, S3URI) and is_object(source_path):
