@@ -198,6 +198,11 @@ class BaseFileSystem:
         size_bytes_exceeding_obj_nodes = []
 
         partitioned_nodes: List[Node] = []
+        logger.info(
+            f"Partitioning nodes with size_bytes_limit={size_bytes_limit} "
+            f"and object_count_limit={object_count_limit}"
+        )
+
         while unchecked_nodes:
             unchecked_node = unchecked_nodes.pop()
             if (size_bytes_limit and unchecked_node.size_bytes > size_bytes_limit) or (
@@ -219,6 +224,7 @@ class BaseFileSystem:
                 raise ValueError(msg)
             logger.warning(msg)
             partitioned_nodes.extend(size_bytes_exceeding_obj_nodes)
+        logger.info(f"Partitioned {len(partitioned_nodes)} nodes.")
         return partitioned_nodes
 
     @classmethod
@@ -326,7 +332,7 @@ class S3FileSystem(BaseFileSystem):
         return s3_root
 
 
-def get_file_system(path: Optional[Union[str, Path]]) -> BaseFileSystem:
+def get_file_system(path: Union[str, Path]) -> BaseFileSystem:
     if isinstance(path, str) and S3URI.is_valid(path):
         return S3FileSystem.from_path(path)
     elif isinstance(path, str) and EFSPath.is_valid(path):
