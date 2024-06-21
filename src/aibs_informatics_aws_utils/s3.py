@@ -729,7 +729,7 @@ def process_transfer_requests(
                         **kwargs,
                     )
             transfer_responses.append(S3TransferResponse(request, False))
-            self.logger.info(f"Processed s3 transfer request {i + 1} of {len(transfer_requests)}")
+            logger.info(f"Processed s3 transfer request {i + 1} of {len(transfer_requests)}")
         except Exception as e:
             msg = f"Failed to copy {request.source_path} to {request.destination_path}: {e}"
             if not suppress_errors:
