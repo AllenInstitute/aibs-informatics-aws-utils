@@ -18,7 +18,7 @@ requires-python = ">=3.9"
 
 dependencies = [
     "boto3~=1.26.49",
-    "aibs-informatics-core @ git+ssh://git@github.com/AllenInstitute/aibs-informatics-core.git@main",
+    "aibs-informatics-core @ git+ssh://git@github.com/AllenInstitute/aibs-informatics-core.git@feature/update-batch-data-sync-models",
 ]
 
 [project.optional-dependencies]
