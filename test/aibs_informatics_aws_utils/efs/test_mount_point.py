@@ -21,6 +21,10 @@ from aibs_informatics_aws_utils.efs import (
 
 @mock_sts
 class MountPointConfigurationTests(EFSTestsBase):
+    def setUp(self) -> None:
+        super().setUp()
+        detect_mount_points.cache_clear()
+
     def setUpEFS(self, *access_points: Tuple[str, Path], file_system_name: Optional[str] = None):
         self.create_file_system(file_system_name)
         for access_point_name, access_point_path in access_points:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from functools import cache
 
 __all__ = [
     "MountPointConfiguration",
@@ -375,6 +376,7 @@ class MountPointConfiguration:
         )
 
 
+@cache
 def detect_mount_points() -> List[MountPointConfiguration]:
     mount_points: List[MountPointConfiguration] = []
 

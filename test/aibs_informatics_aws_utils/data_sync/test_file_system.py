@@ -27,6 +27,7 @@ from aibs_informatics_aws_utils.data_sync.file_system import (
     S3FileSystem,
 )
 from aibs_informatics_aws_utils.efs import MountPointConfiguration
+from aibs_informatics_aws_utils.efs.mount_point import detect_mount_points
 
 
 def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3URI:
@@ -282,6 +283,10 @@ class LocalFileSystemTests(BaseTest):
 
 @mock_sts
 class EFSFileSystemTests(EFSTestsBase):
+    def setUp(self) -> None:
+        super().setUp()
+        detect_mount_points.cache_clear()
+
     def setUpEFSFileSystem(
         self, name: str, access_point_path: Optional[Union[str, Path]] = None
     ) -> Tuple[Path, EFSPath]:
