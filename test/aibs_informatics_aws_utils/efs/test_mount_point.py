@@ -392,7 +392,7 @@ class MountPointConfigurationTests(EFSTestsBase):
         self,
         mount_point: Union[Path, str],
         access_point_name: Optional[str],
-        access_point_path: Union[Path, str],
+        access_point_path: Optional[Union[Path, str]],
         file_system_name: Optional[str] = None,
         create: bool = True,
     ) -> MountPointConfiguration:

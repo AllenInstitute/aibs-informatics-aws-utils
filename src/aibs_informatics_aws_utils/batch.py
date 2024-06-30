@@ -262,7 +262,7 @@ class BatchJobBuilder:
     )
     mount_points: List[MountPointTypeDef] = field(default_factory=list)
     volumes: List[VolumeTypeDef] = field(default_factory=list)
-
+    privileged: bool = field(default=False)
     env_base: EnvBase = field(default_factory=EnvBase.from_env)
 
     def __post_init__(self):
@@ -279,6 +279,7 @@ class BatchJobBuilder:
             resourceRequirements=self._normalized_resource_requirements(),
             mountPoints=self.mount_points,
             volumes=self.volumes,
+            privileged=self.privileged,
         )
 
     @property
