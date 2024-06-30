@@ -790,10 +790,10 @@ class ECRRepositoryTests(ECRTestBase):
         self.assertEqual(resolve_image_uri(repo.repository_name), image1.uri)
         self.assertEqual(resolve_image_uri(repo.uri), image1.uri)
 
-        # wait for 1 second to ensure that the image pushed at time is different
+        # wait for 1.1 seconds to ensure that the image pushed at time is different
         # Moto does not support time resolution less than 1 second
         sleep(
-            (image1.image_pushed_at + datetime.timedelta(seconds=1)).timestamp()
+            (image1.image_pushed_at + datetime.timedelta(seconds=1.5)).timestamp()
             - datetime.datetime.now().timestamp()
         )
         image2 = self.put_image(repo.repository_name, image_tag="v2", seed=234)
