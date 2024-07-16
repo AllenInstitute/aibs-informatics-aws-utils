@@ -400,8 +400,8 @@ class S3Tests(AwsBaseTest):
         upload_path(previous_file, s3_path)
         self.assertTrue(is_object(s3_path))
         with self.assertRaises(Exception):
-            download_s3_path(s3_path, existing_file, exist_ok=False)
-        download_s3_path(s3_path, existing_file, exist_ok=True)
+            download_s3_path(s3_path, existing_file, force=False, exist_ok=False)
+        download_s3_path(s3_path, existing_file, force=False, exist_ok=True)
         download_s3_path(s3_path, non_existing_file, exist_ok=False)
         self.assertEqual(existing_file.read_text(), previous_file.read_text())
         self.assertEqual(non_existing_file.read_text(), previous_file.read_text())
@@ -1062,6 +1062,31 @@ class S3Tests(AwsBaseTest):
         assert check_paths_in_sync(source_path, destination_s3_path2) is False
         assert check_paths_in_sync(source_s3_path, destination_path2) is False
         assert check_paths_in_sync(source_s3_path, destination_s3_path2) is False
+
+    def test__check_paths_in_sync__handles_sorting_issues__folders_same(self):
+        source_path = self.tmp_path()
+        (source_path / "a.txt").write_text("hello")
+        (source_path / "a").mkdir()
+        (source_path / "a" / "b.txt").write_text("again")
+
+        source_s3_path = self.get_s3_path("source")
+        self.put_object(key="source/a.txt", content="hello")
+        self.put_object(key="source/a/b.txt", content="again")
+
+        destination_path = self.tmp_path()
+        (destination_path / "a.txt").write_text("hello")
+        (destination_path / "a").mkdir()
+        (destination_path / "a" / "b.txt").write_text("again")
+
+        destination_s3_path = self.get_s3_path("destination")
+        self.put_object(key="destination/a.txt", content="hello")
+        self.put_object(key="destination/a/b.txt", content="again")
+
+        # Should succeed
+        assert check_paths_in_sync(source_path, destination_path) is True
+        assert check_paths_in_sync(source_path, destination_s3_path) is True
+        assert check_paths_in_sync(source_s3_path, destination_path) is True
+        assert check_paths_in_sync(source_s3_path, destination_s3_path) is True
 
 
 @fixture(scope="function")
