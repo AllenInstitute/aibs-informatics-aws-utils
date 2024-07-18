@@ -275,7 +275,7 @@ def download_s3_object(
     if force or should_sync(
         source_path=s3_path, destination_path=local_path, size_only=size_only, **kwargs
     ):
-        if local_path.exists() and not exist_ok:
+        if local_path.exists() and not exist_ok and not force:
             raise ValueError(f"Unable to download S3 object to {local_path}. Path exists.")
         elif local_path.exists() and local_path.is_dir() and exist_ok:
             logger.warning(
@@ -1109,36 +1109,48 @@ def check_paths_in_sync(
     """
     source_paths: Union[List[Path], List[S3URI]] = (
         (
-            sorted(map(Path, find_paths(source_path, include_dirs=False)))
+            [Path(p) for p in sorted(find_paths(source_path, include_dirs=False))]
             if source_path.is_dir()
             else [source_path]
         )
         if isinstance(source_path, Path)
         else (
-            list_s3_paths(source_path, **kwargs) if not is_object(source_path) else [source_path]
+            sorted(list_s3_paths(source_path, **kwargs))  # type: ignore[arg-type]
+            if not is_object(source_path)
+            else [source_path]  # type: ignore
         )
     )
     destination_paths: Union[List[Path], List[S3URI]] = (
         (
-            sorted(map(Path, find_paths(destination_path, include_dirs=False)))
+            list(map(Path, sorted(find_paths(destination_path, include_dirs=False))))
             if destination_path.is_dir()
             else [destination_path]
         )
         if isinstance(destination_path, Path)
         else (
-            list_s3_paths(destination_path, **kwargs)
+            sorted(list_s3_paths(destination_path, **kwargs))  # type: ignore[arg-type]
             if not is_object(destination_path)
-            else [destination_path]
+            else [destination_path]  # type: ignore
         )
     )
     if len(source_paths) == 0:
         raise ValueError(f"Source path {source_path} does not exist")
     if len(source_paths) != len(destination_paths):
+        logger.info(
+            "Source and destination paths have different number of paths. "
+            f"Source path {source_path} has {len(source_paths)} paths, "
+            f"destination path {destination_path} has {len(destination_paths)} paths"
+        )
         return False
     for sp, dp in zip(source_paths, destination_paths):
         if str(sp).removeprefix(str(source_path)) != str(dp).removeprefix(str(destination_path)):
+            logger.info(
+                f"Source path {sp} (relative={str(sp).removeprefix(str(source_path))}) does not match "
+                f"destination path {dp} (relative={str(dp).removeprefix(str(destination_path))})"
+            )
             return False
         if should_sync(source_path=sp, destination_path=dp, size_only=size_only, **kwargs):
+            logger.info(f"Source path {sp} content does not match destination path {dp}")
             return False
     return True
 
