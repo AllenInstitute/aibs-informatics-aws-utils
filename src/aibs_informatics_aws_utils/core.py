@@ -11,6 +11,7 @@ __all__ = [
 ]
 import logging
 import os
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic, Literal, Optional, TypeVar, Union, cast
 
@@ -33,6 +34,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_ecr import ECRClient
     from mypy_boto3_ecs import ECSClient
     from mypy_boto3_efs import EFSClient
+    from mypy_boto3_fsx import FSxClient
     from mypy_boto3_lambda import LambdaClient
     from mypy_boto3_logs import CloudWatchLogsClient
     from mypy_boto3_s3 import S3Client, S3ServiceResource
@@ -54,6 +56,7 @@ else:
     ECRClient = object
     ECSClient = object
     EFSClient = object
+    FSxClient = object
     GetCallerIdentityResponseTypeDef = dict
     LambdaClient = object
     S3Client, S3ServiceResource = object, object
@@ -194,6 +197,7 @@ Clients = Literal[
     "ecr",
     "ecs",
     "efs",
+    "fsx",
     "lambda",
     "logs",
     "s3",
@@ -329,6 +333,7 @@ class AWSService:
     ECR = AWSServiceProvider[ECRClient]("ecr")
     ECS = AWSServiceProvider[ECSClient]("ecs")
     EFS = AWSServiceProvider[EFSClient]("efs")
+    FSX = AWSServiceProvider[FSxClient]("fsx")
     LAMBDA = AWSServiceProvider[LambdaClient]("lambda")
     LOGS = AWSServiceProvider[CloudWatchLogsClient]("logs")
     S3 = AWSServiceAndResourceProvider[S3Client, S3ServiceResource]("s3")
