@@ -251,7 +251,11 @@ def download_s3_object_prefix(
         )
 
 
-@retry((ConnectionClosedError, EndpointConnectionError, ResponseStreamingError))
+@retry(
+    (ConnectionClosedError, EndpointConnectionError, ResponseStreamingError, ClientError),
+    tries=10,
+    backoff=2.0,
+)
 def download_s3_object(
     s3_path: S3URI,
     local_path: Path,
@@ -360,6 +364,7 @@ def upload_folder(
     for source_path in local_paths:
         destination_key = os.path.normpath(s3_path.key + source_path[len(str(local_path)) :])
         destination_path = S3URI.build(bucket_name=s3_path.bucket, key=destination_key)
+        logger.debug(f"Uploading '{source_path}' to '{destination_path}'")
         upload_file(
             local_path=source_path,
             s3_path=destination_path,
@@ -369,10 +374,10 @@ def upload_folder(
             size_only=size_only,
             **kwargs,
         )
-        logger.info(f"Uploaded {len(local_paths)} files to {s3_path}.")
+    logger.info(f"Uploaded {len(local_paths)} files to: {s3_path}")
 
 
-@retry(ResponseStreamingError)
+@retry(ResponseStreamingError, tries=10, backoff=2.0)
 def upload_file(
     local_path: Union[str, Path],
     s3_path: S3URI,
@@ -750,7 +755,7 @@ client_error_code_check__SlowDown: Callable[[Exception], bool] = lambda ex: isin
 ) and client_error_code_check(ex, "SlowDown")
 
 
-@retry(ClientError, [client_error_code_check__SlowDown])
+@retry(ClientError, [client_error_code_check__SlowDown], tries=10, backoff=2.0)
 def copy_s3_object(
     source_path: S3URI,
     destination_path: S3URI,

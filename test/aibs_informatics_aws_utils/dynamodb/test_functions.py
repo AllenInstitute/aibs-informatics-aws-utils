@@ -62,19 +62,19 @@ class DynamoDBTests(AwsBaseTest):
         return get_dynamodb_resource(region=self.DEFAULT_REGION)
 
     def test__table_as_resource__works(self):
-        with moto.mock_dynamodb():
+        with moto.mock_aws():
             self.setUpTable()
             table = table_as_resource(self.DEFAULT_TABLE_NAME)
             self.assertEqual(table.table_name, self.DEFAULT_TABLE_NAME)
 
     def test__table_get_key_schema__returns_key_schema(self):
-        with moto.mock_dynamodb():
+        with moto.mock_aws():
             self.setUpTable()
             key_schema = table_get_key_schema(self.DEFAULT_TABLE_NAME)
             self.assertEqual(key_schema, {"HASH": "key"})
 
     def test__table_put_item__does_not_put_on_condition(self):
-        with moto.mock_dynamodb():
+        with moto.mock_aws():
             table_name = self.setUpTable()
             table_put_item(table_name, {"key": "k1", "my_attr": False})
             self.assertDictEqual(
@@ -127,7 +127,7 @@ def mock_dynamodb_fixture(aws_credentials_fixture, request):
     table_default_items = request.param.get("table_default_items", default_items)
     index_updates = request.param.get("table_index_updates", default_index_updates)
 
-    with moto.mock_dynamodb():
+    with moto.mock_aws():
         mock_table_name = "mock-table"
         mock_client = boto3.client("dynamodb")
         mock_client.create_table(

@@ -21,7 +21,7 @@ class SSMTests(AwsBaseTest):
         return get_ssm_client()
 
     def test__get_ssm_parameter__fetches_valid_param(self):
-        with moto.mock_ssm():
+        with moto.mock_aws():
             ssm = self.ssm_client
             param_name = "my-param-name"
             param_value = "my-value"
@@ -32,7 +32,7 @@ class SSMTests(AwsBaseTest):
             self.assertEqual(param_value, actual_param_value)
 
     def test__get_ssm_parameter__fetches_valid_param_as_dict(self):
-        with moto.mock_ssm():
+        with moto.mock_aws():
             ssm = self.ssm_client
             param_name = "my-param-name"
             param_value = '{"a": 1, "b": 2}'
@@ -43,13 +43,13 @@ class SSMTests(AwsBaseTest):
             self.assertDictEqual(json.loads(param_value), actual_param_value)
 
     def test__get_ssm_parameter__raises_error_on_missing(self):
-        with moto.mock_ssm():
+        with moto.mock_aws():
             param_name = "my-param-name"
             with self.assertRaises(Exception):
                 get_ssm_parameter(param_name)
 
     def test__put_ssm_parameter__sets_valid_param(self):
-        with moto.mock_ssm():
+        with moto.mock_aws():
             ssm = self.ssm_client
             param_name = "my-param-name"
             param_value = "my-value"
@@ -59,7 +59,7 @@ class SSMTests(AwsBaseTest):
             self.assertEqual(param_value, actual_param_value)
 
     def test__has_ssm_parameter__works_properly(self):
-        with moto.mock_ssm():
+        with moto.mock_aws():
             # setup
             ssm = self.ssm_client
 

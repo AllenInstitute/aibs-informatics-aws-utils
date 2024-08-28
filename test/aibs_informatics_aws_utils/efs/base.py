@@ -3,14 +3,14 @@ from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from typing import Dict, Optional, Union
 
 import boto3
-from moto import mock_efs
+import moto
 
 
 class EFSTestsBase(AwsBaseTest):
     def setUp(self) -> None:
         super().setUp()
 
-        self.mock_efs = mock_efs()
+        self.mock_efs = moto.mock_aws()
         self.mock_efs.start()
 
         self.set_aws_credentials()

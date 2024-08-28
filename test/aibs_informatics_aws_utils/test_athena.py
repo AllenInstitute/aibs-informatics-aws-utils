@@ -1,4 +1,4 @@
-from moto import mock_athena, mock_sts
+import moto
 from pytest import fixture, raises
 
 from aibs_informatics_aws_utils.athena import (
@@ -12,13 +12,13 @@ from aibs_informatics_aws_utils.exceptions import AWSError
 
 @fixture(scope="function")
 def athena_client(aws_credentials_fixture):
-    with mock_sts(), mock_athena():
+    with moto.mock_aws():
         athena_client = get_athena_client()
         yield athena_client
 
 
 def test__start_query_execution__works(athena_client):
-    athena_client.create_work_group(Name="test")
+    athena_client.create_work_group(Name="test", Configuration=dict())
 
     query_string = "SELECT * FROM table"
     metadata = start_query_execution(

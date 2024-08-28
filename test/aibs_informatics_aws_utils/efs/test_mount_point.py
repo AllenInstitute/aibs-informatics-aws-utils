@@ -5,7 +5,7 @@ from typing import Optional, Tuple, Union
 from unittest import mock, skip
 
 import boto3
-from moto import mock_batch_simple, mock_ec2, mock_iam, mock_lambda_simple, mock_sts
+import moto
 
 from aibs_informatics_aws_utils.constants.efs import (
     EFS_MOUNT_POINT_ID_VAR,
@@ -19,7 +19,7 @@ from aibs_informatics_aws_utils.efs import (
 )
 
 
-@mock_sts
+@moto.mock_aws(config={"batch": {"use_docker": False}})
 class MountPointConfigurationTests(EFSTestsBase):
     def setUp(self) -> None:
         super().setUp()
@@ -124,8 +124,7 @@ class MountPointConfigurationTests(EFSTestsBase):
         self.assertEqual(actual[0].mount_point, c1.mount_point)
         self.assertEqual(actual[0].access_point_path, c1.access_point_path)
 
-    @mock_iam
-    @mock_lambda_simple
+    @moto.mock_aws(config={"lambda": {"use_docker": False}})
     def test__detect_mount_points__lambda_config_overrides(self):
         c1 = self.get_mount_point(self.tmp_path(), "ap1", "/", "fs1")
         c2 = self.get_mount_point(self.tmp_path(), "ap2", "/b", "fs1")
@@ -200,9 +199,6 @@ class MountPointConfigurationTests(EFSTestsBase):
         self.assertEqual(actual[1].mount_point, c2.mount_point)
         self.assertEqual(actual[1].access_point_path, c2.access_point_path)
 
-    @mock_ec2
-    @mock_iam
-    @mock_batch_simple
     def test__detect_mount_points__batch_job_config_overrides(self):
         c1 = self.get_mount_point(self.tmp_path(), None, None, "fs1")
         c2 = self.get_mount_point(self.tmp_path(), "ap2", "/b", "fs1")

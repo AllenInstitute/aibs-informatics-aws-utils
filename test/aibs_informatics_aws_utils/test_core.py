@@ -64,17 +64,17 @@ class AWSGetterTests(AwsBaseTest):
 
     def test__get_account_id__succeeds(self):
         # moto sets account to be 123456789012
-        with moto.mock_sts() as sts:
+        with moto.mock_aws() as sts:
             self.assertEqual(get_account_id(), self.ACCOUNT_ID)
 
     def test__get_user_id__succeeds(self):
         # moto sets user to be AKIAIOSFODNN7EXAMPLE
-        with moto.mock_sts() as sts:
+        with moto.mock_aws() as sts:
             self.assertEqual(get_user_id(), "AKIAIOSFODNN7EXAMPLE")
 
     def test__get_iam_arn__succeeds(self):
         # moto sets user to be arn:aws:sts::123456789012:user/moto
-        with moto.mock_sts() as sts:
+        with moto.mock_aws() as sts:
             self.assertEqual(get_iam_arn(), "arn:aws:sts::123456789012:user/moto")
 
 
