@@ -1,33 +1,40 @@
 import logging
+import mimetypes
+from email.mime.multipart import MIMEMultipart
+from email.mime.nonmultipart import MIMENonMultipart
+from email.mime.text import MIMEText
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
+from aibs_informatics_core.models.email_address import EmailAddress
 from botocore.exceptions import ClientError
 
 from aibs_informatics_aws_utils.core import AWSService, get_region
 from aibs_informatics_aws_utils.exceptions import AWSError
 
-# from aibs_informatics_aws_utils.models.email_address import EmailAddress
-EmailAddress = str
-
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_ses.type_defs import (
-        SendEmailRequestTypeDef,  # can be used as kwargs: SendEmailRequestTypeDef = {}, ses.send_email(**kwargs)
+        SendEmailRequestRequestTypeDef,  # can be used as kwargs: SendEmailRequestTypeDef = {}, ses.send_email(**kwargs)
     )
     from mypy_boto3_ses.type_defs import (
+        SendRawEmailRequestRequestTypeDef,  # can be used as kwargs: SendRawEmailRequestTypeDef = {}, ses.send_raw_email(**kwargs)
+    )
+    from mypy_boto3_ses.type_defs import (  # 'Request' portion of name is not accidentally repeated; See: https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ses/type_defs/#sendrawemailrequestrequesttypedef
         DestinationTypeDef,
         MessageTagTypeDef,
         MessageTypeDef,
         SendEmailResponseTypeDef,
-        SourceTypeDef,
+        SendRawEmailResponseTypeDef,
     )
 else:
     (
+        SendEmailRequestTypeDef,
+        SendRawEmailRequestTypeDef,
+        SendEmailResponseTypeDef,
         DestinationTypeDef,
         MessageTagTypeDef,
         MessageTypeDef,
-        SendEmailRequestTypeDef,
-        SendEmailResponseTypeDef,
-    ) = (dict, dict, dict, dict, dict)
+    ) = (dict, dict, dict, dict, dict, dict)
 
 
 logger = logging.getLogger(__name__)
@@ -66,7 +73,7 @@ def is_verified(identity: str) -> bool:
         raise AWSError(f"Could not check verification status, error: {e}")
 
 
-def send_email(request: SendEmailRequestTypeDef) -> SendEmailResponseTypeDef:
+def send_email(request: SendEmailRequestRequestTypeDef) -> SendEmailResponseTypeDef:
     logger.info(f"Sending email request: {request}")
     ses = get_ses_client(region=get_region())
 
@@ -86,9 +93,77 @@ def send_simple_email(
     body: str = "",
 ) -> SendEmailResponseTypeDef:
     return send_email(
-        SendEmailRequestTypeDef(
+        SendEmailRequestRequestTypeDef(
             Source=source,
             Destination={"ToAddresses": to_addresses},
             Message={"Subject": {"Data": subject}, "Body": {"Text": {"Data": body}}},
         )
     )
+
+
+def send_raw_email(request: SendRawEmailRequestRequestTypeDef) -> SendRawEmailResponseTypeDef:
+    logger.info(f"Sending email request: {request}")
+    ses = get_ses_client(region=get_region())
+
+    try:
+        response = ses.send_raw_email(**request)
+    except ClientError as e:
+        logger.exception(e.response)
+        raise AWSError(f"Could not send email, error: {e}, {e.response}")
+
+    return response
+
+
+def send_email_with_attachment(
+    source: EmailAddress,
+    to_addresses: Sequence[EmailAddress],
+    subject: str,
+    body: str = "",
+    attachments_paths: Optional[List[Path]] = None,
+) -> SendRawEmailResponseTypeDef:
+    """
+    Args:
+        source: Source email address
+        to_addresses: List of recipient email addresses
+        subject: Email subject
+        body: Email body
+        attachments_paths: List of optional paths to read contents from and attach to the email
+    Returns: `SendEmailResponseTypeDef`
+    """
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = subject
+    msg["From"] = source
+    msg["To"] = ", ".join(to_addresses)
+
+    msg_body = MIMEMultipart("alternative")
+    msg_body.attach(MIMEText(body))
+    msg.attach(msg_body)
+
+    if attachments_paths is not None:
+        for attachments_path in attachments_paths:
+            attachment_obj = _construct_mime_attachment_from_path(path=attachments_path)
+            msg.attach(attachment_obj)
+
+    return send_raw_email(SendRawEmailRequestRequestTypeDef(RawMessage={"Data": msg.as_string()}))
+
+
+def _construct_mime_attachment_from_path(path: Path) -> MIMENonMultipart:
+    """Constructs a MIME attachment from a `Path`"""
+    mimetype, _ = mimetypes.guess_type(url=path)
+
+    if mimetype is None:
+        raise RuntimeError(f"Could not guess the MIME type for the file/object at: {path}")
+
+    maintype, subtype = mimetype.split("/")
+
+    filename = Path(path).name
+
+    with open(path) as f:
+        data = f.read()
+
+    mime_obj = MIMENonMultipart(maintype, subtype)
+    mime_obj.set_payload(data)
+    mime_obj["Content-Type"] = mimetype
+    mime_obj.add_header("Content-Disposition", "attachment", filename=filename)
+
+    return mime_obj
