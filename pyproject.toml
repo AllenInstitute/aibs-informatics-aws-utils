@@ -25,7 +25,7 @@ dependencies = [
 dev = [
     "aibs-informatics-test-resources @ git+ssh://git@github.com/AllenInstitute/aibs-informatics-test-resources.git@main",
     "boto3-stubs[athena,apigateway,batch,ecr,ecs,efs,essential,logs,secretsmanager,ses,sns,ssm,sts,stepfunctions]",
-    "moto[all] ~= 4.0",
+    "moto[all] ~= 5.0",
 ]
 
 [tool.setuptools.packages.find]

@@ -1,6 +1,6 @@
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
-from moto import mock_apigateway, mock_sts
+import moto
 from pytest import raises
 
 from aibs_informatics_aws_utils import apigateway
@@ -14,13 +14,13 @@ class ApiGatewayTests(AwsBaseTest):
 
 
 def test__get_rest_api__fails_if_no_api_found(aws_credentials_fixture):
-    with mock_sts(), mock_apigateway():
+    with moto.mock_aws():
         with raises(ResourceNotFoundError):
             get_rest_api("non-existent-api")
 
 
 def test__get_rest_api__works(aws_credentials_fixture):
-    with mock_sts(), mock_apigateway():
+    with moto.mock_aws():
         apigateway_client = apigateway.get_apigateway_client()
         apigateway_client.create_rest_api(name="test-api")
         api = get_rest_api("test-api")
@@ -28,7 +28,7 @@ def test__get_rest_api__works(aws_credentials_fixture):
 
 
 def test__get_rest_api_endpoint__works(aws_credentials_fixture):
-    with mock_sts(), mock_apigateway():
+    with moto.mock_aws():
         apigateway_client = apigateway.get_apigateway_client()
         apigateway_client.create_rest_api(name="test-api")
         api = get_rest_api("test-api")

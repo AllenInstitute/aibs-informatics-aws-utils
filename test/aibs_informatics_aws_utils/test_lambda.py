@@ -2,7 +2,7 @@ import json
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 import boto3
-from moto import mock_iam, mock_lambda_simple, mock_sts
+import moto
 from pytest import raises
 
 from aibs_informatics_aws_utils.lambda_ import (
@@ -11,7 +11,7 @@ from aibs_informatics_aws_utils.lambda_ import (
 )
 
 
-@mock_sts
+@moto.mock_aws
 class LambdaTests(AwsBaseTest):
     def setUp(self) -> None:
         super().setUp()
@@ -34,8 +34,7 @@ class LambdaTests(AwsBaseTest):
             ),
         )["Role"]["Arn"]
 
-    @mock_iam
-    @mock_lambda_simple
+    @moto.mock_aws(config={"lambda": {"use_docker": False}})
     def test__get_lambda_function_file_systems__no_file_systems(self):
         # Set up lambda
         lambda_client = boto3.client("lambda")
@@ -78,8 +77,7 @@ class LambdaTests(AwsBaseTest):
             actual_file_system_configs = get_lambda_function_file_systems("test")
             self.assertListEqual(actual_file_system_configs, file_system_configs)
 
-    @mock_iam
-    @mock_lambda_simple
+    @moto.mock_aws(config={"lambda": {"use_docker": False}})
     def test__get_lambda_function_url__with_url(self):
         lambda_client = boto3.client("lambda")
         lambda_client.create_function(
@@ -96,8 +94,7 @@ class LambdaTests(AwsBaseTest):
 
         assert get_lambda_function_url("test") == response["FunctionUrl"]
 
-    @mock_iam
-    @mock_lambda_simple
+    @moto.mock_aws(config={"lambda": {"use_docker": False}})
     def test__get_lambda_function_url__handles_no_url(self):
         lambda_client = boto3.client("lambda")
         lambda_client.create_function(
@@ -109,8 +106,7 @@ class LambdaTests(AwsBaseTest):
             Environment={"Variables": {"TEST": "test"}},
         )
 
-    @mock_iam
-    @mock_lambda_simple
+    @moto.mock_aws(config={"lambda": {"use_docker": False}})
     def test__get_lambda_function_url__handles_invalid_function_name(self):
         with raises(ValueError):
             get_lambda_function_url("@#$#$@#$@#$")

@@ -1,13 +1,12 @@
 from test.aibs_informatics_aws_utils.ecr.base import ECRTestBase
 
-from moto import mock_ecr, mock_sts
+import moto
 
 from aibs_informatics_aws_utils.ecr import ECRImageReplicator
 from aibs_informatics_aws_utils.ecr.image_replicator import ReplicateImageRequest
 
 
-@mock_sts
-@mock_ecr
+@moto.mock_aws
 class ECRImageReplicatorTests(ECRTestBase):
     def setUp(self) -> None:
         super().setUp()

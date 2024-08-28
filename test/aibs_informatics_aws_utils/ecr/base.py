@@ -5,8 +5,8 @@ from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from typing import TYPE_CHECKING, List, Optional, Union
 
 import boto3
+import moto
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
-from moto import mock_ecr, mock_sts
 
 from aibs_informatics_aws_utils.core import get_client
 from aibs_informatics_aws_utils.ecr import ECRImage, ECRRepository, ResourceTag
@@ -22,8 +22,7 @@ else:
     ImageTypeDef = dict
 
 
-@mock_sts
-@mock_ecr
+@moto.mock_aws
 class ECRTestBase(AwsBaseTest):
     IMAGE_MANIFEST_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.v2+json"
     IMAGE_MANIFEST_CONFIG_MEDIA_TYPE = "application/vnd.docker.container.image.v1+json"

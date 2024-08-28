@@ -56,7 +56,7 @@ def any_s3_uri(key: str = "key", bucket: str = "bucket") -> S3URI:
     return S3URI.build(bucket, key)
 
 
-@moto.mock_s3
+@moto.mock_aws
 class S3Tests(AwsBaseTest):
     def setUp(self) -> None:
         super().setUp()
@@ -1091,7 +1091,7 @@ class S3Tests(AwsBaseTest):
 
 @fixture(scope="function")
 def s3_bucket_fixture(aws_credentials_fixture, request):
-    with moto.mock_s3():
+    with moto.mock_aws():
         s3 = get_s3_resource()
         s3_bucket = s3.Bucket(request.param)
         s3_bucket.create(CreateBucketConfiguration={"LocationConstraint": "us-west-2"})

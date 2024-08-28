@@ -15,7 +15,7 @@ class SecretsManagerTests(AwsBaseTest):
         return get_secretsmanager_client()
 
     def test__get_secret_value__fetches_valid_param(self):
-        with moto.mock_secretsmanager():
+        with moto.mock_aws():
             sm = self.secretsmanager_client
             name = "my-param-name"
             value = "my-value"
@@ -25,7 +25,7 @@ class SecretsManagerTests(AwsBaseTest):
             self.assertEqual(value, actual)
 
     def test__get_secret_value__fetches_valid_value_as_dict(self):
-        with moto.mock_secretsmanager():
+        with moto.mock_aws():
             sm = self.secretsmanager_client
             name = "my-param-name"
             value = '{"a": 1, "b": 2}'
@@ -36,7 +36,7 @@ class SecretsManagerTests(AwsBaseTest):
             self.assertDictEqual(expected, actual)
 
     def test__get_secret_value__raises_error_on_missing(self):
-        with moto.mock_secretsmanager():
+        with moto.mock_aws():
             name = "my-name"
 
             with self.assertRaises(Exception):

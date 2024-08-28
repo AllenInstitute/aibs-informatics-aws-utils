@@ -11,13 +11,13 @@ from typing import Dict, List, Mapping, Optional, Set, Tuple, Union
 from unittest import mock
 from urllib import parse
 
+import moto
 import pytz
 import requests
 from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3URI, S3PathStats
 from aibs_informatics_core.utils.time import get_current_time
 from aibs_informatics_core.utils.tools.strtools import removeprefix
-from moto import mock_sts
 from pytest import mark, param, raises
 
 from aibs_informatics_aws_utils.data_sync.file_system import (
@@ -281,7 +281,7 @@ class LocalFileSystemTests(BaseTest):
         self.assertSetEqual(expected_node_paths, local_node_paths)
 
 
-@mock_sts
+@moto.mock_aws
 class EFSFileSystemTests(EFSTestsBase):
     def setUp(self) -> None:
         super().setUp()

@@ -118,7 +118,7 @@ def test__check_index_supports_strongly_consistent_read__works():
         check_index_supports_strongly_consistent_read(SimpleIndex.STR_DT_INDEX)
 
 
-@moto.mock_dynamodb
+@moto.mock_aws
 class SimpleTableTests(AwsBaseTest):
     def setUp(self) -> None:
         super().setUp()

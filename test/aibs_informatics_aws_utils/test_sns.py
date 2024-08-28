@@ -1,14 +1,13 @@
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
+import moto
 from aibs_informatics_core.models.aws.sns import SNSTopicArn
-from moto import mock_sns, mock_sts
 
 from aibs_informatics_aws_utils.exceptions import AWSError
 from aibs_informatics_aws_utils.sns import get_sns_client, publish, publish_to_topic
 
 
-@mock_sns
-@mock_sts
+@moto.mock_aws
 class SNSTests(AwsBaseTest):
     def setUp(self) -> None:
         super().setUp()

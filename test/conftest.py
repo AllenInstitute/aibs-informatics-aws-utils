@@ -26,7 +26,7 @@ def aws_credentials_fixture():
 
 @pytest.fixture
 def s3_client_fixture(aws_credentials_fixture):
-    with moto.mock_s3():
+    with moto.mock_aws():
         mock_s3_client = get_s3_client()
         yield mock_s3_client
 

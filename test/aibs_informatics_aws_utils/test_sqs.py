@@ -22,7 +22,7 @@ class SqsTests(AwsBaseTest):
         return get_sqs_client()
 
     def test__delete_from_queue__deletes_from_queue(self):
-        with moto.mock_sqs():
+        with moto.mock_aws():
             # setup
             sqs = self.sqs_client
             queue_name = "test-queue"
@@ -40,7 +40,7 @@ class SqsTests(AwsBaseTest):
             )
 
     def test__send_to_dispatch_queue__succeeds(self):
-        with moto.mock_sqs():
+        with moto.mock_aws():
             sqs = self.sqs_client
             queue_name = f"{self.env_base}-demand_request_queue"
             sqs.create_queue(QueueName=queue_name)
@@ -51,6 +51,6 @@ class SqsTests(AwsBaseTest):
             self.assertEqual(md5(json.dumps(payload).encode()).hexdigest(), response)
 
     def test__send_to_dispatch_queue__fails_targeting_non_existent_queue(self):
-        with moto.mock_sqs(), self.assertRaises(AWSError):
+        with moto.mock_aws(), self.assertRaises(AWSError):
             payload = dict(test="message")
             send_to_dispatch_queue(payload, self.env_base)

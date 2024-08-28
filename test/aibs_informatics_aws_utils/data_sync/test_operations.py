@@ -14,7 +14,7 @@ def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3URI:
     return S3URI.build(bucket, key)
 
 
-@moto.mock_s3
+@moto.mock_aws
 class OperationsTests(AwsBaseTest):
     def setUp(self) -> None:
         super().setUp()

@@ -1,5 +1,5 @@
+import moto
 from aibs_informatics_test_resources import does_not_raise
-from moto import mock_ec2, mock_sts
 from pytest import mark, param, raises
 
 from aibs_informatics_aws_utils.ec2 import (
@@ -111,44 +111,44 @@ def test__network_performance_sort_key__works(network_performance, expected, rai
         assert actual == expected
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_availability_zones__no_args_gets_default_region(aws_credentials_fixture):
     azs = get_availability_zones()
     assert len(set([az[: az.rfind("-")] for az in azs])) == 1
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_availability_zones__all_regions(aws_credentials_fixture):
     azs = get_availability_zones(all_regions=True)
     assert len(set([az[: az.rfind("-")] for az in azs])) > 1
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_availability_zones__filtered_by_region(aws_credentials_fixture):
     azs = get_availability_zones(regions=["us-east-1", "us-west-2"])
     assert len(set([az[: az.rfind("-")] for az in azs])) == 2
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_regions(aws_credentials_fixture):
     regions = get_regions()
     assert "us-east-1" in regions
     assert "us-west-2" in regions
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_types__no_args_gets_all_instance_types(aws_credentials_fixture):
     instance_types = describe_instance_types()
     assert len(instance_types) > 0
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_types__restricts_instance_types(aws_credentials_fixture):
     instance_types = describe_instance_types(instance_types=["t2.micro"])
     assert len(instance_types) == 1
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_types__restricts_instance_types_and_filter(aws_credentials_fixture):
     instance_types = describe_instance_types(
         instance_types=["t2.micro"], filters={"supported-usage-class": ["spot"]}
@@ -156,20 +156,20 @@ def test__describe_instance_types__restricts_instance_types_and_filter(aws_crede
     assert len(instance_types) == 1
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_type_offerings__no_args(aws_credentials_fixture):
     it_offerings = describe_instance_type_offerings()
     assert len(it_offerings) > 0
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_type_offerings__regions_specified(aws_credentials_fixture):
     it_offerings = describe_instance_type_offerings(regions=["us-east-1"])
     assert len(it_offerings) > 0
     assert all([_.get("Location") in ["us-east-1"] for _ in it_offerings])
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_type_offerings__azs_specified(aws_credentials_fixture):
     it_offerings = describe_instance_type_offerings(
         availability_zones=["us-east-1a", "us-west-2a"]
@@ -180,7 +180,7 @@ def test__describe_instance_type_offerings__azs_specified(aws_credentials_fixtur
     assert any([_.get("Location") == "us-west-2a" for _ in it_offerings])
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_type_offerings__regions_override_azs(aws_credentials_fixture):
     it_offerings = describe_instance_type_offerings(
         regions=["us-east-1"], availability_zones=["us-west-2a"]
@@ -189,13 +189,13 @@ def test__describe_instance_type_offerings__regions_override_azs(aws_credentials
     assert all([_.get("Location") == "us-east-1" for _ in it_offerings])
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_types_by_props__no_args(aws_credentials_fixture):
     instance_types = describe_instance_types_by_props()
     assert len(instance_types) > 0
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_types_by_props__all_args(aws_credentials_fixture):
     instance_types = describe_instance_types_by_props(
         architectures=["x86_64"],
@@ -211,7 +211,7 @@ def test__describe_instance_types_by_props__all_args(aws_credentials_fixture):
         assert it.get("ProcessorInfo", {}).get("SupportedArchitectures", []) == ["x86_64"]
 
 
-@mock_ec2
+@moto.mock_aws
 def test__describe_instance_types_by_props__all_args_reduce_to_none(aws_credentials_fixture):
     assert len(describe_instance_types_by_props(vcpu_limits=(5000, None))) == 0
     assert len(describe_instance_types_by_props(vcpu_limits=(None, 0))) == 0
@@ -221,13 +221,13 @@ def test__describe_instance_types_by_props__all_args_reduce_to_none(aws_credenti
     assert len(describe_instance_types_by_props(gpu_limits=(None, -1))) == 0
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_instance_types_by_az__no_args(aws_credentials_fixture):
     its_by_az = get_instance_types_by_az()
     assert len(set([az[:-1] for az in its_by_az.keys()])) == 1
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_instance_types_by_az__regions_specified(aws_credentials_fixture):
     its_by_az = get_instance_types_by_az(regions=["us-east-1", "us-west-2"])
     assert len(set([az[:-1] for az in its_by_az.keys()])) == 2
@@ -235,7 +235,7 @@ def test__get_instance_types_by_az__regions_specified(aws_credentials_fixture):
     assert any([az.startswith("us-west-2") for az in its_by_az.keys()])
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_instance_types_by_az__azs_specified(aws_credentials_fixture):
     its_by_az = get_instance_types_by_az(availability_zones=["us-east-1a", "us-west-2a"])
     assert len(its_by_az) == 2
@@ -243,19 +243,19 @@ def test__get_instance_types_by_az__azs_specified(aws_credentials_fixture):
     assert "us-west-2a" in its_by_az.keys()
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_common_instance_types__no_args(aws_credentials_fixture):
     common_its = get_common_instance_types()
     assert len(common_its) > 0
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_common_instance_types__regions_specified(aws_credentials_fixture):
     common_its = get_common_instance_types(regions=["us-east-1", "us-west-2"])
     assert len(common_its) > 0
 
 
-@mock_ec2
+@moto.mock_aws
 def test__get_instance_types_spot_price__no_args(aws_credentials_fixture):
     spot_price = get_instance_type_spot_price(region="us-west-2", instance_type="t2.micro")
     assert spot_price > 0

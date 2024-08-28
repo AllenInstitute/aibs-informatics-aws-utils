@@ -1,18 +1,13 @@
-import json
 from pathlib import Path
 from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
 from typing import Optional, Tuple, Union
-from unittest import mock, skip
 
-import boto3
 from aibs_informatics_core.models.aws.efs import EFSPath
-from moto import mock_batch_simple, mock_ec2, mock_efs, mock_iam, mock_lambda_simple, mock_sts
 
 from aibs_informatics_aws_utils.constants.efs import (
     EFS_MOUNT_POINT_ID_VAR,
     EFS_MOUNT_POINT_PATH_VAR,
 )
-from aibs_informatics_aws_utils.core import AWSService
 from aibs_informatics_aws_utils.efs import MountPointConfiguration, get_efs_path, get_local_path
 
 

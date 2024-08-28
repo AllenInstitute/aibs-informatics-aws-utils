@@ -7,7 +7,7 @@ from time import sleep
 from typing import TYPE_CHECKING, Tuple
 from unittest import mock
 
-from moto import mock_ecr, mock_sts
+import moto
 from pytest import mark, param, raises
 from requests.exceptions import HTTPError
 
@@ -408,8 +408,7 @@ def test_ECRImageUri_validation(
         assert ecr_image_uri.image_digest == expected_image_digest
 
 
-@mock_sts
-@mock_ecr
+@moto.mock_aws
 class ECRImageTests(ECRTestBase):
     def test__init__with_manifest__does_not_call_ecr_for_info(self):
         repo = self.create_repository("repository_name")
@@ -533,8 +532,7 @@ class ECRImageTests(ECRTestBase):
             image.get_image_config()
 
 
-@mock_sts
-@mock_ecr
+@moto.mock_aws
 class ECRRegistryTests(ECRTestBase):
     def test__get_ecr_login__works(self):
         registry = ECRRegistry(self.ACCOUNT_ID, self.REGION)
@@ -635,8 +633,7 @@ class ECRRegistryTests(ECRTestBase):
         self.assertListEqual(actual, expected)
 
 
-@mock_sts
-@mock_ecr
+@moto.mock_aws
 class ECRRepositoryTests(ECRTestBase):
     def test__from_uri__succeeds(self):
         ecr_repo = ECRRepository(
