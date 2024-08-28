@@ -12,29 +12,32 @@ from botocore.exceptions import ClientError
 from aibs_informatics_aws_utils.core import AWSService, get_region
 from aibs_informatics_aws_utils.exceptions import AWSError
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    # TypeDefs can be used as kwargs:
+    # Example 1: SendEmailRequestTypeDef = {}, ses.send_email(**kwargs)
+    # Example 2: SendRawEmailRequestTypeDef = {}, ses.send_raw_email(**kwargs)
     from mypy_boto3_ses.type_defs import (
-        SendEmailRequestRequestTypeDef,  # can be used as kwargs: SendEmailRequestTypeDef = {}, ses.send_email(**kwargs)
-    )
-    from mypy_boto3_ses.type_defs import (
-        SendRawEmailRequestRequestTypeDef,  # can be used as kwargs: SendRawEmailRequestTypeDef = {}, ses.send_raw_email(**kwargs)
-    )
-    from mypy_boto3_ses.type_defs import (  # 'Request' portion of name is not accidentally repeated; See: https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ses/type_defs/#sendrawemailrequestrequesttypedef
         DestinationTypeDef,
         MessageTagTypeDef,
         MessageTypeDef,
+        SendEmailRequestRequestTypeDef,
         SendEmailResponseTypeDef,
+        SendRawEmailRequestRequestTypeDef,
         SendRawEmailResponseTypeDef,
     )
+
+    # 'Request' portion of name for RequestRequestTypeDefs is not accidentally repeated
+    # See: https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ses/type_defs/#sendrawemailrequestrequesttypedef
 else:
     (
-        SendEmailRequestTypeDef,
-        SendRawEmailRequestTypeDef,
+        SendEmailRequestRequestTypeDef,
         SendEmailResponseTypeDef,
+        SendRawEmailRequestRequestTypeDef,
+        SendRawEmailResponseTypeDef,
         DestinationTypeDef,
         MessageTagTypeDef,
         MessageTypeDef,
-    ) = (dict, dict, dict, dict, dict, dict)
+    ) = (dict, dict, dict, dict, dict, dict, dict)
 
 
 logger = logging.getLogger(__name__)

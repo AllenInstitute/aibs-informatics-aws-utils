@@ -3,16 +3,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import moto
 from aibs_informatics_core.models.email_address import EmailAddress
-from mypy_boto3_ses.type_defs import (
-    SendEmailRequestRequestTypeDef,  # can be used as kwargs: SendEmailRequestTypeDef = {}, ses.send_email(**kwargs)
-)
-from mypy_boto3_ses.type_defs import (
-    SendRawEmailRequestRequestTypeDef,  # can be used as kwargs: SendRawEmailRequestTypeDef = {}, ses.send_raw_email(**kwargs)
-)
 from pytest import raises
 
 from aibs_informatics_aws_utils.exceptions import AWSError
@@ -26,6 +21,15 @@ from aibs_informatics_aws_utils.ses import (
     send_simple_email,
     verify_email_identity,
 )
+
+if TYPE_CHECKING:
+    from mypy_boto3_ses.type_defs import (
+        SendEmailRequestRequestTypeDef,
+        SendRawEmailRequestRequestTypeDef,
+    )
+else:
+    SendEmailRequestRequestTypeDef = dict
+    SendRawEmailRequestRequestTypeDef = dict
 
 
 class SesTests(AwsBaseTest):
