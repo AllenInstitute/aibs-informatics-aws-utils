@@ -360,6 +360,7 @@ def upload_folder(
     for source_path in local_paths:
         destination_key = os.path.normpath(s3_path.key + source_path[len(str(local_path)) :])
         destination_path = S3URI.build(bucket_name=s3_path.bucket, key=destination_key)
+        logger.debug(f"Uploading '{source_path}' to '{destination_path}'")
         upload_file(
             local_path=source_path,
             s3_path=destination_path,
@@ -369,7 +370,7 @@ def upload_folder(
             size_only=size_only,
             **kwargs,
         )
-        logger.info(f"Uploaded {len(local_paths)} files to {s3_path}.")
+    logger.info(f"Uploaded {len(local_paths)} files to: {s3_path}")
 
 
 @retry(ResponseStreamingError)
