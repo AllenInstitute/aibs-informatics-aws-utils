@@ -4,7 +4,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.nonmultipart import MIMENonMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 from aibs_informatics_core.models.email_address import EmailAddress
 from botocore.exceptions import ClientError
@@ -90,8 +90,8 @@ def send_email(request: SendEmailRequestRequestTypeDef) -> SendEmailResponseType
 
 
 def send_simple_email(
-    source: EmailAddress,
-    to_addresses: Sequence[EmailAddress],
+    source: Union[str, EmailAddress],
+    to_addresses: Sequence[Union[str, EmailAddress]],
     subject: str,
     body: str = "",
 ) -> SendEmailResponseTypeDef:
@@ -118,8 +118,8 @@ def send_raw_email(request: SendRawEmailRequestRequestTypeDef) -> SendRawEmailRe
 
 
 def send_email_with_attachment(
-    source: EmailAddress,
-    to_addresses: Sequence[EmailAddress],
+    source: Union[str, EmailAddress],
+    to_addresses: Sequence[Union[str, EmailAddress]],
     subject: str,
     body: str = "",
     attachments_paths: Optional[List[Path]] = None,
