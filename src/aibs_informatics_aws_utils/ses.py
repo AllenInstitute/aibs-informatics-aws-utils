@@ -121,7 +121,7 @@ def send_email_with_attachment(
     source: Union[str, EmailAddress],
     to_addresses: Sequence[Union[str, EmailAddress]],
     subject: str,
-    body: str = "",
+    body: Union[str, MIMEText] = "",
     attachments_paths: Optional[List[Path]] = None,
 ) -> SendRawEmailResponseTypeDef:
     """
@@ -129,7 +129,7 @@ def send_email_with_attachment(
         source: Source email address
         to_addresses: List of recipient email addresses
         subject: Email subject
-        body: Email body
+        body: Email body which can be either basic str or MIMEText (which can allow html with hyperlinks)
         attachments_paths: List of optional paths to read contents from and attach to the email
     Returns: `SendEmailResponseTypeDef`
     """
@@ -139,7 +139,10 @@ def send_email_with_attachment(
     msg["To"] = ", ".join(to_addresses)
 
     msg_body = MIMEMultipart("alternative")
-    msg_body.attach(MIMEText(body))
+    if isinstance(body, str):
+        msg_body.attach(MIMEText(body))
+    else:
+        msg_body.attach(body)
     msg.attach(msg_body)
 
     if attachments_paths is not None:
