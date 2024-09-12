@@ -3,6 +3,7 @@ from unittest import mock
 
 import moto
 import pytest
+from botocore.config import Config
 
 from aibs_informatics_aws_utils.core import (
     AWSService,
@@ -116,3 +117,71 @@ class AWSServiceTests(AwsBaseTest):
                 mock.call("sqs", region=None),
             ]
         )
+
+
+@pytest.mark.parametrize(
+    "service, preexisting_config, expected_retries_config",
+    [
+        pytest.param(
+            # service
+            "s3",
+            # preexisting_config
+            None,
+            # expected_retries_config
+            {"total_max_attempts": 7, "mode": "standard"},
+            id="Basic test case (no preexisting_config provided)",
+        ),
+        pytest.param(
+            # service
+            "dynamodb",
+            # preexisting_config
+            Config(retries={"max_attempts": 8, "mode": "adaptive"}),
+            # expected_retries_config
+            {"total_max_attempts": 9, "mode": "adaptive"},
+            id="Test preexisting_config doesn't get overridden by default",
+        ),
+    ],
+)
+def test___core__get_client__config_setup_properly(
+    aws_credentials_fixture, service, preexisting_config, expected_retries_config
+):
+    if preexisting_config:
+        client = get_client(service=service, config=preexisting_config)
+    else:
+        client = get_client(service=service)
+
+    assert expected_retries_config == client._client_config.retries
+
+
+@pytest.mark.parametrize(
+    "service, preexisting_config, expected_retries_config",
+    [
+        pytest.param(
+            # service
+            "s3",
+            # preexisting_config
+            None,
+            # expected_retries_config
+            {"total_max_attempts": 7, "mode": "standard"},
+            id="Basic test case (no preexisting_config provided)",
+        ),
+        pytest.param(
+            # service
+            "dynamodb",
+            # preexisting_config
+            Config(retries={"max_attempts": 8, "mode": "adaptive"}),
+            # expected_retries_config
+            {"total_max_attempts": 9, "mode": "adaptive"},
+            id="Test preexisting_config doesn't get overridden by default",
+        ),
+    ],
+)
+def test___core__get_resource__config_setup_properly(
+    aws_credentials_fixture, service, preexisting_config, expected_retries_config
+):
+    if preexisting_config:
+        resource = get_resource(service=service, config=preexisting_config)
+    else:
+        resource = get_resource(service=service)
+
+    assert expected_retries_config == resource.meta.client._client_config.retries
