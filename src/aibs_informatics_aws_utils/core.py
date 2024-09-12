@@ -11,19 +11,8 @@ __all__ = [
 ]
 import logging
 import os
-import re
 from dataclasses import dataclass
-from typing import (
-    TYPE_CHECKING,
-    ClassVar,
-    Generic,
-    Literal,
-    Optional,
-    Pattern,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Generic, Literal, Optional, TypeVar, Union, cast
 
 import boto3
 from aibs_informatics_core.models.aws.core import AWSRegion
