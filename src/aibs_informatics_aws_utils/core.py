@@ -11,19 +11,8 @@ __all__ = [
 ]
 import logging
 import os
-import re
 from dataclasses import dataclass
-from typing import (
-    TYPE_CHECKING,
-    ClassVar,
-    Generic,
-    Literal,
-    Optional,
-    Pattern,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Generic, Literal, Optional, TypeVar, Union, cast
 
 import boto3
 from aibs_informatics_core.models.aws.core import AWSRegion
@@ -32,6 +21,7 @@ from aibs_informatics_core.utils.decorators import cache
 from boto3 import Session
 from boto3.resources.base import ServiceResource
 from botocore.client import BaseClient, ClientError
+from botocore.config import Config
 from botocore.session import Session as BotocoreSession
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -249,8 +239,22 @@ def get_client(
     region_name = get_region(region=region or kwargs.get("region_name"))
     if region_name:
         kwargs["region_name"] = region_name
+
+    # If config for our client is not set, we want to set it to use "standard" mode
+    # (default is "legacy") and increase the number of retries to 5 (default is 3)
+    # See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html#available-retry-modes
+    config: Optional[Config] = kwargs.pop("config", None)
+    default_config = Config(
+        connect_timeout=120, read_timeout=120, retries={"max_attempts": 6, "mode": "standard"}
+    )
+    if config is None:
+        config = default_config
+    else:
+        # Have values in pre-existing config (if it exists) take precedence over default_config
+        config = default_config.merge(other_config=config)
+
     session = session or boto3.Session()
-    return session.client(service, **kwargs)
+    return session.client(service, config=config, **kwargs)
 
 
 @cache
@@ -280,8 +284,22 @@ def get_resource(
     region_name = get_region(region=region or kwargs.get("region_name"))
     if region_name:
         kwargs["region_name"] = region_name
+
+    # If config for our client is not set, we want to set it to use "standard" mode
+    # (default is "legacy") and increase the number of retries to 5 (default is 3)
+    # See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html#available-retry-modes
+    config: Optional[Config] = kwargs.pop("config", None)
+    default_config = Config(
+        connect_timeout=120, read_timeout=120, retries={"max_attempts": 6, "mode": "standard"}
+    )
+    if config is None:
+        config = default_config
+    else:
+        # Have values in pre-existing config (if it exists) take precedence over default_config
+        config = default_config.merge(other_config=config)
+
     session = session or boto3.Session()
-    return session.resource(service, **kwargs)
+    return session.resource(service, config=config, **kwargs)
 
 
 @dataclass
