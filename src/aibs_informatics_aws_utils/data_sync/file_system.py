@@ -123,7 +123,7 @@ class Node:
         except KeyError:
             return None
 
-    def list_nodes(self) -> List["Node"]:
+    def list_nodes(self: "Node") -> List["Node"]:
         nodes = [self]
         for _, n in self.children.items():
             nodes.extend(n.list_nodes())

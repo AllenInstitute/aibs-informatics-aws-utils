@@ -292,7 +292,7 @@ def describe_instance_type_offerings(
         for region in regions or [None]
         for response in get_ec2_client(region=region)
         .get_paginator("describe_instance_type_offerings")
-        .paginate(**kwargs)
+        .paginate(**kwargs)  # type: ignore[arg-type]  # it is basically correct typed dict
         for _ in response["InstanceTypeOfferings"]
     ]
 
@@ -323,7 +323,7 @@ def describe_instance_types(
 
     return [
         _
-        for response in ec2.get_paginator("describe_instance_types").paginate(**kwargs)
+        for response in ec2.get_paginator("describe_instance_types").paginate(**kwargs)  # type: ignore[arg-type]  # it is basically correct typed dict
         for _ in response["InstanceTypes"]
     ]
 
