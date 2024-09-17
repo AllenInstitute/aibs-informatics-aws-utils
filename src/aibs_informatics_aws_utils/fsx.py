@@ -49,6 +49,25 @@ FileSystemNameOrId = Union[FSxFileSystemId, str]
 def split_name_and_id(
     id_or_name: Optional[FileSystemNameOrId],
 ) -> Tuple[Optional[str], Optional[FSxFileSystemId]]:
+    """Identify file system identifier as name or id
+
+    Examples:
+        INP: NAME1
+        OUT: (NAME1, None)
+
+        INP: ID1
+        OUT: (None, ID1)
+
+        INP: None
+        OUT: (None, None)
+
+    Args:
+        id_or_name (Optional[FileSystemNameOrId]): File system id or name.
+
+
+    Returns:
+        Tuple[Optional[str], Optional[FSxFileSystemId]]: Tuple of name and id.
+    """
     if not id_or_name:
         return None, None
     elif FSxFileSystemId.is_valid(id_or_name):
@@ -59,6 +78,18 @@ def split_name_and_id(
 def split_name_and_ids(
     names_or_ids: List[FileSystemNameOrId],
 ) -> Tuple[List[str], List[FSxFileSystemId]]:
+    """Split file system combined list of names and ids into separate lists.
+
+    Example:
+        INP: [NAME1, ID1, NAME2, NAME3, ID2]
+        OUT: ([NAME1, NAME2, NAME3], [ID1, ID2])
+
+    Args:
+        names_or_ids (List[FileSystemNameOrId]): List of names and/or ids.
+
+    Returns:
+        Tuple[List[str], List[FSxFileSystemId]]: Tuple of name and id lists.
+    """
     if not names_or_ids:
         return [], []
     names, file_system_ids = zip(*(split_name_and_id(name_or_id) for name_or_id in names_or_ids))
