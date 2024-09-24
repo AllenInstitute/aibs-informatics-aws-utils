@@ -263,6 +263,7 @@ class BatchJobBuilder:
     mount_points: List[MountPointTypeDef] = field(default_factory=list)
     volumes: List[VolumeTypeDef] = field(default_factory=list)
     privileged: bool = field(default=False)
+    linux_parameters: Optional[Dict[str, Any]] = field(default=None)
     env_base: EnvBase = field(default_factory=EnvBase.from_env)
 
     def __post_init__(self):
@@ -272,7 +273,7 @@ class BatchJobBuilder:
 
     @property
     def container_properties(self) -> ContainerPropertiesTypeDef:
-        return ContainerPropertiesTypeDef(
+        container_props = ContainerPropertiesTypeDef(
             image=self.image,
             command=self.command,
             environment=to_key_value_pairs(self.environment),
@@ -281,6 +282,9 @@ class BatchJobBuilder:
             volumes=self.volumes,
             privileged=self.privileged,
         )
+        if self.linux_parameters:
+            container_props["linuxParameters"] = self.linux_parameters
+        return container_props
 
     @property
     def container_overrides(self) -> ContainerOverridesTypeDef:
