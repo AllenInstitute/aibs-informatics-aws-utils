@@ -122,7 +122,6 @@ def resolve_file_system_ids(*name_or_ids: FileSystemNameOrId) -> List[FSxFileSys
 
 def get_file_system(
     name_or_id: Optional[FileSystemNameOrId] = None,
-    *,
     tags: Optional[Dict[str, str]] = None,
 ) -> FileSystemTypeDef:
     """Get FSx file system.
@@ -135,23 +134,16 @@ def get_file_system(
     Returns:
         FileSystemDescriptionTypeDef: File system description.
     """
-    file_system_id, name = split_name_and_id(name_or_id)
-    if not file_system_id and not name and not tags:
+    if not name_or_id and not tags:
         raise ValueError("At least one of file_system_id, name or tags must be provided.")
 
-    file_systems = list_file_systems(
-        file_system_ids=[file_system_id] if file_system_id else None,
-        names=[name] if name else None,
-        tags=tags,
-    )
+    file_systems = list_file_systems(name_or_ids=[name_or_id] if name_or_id else None, tags=tags)
     if len(file_systems) > 1:
         raise ValueError(
-            f"Multiple file systems found with id: {file_system_id}, name: {name} and tags: {tags}"
+            f"Multiple file systems found with name/id: {name_or_id} and tags: {tags}"
         )
     if not file_systems:
-        raise ValueError(
-            f"File system not found with id: {file_system_id}, name: {name} and tags: {tags}"
-        )
+        raise ValueError(f"File system not found with name/id: {name_or_id} and tags: {tags}")
     return file_systems[0]
 
 
