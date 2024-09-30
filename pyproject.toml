@@ -17,7 +17,7 @@ dynamic = [ "version"]
 requires-python = ">=3.9"
 
 dependencies = [
-    "boto3~=1.26.49",
+    "boto3~=1.35",
     "aibs-informatics-core @ git+ssh://git@github.com/AllenInstitute/aibs-informatics-core.git@main",
 ]
 
