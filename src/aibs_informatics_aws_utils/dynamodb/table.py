@@ -5,6 +5,7 @@ from typing import (
     Dict,
     Generic,
     List,
+    Literal,
     Mapping,
     MutableMapping,
     Optional,
@@ -14,6 +15,7 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    overload,
 )
 
 from aibs_informatics_core.env import EnvBase
@@ -42,6 +44,7 @@ from boto3.dynamodb.conditions import (
 from botocore.exceptions import ClientError
 
 from aibs_informatics_aws_utils.core import get_client_error_code
+from aibs_informatics_aws_utils.dynamodb.conditions import condition_to_str
 from aibs_informatics_aws_utils.dynamodb.functions import (
     convert_floats_to_decimals,
     execute_partiql_statement,
@@ -73,7 +76,7 @@ def check_db_query_unique(
     filter_expression: Optional[ConditionBase] = None,
 ):
     # TODO: this should be len(query_result) > 1
-    if len(query_result) != 1:
+    if len(query_result) > 1:
         readable_key_expression: Optional[BuiltConditionExpression] = None
         if key_condition_expression:
             expression_builder = ConditionExpressionBuilder()
@@ -167,7 +170,7 @@ def build_optimized_condition_expression_set(
         return target_index, partition_key, sort_key_condition_expression, filter_expressions
 
     if not isinstance(candidate_indexes, Sequence):
-        candidate_indexes = [ci for ci in candidate_indexes]
+        candidate_indexes = list(candidate_indexes)
     index_all_key_names = set(
         {
             *{_.key_name for _ in candidate_indexes},
@@ -245,8 +248,6 @@ def build_optimized_condition_expression_set(
 
 @dataclass
 class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
-    # env_base: EnvBase = field(default_factory=EnvBase.from_env)
-
     def __post_init__(self):
         check_table_name_and_index_match(self.table_name, self.get_db_index_cls())
 
@@ -432,10 +433,9 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
             expect_non_empty (bool, optional): Whether the resulting query should return at least
                 one result. An error will be raised if expect_non_empty=True and 0 results were
                 returned by the query.
-            expect_unique (bool, option): Whether the result of the query is expected to be
-                unique (i.e. returns 1 and ONLY 1 result). An error will be raised if 0 or
-                more than 1 results were returned for the query.
-
+            expect_unique (bool, option): Whether the result of the query is expected to
+                return AT MOST one result. An error will be raised if expect_unique=True and MORE
+                than 1 result was returned for the query.
         Returns:
             Sequence[Dict[str, Any]]: A sequence of dictionaries representing database rows
                 where partition_key/sort_key and filter conditions are satisfied.
@@ -455,7 +455,8 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
 
         self.log.info(
             f"Calling query on {self.table_name} table (index: {index_name}, "
-            f"key condition: {key_condition_expression}, filters: {filter_expression})"
+            f"key condition: {condition_to_str(key_condition_expression)}, "
+            f"filters: {condition_to_str(filter_expression)})"
         )
 
         items = table_query(
@@ -507,9 +508,9 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
             expect_non_empty (bool, optional): Whether the resulting query should return at least
                 one result. An error will be raised if expect_non_empty=True and 0 results were
                 returned by the query.
-            expect_unique (bool, option): Whether the result of the query is expected to be
-                unique (i.e. returns 1 and ONLY 1 result). An error will be raised if 0 or
-                more than 1 results were returned for the query.
+            expect_unique (bool, option): Whether the result of the query is expected to
+                return AT MOST one result. An error will be raised if expect_unique=True and MORE
+                than 1 result was returned for the query.
 
         Returns:
             Sequence[Dict[str, Any]]: A sequence of dictionaries representing database rows
@@ -524,7 +525,7 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
 
         self.log.info(
             f"Calling scan on {self.table_name} table (index: {index_name},"
-            f" filters: {filter_expression})"
+            f" filters: {condition_to_str(filter_expression)})"
         )
 
         items = table_scan(
@@ -611,17 +612,9 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         condition_expression: Optional[ConditionBase] = None,
         **table_put_item_kwargs,
     ) -> DB_MODEL:
-        # Convert our ConditionBase class to a readable string (for logging/debugging purposes)
-        if condition_expression:
-            expression = ConditionExpressionBuilder().build_expression(condition_expression)
-            expression_str = (
-                f"({expression.condition_expression}, "
-                f"{expression.attribute_name_placeholders}, "
-                f"{expression.attribute_value_placeholders})"
-            )
-        else:
-            expression_str = "None"
-        put_summary = f"(entry: {entry}, condition_expression: {expression_str})"
+        put_summary = (
+            f"(entry: {entry}, condition_expression: {condition_to_str(condition_expression)})"
+        )
         self.log.debug(f"{self.table_name} - Putting new entry: {put_summary}")
 
         e_msg_intro = f"{self.table_name} - Error putting entry: {put_summary}."
@@ -659,8 +652,16 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
 
         for k in key:
             new_attributes.pop(k, None)
+        # Add k:v pair from new_attributes if new != old value for a given key
+        new_clean_attrs: Dict[str, Any] = {}
+        if old_entry:
+            for k, new_v in new_attributes.items():
+                if getattr(old_entry, k) != new_v:
+                    new_clean_attrs[k] = new_v
+        else:
+            new_clean_attrs = new_attributes
 
-        if not new_attributes:
+        if not new_clean_attrs:
             self.log.debug(
                 f"{self.table_name} - No attr_updates to do! Skipping _update_entry call."
             )
@@ -668,13 +669,13 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
                 old_entry = self.get(key)
             return old_entry
 
-        update_summary = f"(old_entry: {old_entry}, new_attributes: {new_attributes})"
+        update_summary = f"(old_entry: {old_entry}, new_attributes: {new_clean_attrs})"
         self.log.debug(f"{self.table_name} - Updating entry: {update_summary}")
         try:
             updated_item = table_update_item(
                 table_name=self.table_name,
                 key=key,
-                attributes=new_attributes,
+                attributes=new_clean_attrs,
                 return_values="ALL_NEW",
                 **table_update_item_kwargs,
             )
@@ -693,6 +694,29 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
             raise DBWriteException(e_msg)
         self.log.debug(f"{self.table_name} - Successfully updated entry: {updated_entry}")
         return updated_entry
+
+    @overload
+    def delete(
+        self,
+        key: Union[DynamoDBKey, DB_MODEL],
+        error_on_nonexistent: Literal[True],
+    ) -> DB_MODEL:
+        ...
+
+    @overload
+    def delete(
+        self,
+        key: Union[DynamoDBKey, DB_MODEL],
+        error_on_nonexistent: Literal[False],
+    ) -> Optional[DB_MODEL]:
+        ...
+
+    @overload
+    def delete(
+        self,
+        key: Union[DynamoDBKey, DB_MODEL],
+    ) -> Optional[DB_MODEL]:
+        ...
 
     def delete(
         self,
