@@ -170,7 +170,7 @@ def build_optimized_condition_expression_set(
         return target_index, partition_key, sort_key_condition_expression, filter_expressions
 
     if not isinstance(candidate_indexes, Sequence):
-        candidate_indexes = list(candidate_indexes)
+        candidate_indexes = [ci for ci in candidate_indexes]
     index_all_key_names = set(
         {
             *{_.key_name for _ in candidate_indexes},
