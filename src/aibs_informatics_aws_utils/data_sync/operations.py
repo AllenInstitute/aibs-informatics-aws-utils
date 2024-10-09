@@ -34,6 +34,7 @@ logger = get_logger(__name__)
 
 MAX_LOCK_WAIT_TIME_IN_SECS = 60 * 60 * 6  # 6 hours
 
+LOCK_ROOT_ENV_VAR = "DATA_SYNC_LOCK_ROOT"
 
 LocalPath = Union[Path, EFSPath]
 
@@ -100,7 +101,7 @@ class DataSyncOperations(LoggingMixin):
             @retry(CannotAcquirePathLockError, tries=tries, delay=delay, backoff=1)
             @functools.wraps(sync_paths)
             def sync_paths_with_lock(*args, **kwargs):
-                with PathLock(destination_path) as lock:
+                with PathLock(destination_path, lock_root=os.getenv(LOCK_ROOT_ENV_VAR)) as lock:
                     response = sync_paths(*args, **kwargs)
                 return response
 
