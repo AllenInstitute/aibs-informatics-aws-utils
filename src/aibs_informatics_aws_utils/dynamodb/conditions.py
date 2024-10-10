@@ -1,7 +1,7 @@
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, Match, Union, cast
+from typing import Any, Dict, Iterable, List, Mapping, Match, Optional, Union, cast
 
 from aibs_informatics_core.collections import ValidatedStr
 from aibs_informatics_core.models.aws.dynamodb import (
@@ -22,6 +22,39 @@ from boto3.dynamodb.conditions import (
 from boto3.dynamodb.types import TypeSerializer
 
 logger = get_logger(__name__)
+
+
+def condition_to_str(condition: Optional[ConditionBase]) -> Optional[str]:
+    """Converts a ConditionBase Boto3 object to its str representation
+
+    NOTE: Function should be removed if this PR is merged: https://github.com/boto/boto3/pull/3254
+
+    Examples:
+
+    >>> condition_to_str(Key("name").eq("new_name") & Attr("description").begins_with("new"))
+    (name = new_name AND begins_with(description, new))
+
+    >>> condition_to_str(Attr("description").contains("cool"))
+    contains(description, cool)
+
+    >>> condition_to_str(None)
+    None
+    """
+    if condition is None:
+        return None
+
+    builder = ConditionExpressionBuilder()
+    expression = builder.build_expression(condition)
+
+    condition_expression = expression.condition_expression
+
+    for name_placeholder, actual_name in expression.attribute_name_placeholders.items():
+        condition_expression = condition_expression.replace(name_placeholder, str(actual_name))
+
+    for value_placeholder, actual_value in expression.attribute_value_placeholders.items():
+        condition_expression = condition_expression.replace(value_placeholder, str(actual_value))
+
+    return condition_expression
 
 
 @dataclass
