@@ -75,7 +75,6 @@ def check_db_query_unique(
     key_condition_expression: Optional[ConditionBase] = None,
     filter_expression: Optional[ConditionBase] = None,
 ):
-    # TODO: this should be len(query_result) > 1
     if len(query_result) > 1:
         readable_key_expression: Optional[BuiltConditionExpression] = None
         if key_condition_expression:
