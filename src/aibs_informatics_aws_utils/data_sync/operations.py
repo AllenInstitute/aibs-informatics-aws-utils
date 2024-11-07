@@ -46,6 +46,11 @@ LOCK_ROOT_ENV_VAR = "DATA_SYNC_LOCK_ROOT"
 LocalPath = Union[Path, EFSPath]
 
 
+@functools.cache
+def get_botocore_config(max_pool_connections: int) -> Config:
+    return Config(max_pool_connections=max_pool_connections)
+
+
 @dataclass
 class DataSyncOperations(LoggingMixin):
     config: DataSyncConfig
@@ -56,7 +61,7 @@ class DataSyncOperations(LoggingMixin):
 
     @property
     def botocore_config(self) -> Config:
-        return Config(max_pool_connections=self.config.max_concurrency)
+        return get_botocore_config(max_pool_connections=self.config.max_concurrency)
 
     def sync_local_to_s3(self, source_path: LocalPath, destination_path: S3URI):
         source_path = self.sanitize_local_path(source_path)
