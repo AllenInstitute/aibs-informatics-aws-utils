@@ -4,6 +4,7 @@ from typing import Optional, Union
 
 import moto
 from aibs_informatics_core.models.aws.s3 import S3URI
+from aibs_informatics_core.models.data_sync import RemoteToLocalConfig
 from aibs_informatics_core.utils.os_operations import find_all_paths
 
 from aibs_informatics_aws_utils.data_sync.operations import sync_data
@@ -267,6 +268,33 @@ class OperationsTests(AwsBaseTest):
             source_path=source_path, destination_path=destination_path, fail_if_missing=False
         )
         assert not destination_path.exists()
+
+    def test__sync_data__s3_to_local__file__auto_custom_tmp_dir__succeeds(self):
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = self.put_object("source", "hello")
+        destination_path = fs / "destination"
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            remote_to_local_config=RemoteToLocalConfig(use_custom_tmp_dir=True),
+        )
+        self.assertPathsEqual(source_path, destination_path, 1)
+
+    def test__sync_data__s3_to_local__file__specified_custom_tmp_dir__succeeds(self):
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = self.put_object("source", "hello")
+        destination_path = fs / "destination"
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            remote_to_local_config=RemoteToLocalConfig(
+                use_custom_tmp_dir=True,
+                custom_tmp_dir=fs,
+            ),
+        )
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def test__sync_data__local_to_s3__folder__succeeds(self):
         fs = self.setUpLocalFS()
