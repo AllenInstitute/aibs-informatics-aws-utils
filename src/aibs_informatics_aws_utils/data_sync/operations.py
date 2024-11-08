@@ -8,12 +8,16 @@ from typing import Optional, Union, cast
 
 from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3URI, S3KeyPrefix
+<<<<<<< HEAD
 from aibs_informatics_core.models.data_sync import (
     DataSyncConfig,
     DataSyncRequest,
     DataSyncTask,
     RemoteToLocalConfig,
 )
+=======
+from aibs_informatics_core.models.data_sync import DataSyncConfig, DataSyncRequest, DataSyncTask, DataSyncResult
+>>>>>>> d255aa1 (updating result returned from data sync ops)
 from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.file_operations import (
     CannotAcquirePathLockError,
@@ -22,6 +26,7 @@ from aibs_informatics_core.utils.file_operations import (
     find_filesystem_boundary,
     move_path,
     remove_path,
+    get_path_size_bytes,
 )
 from aibs_informatics_core.utils.logging import LoggingMixin, get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
@@ -34,6 +39,7 @@ from aibs_informatics_aws_utils.s3 import (
     is_folder,
     is_object,
     sync_paths,
+    get_s3_path_stats,
 )
 
 logger = get_logger(__name__)
@@ -63,13 +69,16 @@ class DataSyncOperations(LoggingMixin):
     def botocore_config(self) -> Config:
         return get_botocore_config(max_pool_connections=self.config.max_concurrency)
 
-    def sync_local_to_s3(self, source_path: LocalPath, destination_path: S3URI):
+    def sync_local_to_s3(self, source_path: LocalPath, destination_path: S3URI) -> DataSyncResult:
         source_path = self.sanitize_local_path(source_path)
         if not source_path.exists():
             if self.config.fail_if_missing:
                 raise FileNotFoundError(f"Local path {source_path} does not exist")
             self.logger.warning(f"Local path {source_path} does not exist")
-            return
+            if self.config.include_detailed_response:
+                return DataSyncResult(bytes_transferred=0, files_transferred=0)
+            else:
+                return DataSyncResult()
         if source_path.is_dir():
             self.logger.info("local source path is folder. Adding suffix to destination path")
             destination_path = S3URI.build(
@@ -86,10 +95,15 @@ class DataSyncOperations(LoggingMixin):
             size_only=self.config.size_only,
             delete=True,
         )
+        result = DataSyncResult()
+        if self.config.include_detailed_response:
+            result.files_transferred = len(find_all_paths(source_path, include_dirs=False))
+            result.bytes_transferred = get_path_size_bytes(source_path)
         if not self.config.retain_source_data:
             remove_path(source_path)
-
-    def sync_s3_to_local(self, source_path: S3URI, destination_path: LocalPath):
+        return result
+        
+    def sync_s3_to_local(self, source_path: S3URI, destination_path: LocalPath) -> DataSyncResult:
         self.logger.info(f"Downloading s3 content from {source_path} -> {destination_path}")
         start_time = datetime.now(tz=timezone.utc)
         destination_path = self.sanitize_local_path(destination_path)
@@ -100,7 +114,10 @@ class DataSyncOperations(LoggingMixin):
             if self.config.fail_if_missing:
                 raise FileNotFoundError(message)
             self.logger.warning(message)
-            return
+            if self.config.include_detailed_response:
+                return DataSyncResult(bytes_transferred=0, files_transferred=0)
+            else:
+                return DataSyncResult()
 
         _sync_paths = sync_paths
 
@@ -173,7 +190,14 @@ class DataSyncOperations(LoggingMixin):
                 "Deleting s3 objects not allowed when downloading them to local file system"
             )
 
-    def sync_local_to_local(self, source_path: LocalPath, destination_path: LocalPath):
+        result = DataSyncResult()
+        # Collecting stats for detailed response    
+        if self.config.include_detailed_response:
+            result.files_transferred = len(find_all_paths(destination_path, include_dirs=False))
+            result.bytes_transferred = get_path_size_bytes(destination_path)
+        return result
+
+    def sync_local_to_local(self, source_path: LocalPath, destination_path: LocalPath) -> DataSyncResult:
         source_path = self.sanitize_local_path(source_path)
         destination_path = self.sanitize_local_path(destination_path)
         self.logger.info(f"Copying local content from {source_path} -> {destination_path}")
@@ -183,7 +207,7 @@ class DataSyncOperations(LoggingMixin):
             if self.config.fail_if_missing:
                 raise FileNotFoundError(f"Local path {source_path} does not exist")
             self.logger.warning(f"Local path {source_path} does not exist")
-            return
+            return DataSyncResult(bytes_transferred=0)
 
         if self.config.retain_source_data:
             copy_path(source_path=source_path, destination_path=destination_path, exists_ok=True)
@@ -191,13 +215,20 @@ class DataSyncOperations(LoggingMixin):
             move_path(source_path=source_path, destination_path=destination_path, exists_ok=True)
         self.logger.info(f"Updating last modified time on local files to at least {start_time}")
         refresh_local_path__mtime(destination_path, start_time.timestamp())
+        
+        result = DataSyncResult()
+        # Collecting stats for detailed response    
+        if self.config.include_detailed_response:
+            result.files_transferred = len(find_all_paths(source_path, include_dirs=False))
+            result.bytes_transferred = get_path_size_bytes(source_path)
+        return result
 
     def sync_s3_to_s3(
         self,
         source_path: S3URI,
         destination_path: S3URI,
         source_path_prefix: Optional[S3KeyPrefix] = None,
-    ):
+    ) -> DataSyncResult:
         self.logger.info(f"Syncing s3 content from {source_path} -> {destination_path}")
 
         if not is_object(source_path) and not is_folder(source_path):
@@ -205,8 +236,11 @@ class DataSyncOperations(LoggingMixin):
             if self.config.fail_if_missing:
                 raise FileNotFoundError(message)
             self.logger.warning(message)
-            return
-
+            if self.config.include_detailed_response:
+                return DataSyncResult(bytes_transferred=0, files_transferred=0)
+            else:
+                return DataSyncResult()
+            
         sync_paths(
             source_path=source_path,
             destination_path=destination_path,
@@ -219,43 +253,59 @@ class DataSyncOperations(LoggingMixin):
         )
         if not self.config.retain_source_data:
             delete_s3_path(s3_path=source_path)
+        
+        result = DataSyncResult()
+        if self.config.include_detailed_response:
+            path_stats = get_s3_path_stats(destination_path)
+            result.files_transferred = path_stats.object_count
+            result.bytes_transferred = path_stats.size_bytes
+        return result
 
     def sync(
         self,
         source_path: Union[LocalPath, S3URI],
         destination_path: Union[LocalPath, S3URI],
         source_path_prefix: Optional[str] = None,
-    ):
+    ) -> DataSyncResult:
         if isinstance(source_path, S3URI) and isinstance(destination_path, S3URI):
-            self.sync_s3_to_s3(
+            return self.sync_s3_to_s3(
                 source_path=source_path,
                 destination_path=destination_path,
                 source_path_prefix=S3KeyPrefix(source_path_prefix) if source_path_prefix else None,
             )
 
         elif isinstance(source_path, S3URI):
-            self.sync_s3_to_local(
+            return self.sync_s3_to_local(
                 source_path=source_path,
                 destination_path=cast(LocalPath, destination_path),
             )
         elif isinstance(destination_path, S3URI):
-            self.sync_local_to_s3(
+            return self.sync_local_to_s3(
                 source_path=cast(LocalPath, source_path),
                 destination_path=destination_path,
             )
         else:
-            self.sync_local_to_local(
+            return self.sync_local_to_local(
                 source_path=source_path,
                 destination_path=destination_path,
             )
 
-    def sync_task(self, task: DataSyncTask):
+    def sync_task(self, task: DataSyncTask) -> DataSyncResult:
         return self.sync(
             source_path=task.source_path,
             destination_path=task.destination_path,
             source_path_prefix=task.source_path_prefix,
         )
 
+    @classmethod
+    def sync_request(cls, request: DataSyncRequest) -> DataSyncResult:
+        sync_operations = cls(config=request.config)
+        return sync_operations.sync_task(task=request.task)
+
+    # -----------------------------------
+    # Helper methods
+    # -----------------------------------
+        
     def sanitize_local_path(self, path: Union[EFSPath, Path]) -> Path:
         if isinstance(path, EFSPath):
             self.logger.info(f"Sanitizing efs path {path}")
@@ -263,11 +313,6 @@ class DataSyncOperations(LoggingMixin):
             self.logger.info(f"Sanitized efs path -> {new_path}")
             return new_path
         return path
-
-    @classmethod
-    def sync_request(cls, request: DataSyncRequest):
-        sync_operations = cls(config=request.config)
-        sync_operations.sync_task(task=request.task)
 
 
 # We should consider using cloudpathlib[s3] in the future
@@ -282,6 +327,7 @@ def sync_data(
     size_only: bool = False,
     fail_if_missing: bool = True,
     remote_to_local_config: Optional[RemoteToLocalConfig] = None,
+    include_detailed_response: bool = False,
 ):
     request = DataSyncRequest(
         source_path=source_path,
@@ -294,6 +340,7 @@ def sync_data(
         size_only=size_only,
         fail_if_missing=fail_if_missing,
         remote_to_local_config=remote_to_local_config or RemoteToLocalConfig(),
+        include_detailed_response=include_detailed_response,
     )
     return DataSyncOperations.sync_request(request=request)
 

@@ -138,11 +138,14 @@ class OperationsTests(AwsBaseTest):
         destination_path = fs / "destination"
         self.put_file(source_path, "hello")
 
-        sync_data(
+        result = sync_data(
             source_path=source_path,
             destination_path=destination_path,
+            include_detailed_response=True,
         )
         self.assertPathsEqual(source_path, destination_path, 1)
+        self.assertEqual(result.files_transferred, 1)
+        self.assertEqual(result.bytes_transferred, 5)
 
     def test__sync_data__local_to_local__relative_file__succeeds(self):
         fs = self.setUpLocalFS()
@@ -150,11 +153,14 @@ class OperationsTests(AwsBaseTest):
         destination_path = fs / "destination"
         self.put_file(source_path, "hello")
         with self.chdir(fs):
-            sync_data(
+            result = sync_data(
                 source_path=Path("source"),
                 destination_path=Path("destination"),
+                include_detailed_response=True,
             )
         self.assertPathsEqual(source_path, destination_path, 1)
+        self.assertEqual(result.files_transferred, 1)
+        self.assertEqual(result.bytes_transferred, 5)
 
     def test__sync_data__local_to_local__file__source_deleted(self):
         fs = self.setUpLocalFS()
@@ -162,7 +168,7 @@ class OperationsTests(AwsBaseTest):
         destination_path = fs / "destination"
         self.put_file(source_path, "hello")
 
-        sync_data(
+        result = sync_data(
             source_path=source_path,
             destination_path=destination_path,
             retain_source_data=False,
@@ -192,11 +198,14 @@ class OperationsTests(AwsBaseTest):
         self.put_object("source/path/dir1/obj2", "did you hear me")
         destination_path = fs / "destination2"
 
-        sync_data(
+        result = sync_data(
             source_path=source_path,
             destination_path=destination_path,
+            include_detailed_response=True,
         )
         self.assertPathsEqual(source_path, destination_path, 2)
+        self.assertEqual(result.files_transferred, 2)
+        self.assertEqual(result.bytes_transferred, 20)
 
     def test__sync_data__s3_to_local__folder__cached_results_mtime_updated(self):
         fs = self.setUpLocalFS()
@@ -206,11 +215,14 @@ class OperationsTests(AwsBaseTest):
         self.put_object("source/path/dir1/obj2", "did you hear me")
         destination_path = fs / "destination"
 
-        sync_data(
+        result = sync_data(
             source_path=source_path,
             destination_path=destination_path,
+            include_detailed_response=True,
         )
         self.assertPathsEqual(source_path, destination_path, 2)
+        self.assertEqual(result.files_transferred, 2)
+        self.assertEqual(result.bytes_transferred, 20)
 
         sync_data(
             source_path=source_path,
@@ -223,11 +235,14 @@ class OperationsTests(AwsBaseTest):
         self.setUpBucket()
         source_path = self.put_object("source", "hello")
         destination_path = fs / "destination"
-        sync_data(
+        result = sync_data(
             source_path=source_path,
             destination_path=destination_path,
+            include_detailed_response=True,
         )
         self.assertPathsEqual(source_path, destination_path, 1)
+        self.assertEqual(result.files_transferred, 1)
+        self.assertEqual(result.bytes_transferred, 5)
 
     def test__sync_data__s3_to_local__file__lock_required__succeeds(self):
         fs = self.setUpLocalFS()
