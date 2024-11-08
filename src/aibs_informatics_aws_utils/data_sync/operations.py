@@ -8,25 +8,22 @@ from typing import Optional, Union, cast
 
 from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3URI, S3KeyPrefix
-<<<<<<< HEAD
 from aibs_informatics_core.models.data_sync import (
     DataSyncConfig,
     DataSyncRequest,
+    DataSyncResult,
     DataSyncTask,
     RemoteToLocalConfig,
 )
-=======
-from aibs_informatics_core.models.data_sync import DataSyncConfig, DataSyncRequest, DataSyncTask, DataSyncResult
->>>>>>> d255aa1 (updating result returned from data sync ops)
 from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.file_operations import (
     CannotAcquirePathLockError,
     PathLock,
     copy_path,
     find_filesystem_boundary,
+    get_path_size_bytes,
     move_path,
     remove_path,
-    get_path_size_bytes,
 )
 from aibs_informatics_core.utils.logging import LoggingMixin, get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
@@ -36,10 +33,10 @@ from aibs_informatics_aws_utils.s3 import (
     Config,
     TransferConfig,
     delete_s3_path,
+    get_s3_path_stats,
     is_folder,
     is_object,
     sync_paths,
-    get_s3_path_stats,
 )
 
 logger = get_logger(__name__)
@@ -102,7 +99,7 @@ class DataSyncOperations(LoggingMixin):
         if not self.config.retain_source_data:
             remove_path(source_path)
         return result
-        
+
     def sync_s3_to_local(self, source_path: S3URI, destination_path: LocalPath) -> DataSyncResult:
         self.logger.info(f"Downloading s3 content from {source_path} -> {destination_path}")
         start_time = datetime.now(tz=timezone.utc)
@@ -191,13 +188,15 @@ class DataSyncOperations(LoggingMixin):
             )
 
         result = DataSyncResult()
-        # Collecting stats for detailed response    
+        # Collecting stats for detailed response
         if self.config.include_detailed_response:
             result.files_transferred = len(find_all_paths(destination_path, include_dirs=False))
             result.bytes_transferred = get_path_size_bytes(destination_path)
         return result
 
-    def sync_local_to_local(self, source_path: LocalPath, destination_path: LocalPath) -> DataSyncResult:
+    def sync_local_to_local(
+        self, source_path: LocalPath, destination_path: LocalPath
+    ) -> DataSyncResult:
         source_path = self.sanitize_local_path(source_path)
         destination_path = self.sanitize_local_path(destination_path)
         self.logger.info(f"Copying local content from {source_path} -> {destination_path}")
@@ -215,9 +214,9 @@ class DataSyncOperations(LoggingMixin):
             move_path(source_path=source_path, destination_path=destination_path, exists_ok=True)
         self.logger.info(f"Updating last modified time on local files to at least {start_time}")
         refresh_local_path__mtime(destination_path, start_time.timestamp())
-        
+
         result = DataSyncResult()
-        # Collecting stats for detailed response    
+        # Collecting stats for detailed response
         if self.config.include_detailed_response:
             result.files_transferred = len(find_all_paths(source_path, include_dirs=False))
             result.bytes_transferred = get_path_size_bytes(source_path)
@@ -240,7 +239,7 @@ class DataSyncOperations(LoggingMixin):
                 return DataSyncResult(bytes_transferred=0, files_transferred=0)
             else:
                 return DataSyncResult()
-            
+
         sync_paths(
             source_path=source_path,
             destination_path=destination_path,
@@ -253,7 +252,7 @@ class DataSyncOperations(LoggingMixin):
         )
         if not self.config.retain_source_data:
             delete_s3_path(s3_path=source_path)
-        
+
         result = DataSyncResult()
         if self.config.include_detailed_response:
             path_stats = get_s3_path_stats(destination_path)
@@ -305,7 +304,7 @@ class DataSyncOperations(LoggingMixin):
     # -----------------------------------
     # Helper methods
     # -----------------------------------
-        
+
     def sanitize_local_path(self, path: Union[EFSPath, Path]) -> Path:
         if isinstance(path, EFSPath):
             self.logger.info(f"Sanitizing efs path {path}")
