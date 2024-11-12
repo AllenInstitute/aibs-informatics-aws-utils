@@ -27,10 +27,10 @@ from aibs_informatics_core.utils.file_operations import (
 )
 from aibs_informatics_core.utils.logging import LoggingMixin, get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
+from botocore.client import Config
 
 from aibs_informatics_aws_utils.efs import get_local_path
 from aibs_informatics_aws_utils.s3 import (
-    Config,
     TransferConfig,
     delete_s3_path,
     get_s3_path_stats,
@@ -50,8 +50,8 @@ LocalPath = Union[Path, EFSPath]
 
 
 @functools.cache
-def get_botocore_config(max_pool_connections: int) -> Config:
-    return Config(max_pool_connections=max_pool_connections)
+def get_botocore_config(max_pool_connections: int, **kwargs) -> Config:
+    return Config(max_pool_connections=max_pool_connections, **kwargs)
 
 
 @dataclass
