@@ -38,7 +38,12 @@ from aibs_informatics_core.models.aws.s3 import (
     S3UploadRequest,
 )
 from aibs_informatics_core.utils.decorators import retry
-from aibs_informatics_core.utils.file_operations import find_paths, get_path_with_root, remove_path
+from aibs_informatics_core.utils.file_operations import (
+    find_paths,
+    get_path_with_root,
+    remove_path,
+    strip_path_root,
+)
 from aibs_informatics_core.utils.json import JSON
 from aibs_informatics_core.utils.logging import get_logger
 from aibs_informatics_core.utils.multiprocessing import parallel_starmap
@@ -1148,10 +1153,14 @@ def check_paths_in_sync(
         )
         return False
     for sp, dp in zip(source_paths, destination_paths):
-        if str(sp).removeprefix(str(source_path)) != str(dp).removeprefix(str(destination_path)):
+        rsp = strip_path_root(str(sp).removeprefix("s3:"), str(source_path).removeprefix("s3:"))
+        rdp = strip_path_root(
+            str(dp).removeprefix("s3:"), str(destination_path).removeprefix("s3:")
+        )
+        if rsp != rdp:
             logger.info(
-                f"Source path {sp} (relative={str(sp).removeprefix(str(source_path))}) does not match "
-                f"destination path {dp} (relative={str(dp).removeprefix(str(destination_path))})"
+                f"Source path {sp} (relative={rsp}) does not match "
+                f"destination path {dp} (relative={rdp})"
             )
             return False
         if should_sync(source_path=sp, destination_path=dp, size_only=size_only, **kwargs):
