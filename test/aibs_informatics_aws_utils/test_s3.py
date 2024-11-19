@@ -984,18 +984,6 @@ class S3Tests(AwsBaseTest):
         assert check_paths_in_sync(source_s3_path, destination_path) is True
         assert check_paths_in_sync(source_s3_path, destination_s3_path) is True
 
-        # Test with trailing slash
-        assert check_paths_in_sync(source_path, destination_s3_path.with_folder_suffix) is True
-        assert check_paths_in_sync(source_s3_path.with_folder_suffix, destination_path) is True
-        assert check_paths_in_sync(source_s3_path.with_folder_suffix, destination_s3_path) is True
-        assert check_paths_in_sync(source_s3_path, destination_s3_path.with_folder_suffix) is True
-        assert (
-            check_paths_in_sync(
-                source_s3_path.with_folder_suffix, destination_s3_path.with_folder_suffix
-            )
-            is True
-        )
-
     def test__check_paths_in_sync__simple__files_different(self):
         source_path = self.tmp_file(content="a")
         source_s3_path = self.put_object(key="source", content="b")
@@ -1037,6 +1025,17 @@ class S3Tests(AwsBaseTest):
         assert check_paths_in_sync(source_path, destination_s3_path) is True
         assert check_paths_in_sync(source_s3_path, destination_path) is True
         assert check_paths_in_sync(source_s3_path, destination_s3_path) is True
+
+        # Test with trailing slash
+        assert check_paths_in_sync(source_path, destination_path) is True
+        assert check_paths_in_sync(source_path, destination_s3_path.with_folder_suffix) is True
+        assert check_paths_in_sync(source_s3_path.with_folder_suffix, destination_path) is True
+        assert (
+            check_paths_in_sync(
+                source_s3_path.with_folder_suffix, destination_s3_path.with_folder_suffix
+            )
+            is True
+        )
 
     def test__check_paths_in_sync__simple__folders_different(self):
         source_path = self.tmp_path()
