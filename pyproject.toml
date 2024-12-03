@@ -28,6 +28,11 @@ dev = [
     "moto[all] ~= 5.0",
 ]
 
+release = [
+    "build",
+    "wheel",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
