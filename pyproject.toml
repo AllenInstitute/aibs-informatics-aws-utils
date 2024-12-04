@@ -30,6 +30,7 @@ dev = [
 
 release = [
     "build",
+    "bump-my-version",
     "wheel",
 ]
 
@@ -41,6 +42,13 @@ where = ["src"]
 
 [tool.setuptools.dynamic]
 version = {attr = "aibs_informatics_aws_utils._version.__version__"}
+
+[project.urls]
+Documentation = "https://.github.io/aibs-informatics-aws-utils/"
+Homepage = "https://github.com/AllenInstitute/aibs-informatics-aws-utils/"
+Issues = "https://github.com/AllenInstitute/aibs-informatics-aws-utils/issues"
+Repository = "https://github.com/AllenInstitute/aibs-informatics-aws-utils/"
+
 
 # -----------------------------------------------------------------------------
 ##  Pyright Configurations
