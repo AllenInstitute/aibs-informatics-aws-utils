@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "aibs-informatics-test-resources @ git+ssh://git@github.com/AllenInstitute/aibs-informatics-test-resources.git@main",
+    "aibs-informatics-test-resources",
     "boto3-stubs[athena,apigateway,batch,ecr,ecs,efs,essential,fsx,logs,secretsmanager,ses,sns,ssm,sts,stepfunctions]",
     "moto[all] ~= 5.0",
 ]
@@ -204,3 +204,29 @@ line_length = 99
 profile = "black"
 src_paths = ["src", "test"]
 
+# -----------------------------------------------------------------------------
+##  bumpversion Configurations
+#   https://callowayproject.github.io/bump-my-version/
+# -----------------------------------------------------------------------------
+
+[tool.bumpversion]
+allow_dirty = false
+commit = true
+commit_args = ""
+current_version = "0.0.1"
+ignore_missing_version = false
+message = "Bump version: {current_version} → {new_version}"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+regex = false
+replace = "{new_version}"
+search = "{current_version}"
+serialize = ["{major}.{minor}.{patch}"]
+sign_tags = false
+tag = true
+tag_message = "Bump version: {current_version} → {new_version}"
+tag_name = "v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "src/aibs_informatics_aws_utils/_version.py"
+search = "__version__ = \"{current_version}\""
+replace = "__version__ = \"{new_version}\""
