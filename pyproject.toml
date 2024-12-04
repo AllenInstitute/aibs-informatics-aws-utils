@@ -18,7 +18,7 @@ requires-python = ">=3.9"
 
 dependencies = [
     "boto3~=1.35",
-    "aibs-informatics-core @ git+ssh://git@github.com/AllenInstitute/aibs-informatics-core.git@main",
+    "aibs-informatics-core",
 ]
 
 [project.optional-dependencies]
