@@ -16,8 +16,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from aibs_informatics_core.models.aws.efs import AccessPointId, EFSPath, FileSystemId
+from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.hashing import sha256_hexdigest
 from aibs_informatics_core.utils.os_operations import get_env_var
+from botocore.exceptions import NoCredentialsError
 
 from aibs_informatics_aws_utils.constants.efs import (
     EFS_MOUNT_POINT_ID_VAR,
@@ -377,6 +379,7 @@ class MountPointConfiguration:
 
 
 @cache
+@retry(retryable_exceptions=(NoCredentialsError), tries=5, backoff=2.0)
 def detect_mount_points() -> List[MountPointConfiguration]:
     mount_points: List[MountPointConfiguration] = []
 
