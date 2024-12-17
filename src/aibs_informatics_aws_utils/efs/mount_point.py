@@ -460,7 +460,7 @@ def _detect_mount_points_from_lambda(lambda_function_name: str) -> List[MountPoi
 
 def _detect_mount_points_from_batch_job(batch_job_id: str) -> List[MountPointConfiguration]:
     mount_points: List[MountPointConfiguration] = []
-    batch = AWSService.BATCH.get_client()
+    batch = get_batch_client()
     response = batch.describe_jobs(jobs=[batch_job_id])
     job_container = response.get("jobs", [{}])[0].get("container", {})
     batch_mount_points = job_container.get("mountPoints")
