@@ -382,17 +382,17 @@ def detect_mount_points() -> List[MountPointConfiguration]:
 
     if batch_job_id := get_env_var("AWS_BATCH_JOB_ID"):
         logger.info(f"Detected Batch job {batch_job_id}")
-        batch_mp_configs = _detect_moint_points_from_batch_job(batch_job_id)
+        batch_mp_configs = _detect_mount_points_from_batch_job(batch_job_id)
         logger.info(f"Detected {len(batch_mp_configs)} EFS mount points from Batch")
         mount_points.extend(batch_mp_configs)
     elif lambda_function_name := get_env_var("AWS_LAMBDA_FUNCTION_NAME"):
         logger.info(f"Detected Lambda function {lambda_function_name}")
-        lambda_mp_configs = _detect_moint_points_from_lambda(lambda_function_name)
+        lambda_mp_configs = _detect_mount_points_from_lambda(lambda_function_name)
         logger.info(f"Detected {len(lambda_mp_configs)} EFS mount points from Lambda")
         mount_points.extend(lambda_mp_configs)
     else:
         logger.info("No Lambda or Batch environment detected. Using environment variables.")
-        env_mount_points = _detect_moint_points_from_env()
+        env_mount_points = _detect_mount_points_from_env()
         logger.info(
             f"Detected {len(env_mount_points)} EFS mount points from environment variables"
         )
@@ -441,7 +441,7 @@ def deduplicate_mount_points(
 # ------------------------------------
 
 
-def _detect_moint_points_from_lambda(lambda_function_name: str) -> List[MountPointConfiguration]:
+def _detect_mount_points_from_lambda(lambda_function_name: str) -> List[MountPointConfiguration]:
     mount_points: List[MountPointConfiguration] = []
     lambda_ = get_lambda_client()
     response = lambda_.get_function_configuration(FunctionName=lambda_function_name)
@@ -458,7 +458,7 @@ def _detect_moint_points_from_lambda(lambda_function_name: str) -> List[MountPoi
     return _remove_invalid_mount_points(mount_points)
 
 
-def _detect_moint_points_from_batch_job(batch_job_id: str) -> List[MountPointConfiguration]:
+def _detect_mount_points_from_batch_job(batch_job_id: str) -> List[MountPointConfiguration]:
     mount_points: List[MountPointConfiguration] = []
     batch = AWSService.BATCH.get_client()
     response = batch.describe_jobs(jobs=[batch_job_id])
@@ -496,7 +496,7 @@ def _detect_moint_points_from_batch_job(batch_job_id: str) -> List[MountPointCon
     return _remove_invalid_mount_points(mount_points)
 
 
-def _detect_moint_points_from_env() -> List[MountPointConfiguration]:
+def _detect_mount_points_from_env() -> List[MountPointConfiguration]:
     mount_points: List[MountPointConfiguration] = []
 
     for k, v in os.environ.items():
