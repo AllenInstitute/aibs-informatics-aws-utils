@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
 from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
-from typing import Optional, Tuple, Union
-from unittest import mock, skip
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 import boto3
 import moto
+from moto.core.config import DefaultConfig
 
 from aibs_informatics_aws_utils.constants.efs import (
     EFS_MOUNT_POINT_ID_VAR,
@@ -18,12 +18,20 @@ from aibs_informatics_aws_utils.efs import (
     detect_mount_points,
 )
 
+if TYPE_CHECKING:
+    from mypy_boto3_lambda.type_defs import FileSystemConfigTypeDef
+else:  # pragma: no cover
+    FileSystemConfigTypeDef = dict
 
-@moto.mock_aws(config={"batch": {"use_docker": False}})
+
 class MountPointConfigurationTests(EFSTestsBase):
     def setUp(self) -> None:
         super().setUp()
         detect_mount_points.cache_clear()
+
+    @property
+    def mock_aws_config(self) -> Optional[DefaultConfig]:
+        return {"batch": {"use_docker": False}, "core": {"reset_boto3_session": True}}
 
     def setUpEFS(self, *access_points: Tuple[str, Path], file_system_name: Optional[str] = None):
         self.create_file_system(file_system_name)
@@ -136,13 +144,13 @@ class MountPointConfigurationTests(EFSTestsBase):
 
         # Set up lambda
         lambda_client = boto3.client("lambda")
-        file_system_configs = [
+        file_system_configs: list[FileSystemConfigTypeDef] = [
             {
-                "Arn": (c1.access_point or {}).get("AccessPointArn"),  # type: ignore,
+                "Arn": (c1.access_point or {}).get("AccessPointArn"),  # type: ignore
                 "LocalMountPath": c1.mount_point.as_posix(),
             },
             {
-                "Arn": (c2.access_point or {}).get("AccessPointArn"),  # type: ignore,
+                "Arn": (c2.access_point or {}).get("AccessPointArn"),  # type: ignore
                 "LocalMountPath": c2.mount_point.as_posix(),
             },
         ]
@@ -331,7 +339,7 @@ class MountPointConfigurationTests(EFSTestsBase):
 
         describe_job_response = batch_client.describe_jobs(jobs=[job_id])
         with self.stub(batch_client) as batch_stubber:
-            describe_job_response["jobs"][0]["container"][
+            describe_job_response["jobs"][0]["container"][  # type: ignore
                 "mountPoints"
             ] = batch_mount_point_configs
             batch_stubber.add_response(
