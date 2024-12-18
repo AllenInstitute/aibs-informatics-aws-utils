@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from typing import Optional, Union
@@ -6,6 +7,7 @@ import moto
 from aibs_informatics_core.models.aws.s3 import S3URI
 from aibs_informatics_core.models.data_sync import RemoteToLocalConfig
 from aibs_informatics_core.utils.os_operations import find_all_paths
+from pytest import mark
 
 from aibs_informatics_aws_utils.data_sync.operations import sync_data
 from aibs_informatics_aws_utils.s3 import get_s3_client, get_s3_resource, is_object, list_s3_paths
@@ -360,6 +362,10 @@ class OperationsTests(AwsBaseTest):
         )
         assert not destination_path.exists()
 
+    @mark.xfail(
+        sys.platform == "darwin",
+        reason="Test does not run on macOS (tmp dir is /private which is not accessible)",
+    )
     def test__sync_data__s3_to_local__file__auto_custom_tmp_dir__succeeds(self):
         fs = self.setUpLocalFS()
         self.setUpBucket()
