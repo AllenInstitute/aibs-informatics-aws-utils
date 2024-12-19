@@ -281,7 +281,6 @@ class LocalFileSystemTests(BaseTest):
         self.assertSetEqual(expected_node_paths, local_node_paths)
 
 
-@moto.mock_aws
 class EFSFileSystemTests(EFSTestsBase):
     def setUp(self) -> None:
         super().setUp()

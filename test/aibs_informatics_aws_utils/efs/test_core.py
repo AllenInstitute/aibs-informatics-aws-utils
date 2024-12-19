@@ -10,7 +10,6 @@ from aibs_informatics_aws_utils.efs import (
 )
 
 
-@moto.mock_aws
 class EFSTests(EFSTestsBase):
     def test__list_efs_file_systems__filters_based_on_tag(self):
         file_system_id1 = self.create_file_system("fs1", env="dev")

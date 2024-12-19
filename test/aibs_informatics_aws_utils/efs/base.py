@@ -4,21 +4,36 @@ from typing import Dict, Optional, Union
 
 import boto3
 import moto
+import moto.core
+import moto.core.config
+import moto.core.decorator
 
 
 class EFSTestsBase(AwsBaseTest):
     def setUp(self) -> None:
         super().setUp()
 
-        self.mock_efs = moto.mock_aws()
+        # HACK: We must define moto.mock_aws here instead of as a decorator because moto gives us
+        #       issues when we try to use the moto.mock_aws decorator in the child classes
+        #       (as https://github.com/getmoto/moto/issues/7063 suggests).
+        #       We previously double decorated - decorating the child and parent class - but this
+        #       now fails in python 3.12 (perhaps cleanup of mock collisions leniency).
+        #
+        #       This is a workaround until we can find a better solution. If configs need to be
+        #       overridden, they can be passed in via the mock_aws_config property on the child class.
+        self.mock_efs = moto.mock_aws(config=self.mock_aws_config)
         self.mock_efs.start()
 
         self.set_aws_credentials()
         self._file_store_name_id_map: Dict[str, str] = {}
 
     def tearDown(self) -> None:
+        super().tearDown()
         self.mock_efs.stop()
-        return super().tearDown()
+
+    @property
+    def mock_aws_config(self) -> Optional[moto.core.config.DefaultConfig]:
+        return None
 
     @property
     def efs_client(self):
