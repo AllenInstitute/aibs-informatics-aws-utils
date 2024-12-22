@@ -25,16 +25,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "aibs-informatics-aws-utils[stubs]~=0.0.5",
     "aibs-informatics-test-resources[all]~=0.0.4",
-    "moto[all] ~= 5.0",
-]
-
-stubs = [
     "boto3-stubs[athena,apigateway,batch,ecr,ecs,efs,essential,fsx,logs,secretsmanager,ses,sns,ssm,sts,stepfunctions]",
-    "boto3-stubs",
-    "types-pytz",
-    "types-requests",
+    "moto[all] ~= 5.0",
+    "mypy~=1.13.0",
 ]
 
 release = [
