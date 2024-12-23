@@ -1,6 +1,7 @@
 # AIBS Informatics AWS Utils
 
 [![Build Status](https://github.com/AllenInstitute/aibs-informatics-aws-utils/actions/workflows/build.yml/badge.svg)](https://github.com/AllenInstitute/aibs-informatics-aws-utils/actions/workflows/build.yml)
+[![codecov](https://codecov.io/gh/AllenInstitute/aibs-informatics-aws-utils/graph/badge.svg?token=I3A5UC9CMX)](https://codecov.io/gh/AllenInstitute/aibs-informatics-aws-utils)
 
 ---
 
