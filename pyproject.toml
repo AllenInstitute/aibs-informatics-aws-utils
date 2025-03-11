@@ -23,18 +23,27 @@ dependencies = [
     "aibs-informatics-core~=0.0.8",
 ]
 
-[project.optional-dependencies]
+# For dev dependencies: https://peps.python.org/pep-0735/
+# See also: https://docs.astral.sh/uv/concepts/projects/dependencies/#dependency-groups
+[dependency-groups]
 dev = [
-    "aibs-informatics-test-resources[all]~=0.0.4",
-    "boto3-stubs[athena,apigateway,batch,ecr,ecs,efs,essential,fsx,logs,secretsmanager,ses,sns,ssm,sts,stepfunctions]",
+    "aibs-informatics-test-resources[all]~=0.1.1",
     "moto[all] ~= 5.0",
-    "mypy~=1.13.0",
 ]
-
+lint = [
+    "boto3-stubs[athena,apigateway,batch,ecr,ecs,efs,essential,fsx,logs,secretsmanager,ses,sns,ssm,sts,stepfunctions]",
+    "mypy~=1.13.0",
+    "ruff~=0.9",    
+]
 release = [
     "build",
     "bump-my-version",
     "wheel",
+]
+all = [
+    {include-group = "dev"},
+    {include-group = "lint"},
+    {inclulde-group = "release"},
 ]
 
 [tool.setuptools.packages.find]
@@ -52,6 +61,12 @@ Homepage = "https://github.com/AllenInstitute/aibs-informatics-aws-utils/"
 Issues = "https://github.com/AllenInstitute/aibs-informatics-aws-utils/issues"
 Repository = "https://github.com/AllenInstitute/aibs-informatics-aws-utils/"
 
+# -----------------------------------------------------------------------------
+##  astral-uv Configurations
+#   https://docs.astral.sh/uv/getting-started/
+# -----------------------------------------------------------------------------
+
+[tool.uv]
 
 # -----------------------------------------------------------------------------
 ##  Pyright Configurations
@@ -155,8 +170,7 @@ no_site_packages = true
 
 # Untyped definitions and calls
 # https://mypy.readthedocs.io/en/stable/config_file.html#untyped-definitions-and-calls
-# TODO: enable and fix errors
-check_untyped_defs = false
+check_untyped_defs = true
 
 # Miscellaneous strictness flags
 # https://mypy.readthedocs.io/en/latest/config_file.html#miscellaneous-strictness-flags
@@ -179,7 +193,7 @@ show_absolute_path = false
 
 # None and Optional handling
 # https://mypy.readthedocs.io/en/latest/config_file.html#none-and-optional-handling
-strict_optional = false
+strict_optional = true
 
 # Miscellaneous
 # https://mypy.readthedocs.io/en/latest/config_file.html#miscellaneous
@@ -195,25 +209,23 @@ ignore_errors = false
 
 
 # -----------------------------------------------------------------------------
-##  Black Configurations
-#   https://black.readthedocs.io/en/stable/usage_and_configuration/the_basics.html#what-on-earth-is-a-pyproject-toml-file
+##  ruff Configurations
+#   https://beta.ruff.rs/docs/configuration/
 # -----------------------------------------------------------------------------
 
-
-[tool.black]
+[tool.ruff]
 line-length = 99
-include = '\.pyi?$'
+src = ["src", "test"]
 
-# -----------------------------------------------------------------------------
-##  isort Configurations
-#   https://pycqa.github.io/isort/docs/configuration/config_files.html
-# -----------------------------------------------------------------------------
-
-[tool.isort]
-# required for compatibility with black:
-line_length = 99
-profile = "black"
-src_paths = ["src", "test"]
+[tool.ruff.lint]
+# For rule classes and what each encompasses, see: https://docs.astral.sh/ruff/rules/
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "W",  # pycodestyle warnings
+    # "C90",  # TODO: enable mccabe complexity eventually
+    "I",  # isort
+]
 
 # -----------------------------------------------------------------------------
 ##  bumpversion Configurations
