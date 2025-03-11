@@ -61,7 +61,6 @@ from botocore.exceptions import (
 from aibs_informatics_aws_utils.core import (
     AWSService,
     client_error_code_check,
-    get_client_error_code,
     get_client_error_message,
 )
 from aibs_informatics_aws_utils.exceptions import AWSError
@@ -197,7 +196,8 @@ def download_s3_path(
         and path_is_non_empty_object_fn()
     ):
         raise AWSError(
-            f"{s3_path} is an object and object prefix and has folder suffix and is non-empty. This is not supported"
+            f"{s3_path} is an object and object prefix and has folder suffix "
+            "and is non-empty. This is not supported"
         )
     else:
         raise AWSError(
@@ -538,7 +538,7 @@ def get_s3_path_stats(s3_path: S3URI, **kwargs) -> S3PathStats:
 
 
 # TODO: Two things
-# 1. allow for a way to specify `size_only` for this function when transfering large number of files
+# 1. allow for a way to specify `size_only` for this fn when transfering large number of files
 # 2. add flag for failing if no source data exists.
 def sync_paths(
     source_path: Union[Path, S3URI],
@@ -603,7 +603,7 @@ def sync_paths(
     )
 
     if delete:
-        logger.info(f"Sync: checking for files to delete following sync")
+        logger.info("Sync: checking for files to delete following sync")
         if isinstance(destination_path, S3URI):
             unexpected_paths = set(list_s3_paths(destination_path, **kwargs)).difference(
                 [S3URI(_.request.destination_path) for _ in responses]
@@ -755,9 +755,8 @@ def process_transfer_requests(
 copy_s3_path = sync_paths
 
 
-client_error_code_check__SlowDown: Callable[[Exception], bool] = lambda ex: isinstance(
-    ex, ClientError
-) and client_error_code_check(ex, "SlowDown")
+def client_error_code_check__SlowDown(ex: Exception) -> bool:
+    return isinstance(ex, ClientError) and client_error_code_check(ex, "SlowDown")
 
 
 @retry(ClientError, [client_error_code_check__SlowDown], tries=10, backoff=2.0)
@@ -1046,16 +1045,20 @@ def should_sync(
             destination_path, **kwargs
         )
         if not size_only:
-            dest_hash = lambda: dest_s3_object.e_tag
+
+            def dest_hash():
+                return dest_s3_object.e_tag
     elif isinstance(destination_path, Path) and destination_path.exists():
         dest_local_path = destination_path
         local_stats = dest_local_path.stat()
         dest_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         dest_size_bytes = local_stats.st_size
         if not size_only:
-            dest_hash = lambda: get_local_etag(
-                dest_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
-            )
+
+            def dest_hash():
+                return get_local_etag(
+                    dest_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
+                )
     else:
         return True
 
@@ -1067,16 +1070,20 @@ def should_sync(
             source_path, **kwargs
         )
         if not size_only:
-            source_hash = lambda: src_s3_object.e_tag
+
+            def source_hash():
+                return src_s3_object.e_tag
     elif isinstance(source_path, Path) and source_path.exists():
         src_local_path = source_path
         local_stats = src_local_path.stat()
         source_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         source_size_bytes = local_stats.st_size
         if not size_only:
-            source_hash = lambda: get_local_etag(
-                src_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
-            )
+
+            def source_hash():
+                return get_local_etag(
+                    src_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
+                )
     else:
         raise ValueError(
             f"Cannot transfer, source path {source_path} does not exist! "
@@ -1108,8 +1115,8 @@ def check_paths_in_sync(
     Args:
         source_path (Union[Path, S3URI]): source path
         destination_path (Union[Path, S3URI]): destination path
-        size_only (bool, optional): Limits content comparison to just size and date (no checksum/ETag).
-            Defaults to False.
+        size_only (bool, optional): Limits content comparison to just size and date
+            (no checksum/ETag). Defaults to False.
 
     Raises:
         ValueError: if the source path does not exist.
@@ -1179,8 +1186,8 @@ def update_s3_storage_class(
     NOTE: This function needs to be called again if it returns False.
 
     Args:
-        s3_path (S3URI): The s3_path representing an s3 key or s3 prefix whose object or objects should have
-            their storage class updated.
+        s3_path (S3URI): The s3_path representing an s3 key or s3 prefix whose object or
+            objects should have their storage class updated.
         target_storage_class (S3StorageClass): The target storage class.
 
     Raises:
@@ -1193,7 +1200,7 @@ def update_s3_storage_class(
         bool:
             Returns True if the s3_path successfully had its storage class updated
             Returns False if s3_path did not fully update its storage class. Specifically:
-            - A constituent object or objects under an s3 archive storage class are still restoring
+            - A constituent object or objects under s3 archive storage class are still restoring
             - A constituent object or objects failed to transition to the desired storage class
     """
 
@@ -1224,7 +1231,8 @@ def update_s3_storage_class(
         elif current_storage_class in S3StorageClass.list_archive_storage_classes():
             o = S3RestoreStatus.from_raw_s3_restore_status(s3_obj.restore)
             print(
-                f"s3 path ({p}), current: {current_storage_class}, target: {target_storage_class}, restore status: {o}"
+                f"s3 path ({p}), current: {current_storage_class}, "
+                f"target: {target_storage_class}, restore status: {o}"
             )
             if o.restore_status == S3RestoreStatusEnum.NOT_STARTED:
                 paths_to_restore.append(p)
@@ -1266,8 +1274,9 @@ def update_s3_storage_class(
             }
         )
 
-    # 3. If there are restores (started or in progress) or failed transitions for objects under our
-    #    `s3_path` return False and we'll need to call update_s3_storage class in the future again.
+    # 3. If there are restores (started or in progress) or failed transitions for objects
+    #    under our `s3_path` return False and we'll need to call update_s3_storage class in
+    #    the future again.
     if any(paths_to_restore) or any(paths_restoring):
         return False
 
@@ -1316,9 +1325,12 @@ def determine_multipart_attributes(
         - threshold: The size in bytes at which a multipart upload is created
 
     Notes:
-        - The threshold is only an approximation, as it is not possible to determine the exact threshold used.
-        - This assumes chunk size is constant for all parts. This is not necessarily always true, although rare.
-        - The chunksize for a multipart upload has the following constraints: https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
+        - The threshold is only an approximation, as it is not possible to
+          determine the exact threshold used.
+        - This assumes chunk size is constant for all parts.
+          This is not necessarily always true, although rare.
+        - The chunksize for a multipart upload has the following constraints:
+            https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
             - Most importantly, must be between 5MB and 5GB
     Args:
         s3_path (S3URI): S3 object to check

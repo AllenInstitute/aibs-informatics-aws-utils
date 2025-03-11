@@ -1,7 +1,7 @@
-from test.base import BaseTest
-
-from botocore.client import BaseClient, ClientError
+from botocore.client import BaseClient
 from botocore.stub import Stubber
+
+from test.base import BaseTest
 
 
 class AwsBaseTest(BaseTest):

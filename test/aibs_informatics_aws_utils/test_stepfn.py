@@ -1,10 +1,9 @@
-from contextlib import nullcontext as does_not_raise
 from datetime import datetime, timedelta
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Tuple
 
 from aibs_informatics_core.env import EnvBase
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
+from aibs_informatics_test_resources import does_not_raise
 from pytest import mark, param, raises
 
 from aibs_informatics_aws_utils.exceptions import (
@@ -23,6 +22,7 @@ from aibs_informatics_aws_utils.stepfn import (
     get_state_machines,
     start_execution,
 )
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_stepfunctions import SFNClient
@@ -179,7 +179,7 @@ class StepFnTests(AwsBaseTest):
             sfn_stubber.add_response(self.LIST_STATE_MACHINES, {"stateMachines": [sm1]})
             sfn_stubber.add_response(self.LIST_EXECUTIONS, {"executions": [exec1, exec2]})
             with self.assertRaises(InvalidAmazonResourceNameError):
-                execution_arn = get_execution_arn(
+                get_execution_arn(
                     state_machine_name="state_machine1",
                     execution_name="12345",
                     region=self.DEFAULT_REGION,
@@ -201,9 +201,7 @@ class StepFnTests(AwsBaseTest):
         with self.stub(self.sfn) as sfn_stubber:
             sfn_stubber.add_response(self.LIST_STATE_MACHINES, {"stateMachines": [sm1, sm2]})
             with self.assertRaises(AttributeError):
-                state_machine = get_state_machine(
-                    name="1state_machine", region=self.DEFAULT_REGION
-                )
+                get_state_machine(name="1state_machine", region=self.DEFAULT_REGION)
 
     def test__get_state_machine__throws_error_for_no_matching_state_machine(self):
         sm1 = self.construct_state_machine_item("blah-blah-state_machine1")
@@ -213,9 +211,7 @@ class StepFnTests(AwsBaseTest):
             sfn_stubber.add_response(self.LIST_STATE_MACHINES, {"stateMachines": [sm1, sm2]})
 
             with self.assertRaises(ResourceNotFoundError):
-                state_machine = get_state_machine(
-                    name="state_machine3", region=self.DEFAULT_REGION
-                )
+                get_state_machine(name="state_machine3", region=self.DEFAULT_REGION)
 
     def test__get_state_machines__returns_all(self):
         sm1 = self.construct_state_machine_item("sm1")
@@ -321,13 +317,13 @@ class StepFnTests(AwsBaseTest):
             sfn_stubber.add_response(self.LIST_STATE_MACHINES, {"stateMachines": [sm1, sm2]})
             sfn_stubber.add_client_error(self.START_EXECUTION, "AnotherError")
             with self.assertRaises(ResourceNotFoundError):
-                execution_arn = start_execution(
+                start_execution(
                     state_machine_name=sm_name,
                     state_machine_input="{}",
                     region=self.DEFAULT_REGION,
                 )
             with self.assertRaises(AWSError):
-                execution_arn = start_execution(
+                start_execution(
                     state_machine_name=sm_name,
                     state_machine_input="{}",
                     region=self.DEFAULT_REGION,

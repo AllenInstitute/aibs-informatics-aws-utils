@@ -1,24 +1,15 @@
 import errno
-import os
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
-from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
-from test.base import BaseTest, does_not_raise
-from typing import Dict, List, Mapping, Optional, Set, Tuple, Union
+from typing import Dict, Mapping, Optional, Set, Tuple, Union
 from unittest import mock
-from urllib import parse
 
-import moto
 import pytz
-import requests
 from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3URI, S3PathStats
 from aibs_informatics_core.utils.time import get_current_time
 from aibs_informatics_core.utils.tools.strtools import removeprefix
-from pytest import mark, param, raises
 
 from aibs_informatics_aws_utils.data_sync.file_system import (
     EFSFileSystem,
@@ -28,6 +19,9 @@ from aibs_informatics_aws_utils.data_sync.file_system import (
 )
 from aibs_informatics_aws_utils.efs import MountPointConfiguration
 from aibs_informatics_aws_utils.efs.mount_point import detect_mount_points
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
+from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
+from test.base import BaseTest
 
 
 def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3URI:
@@ -126,7 +120,7 @@ class LocalFileSystemTests(BaseTest):
 
         p2.exists.side_effect = [True, False]
         mock_Path.side_effect = [p1, p2, p2, p2, p2]
-        (n := LocalFileSystem(root)).refresh()
+        (_ := LocalFileSystem(root)).refresh()
 
         with self.assertRaises(OSError):
             ose.errno = errno.ETIME
@@ -145,10 +139,10 @@ class LocalFileSystemTests(BaseTest):
             },
             size_bytes_limit=6,
             expected_node_paths={
-                f"A/A/X",
-                f"A/A/Y",
-                f"A/B/X",
-                f"A/B/Y",
+                "A/A/X",
+                "A/A/Y",
+                "A/B/X",
+                "A/B/Y",
             },
         )
 
@@ -161,8 +155,8 @@ class LocalFileSystemTests(BaseTest):
             },
             size_bytes_limit=4,
             expected_node_paths={
-                f"A/X",
-                f"A/B/",
+                "A/X",
+                "A/B/",
             },
         )
 
@@ -176,8 +170,8 @@ class LocalFileSystemTests(BaseTest):
             },
             size_bytes_limit=2,
             expected_node_paths={
-                f"A/A/",
-                f"A/B/",
+                "A/A/",
+                "A/B/",
             },
         )
 
@@ -191,9 +185,9 @@ class LocalFileSystemTests(BaseTest):
             },
             size_bytes_limit=4,
             expected_node_paths={
-                f"A/A/",
-                f"A/B/X",
-                f"A/B/Y",
+                "A/A/",
+                "A/B/X",
+                "A/B/Y",
             },
         )
 
@@ -208,9 +202,9 @@ class LocalFileSystemTests(BaseTest):
             },
             size_bytes_limit=5,
             expected_node_paths={
-                f"A/A/",
-                f"A/B/A/",
-                f"A/B/Y",
+                "A/A/",
+                "A/B/A/",
+                "A/B/Y",
             },
         )
 
@@ -225,9 +219,9 @@ class LocalFileSystemTests(BaseTest):
             },
             object_count_limit=2,
             expected_node_paths={
-                f"A/A/",
-                f"A/B/A/",
-                f"A/B/Y",
+                "A/A/",
+                "A/B/A/",
+                "A/B/Y",
             },
         )
 
@@ -243,10 +237,10 @@ class LocalFileSystemTests(BaseTest):
             size_bytes_limit=5,
             object_count_limit=2,
             expected_node_paths={
-                f"A/A/X",
-                f"A/A/Y",
-                f"A/B/A/",
-                f"A/B/Y",
+                "A/A/X",
+                "A/A/Y",
+                "A/B/A/",
+                "A/B/Y",
             },
         )
 
@@ -261,7 +255,7 @@ class LocalFileSystemTests(BaseTest):
             },
             size_bytes_limit=10,
             object_count_limit=10,
-            expected_node_paths={f""},
+            expected_node_paths={""},
         )
 
     def assertLocalFileSystem_partition(

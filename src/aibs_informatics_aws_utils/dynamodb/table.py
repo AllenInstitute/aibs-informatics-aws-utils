@@ -378,7 +378,7 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
 
         Returns:
             List[DB_MODEL]: List of database entries that were found.
-        """
+        """  # noqa: E501
         if not keys:
             return []
 
@@ -561,8 +561,9 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         **kw_filters: Any,
     ) -> List[DB_MODEL]:
         """
-        Constructs a query or scan as necessary from arguments (see _query and _scan for arg details).
-        Filters are joined with AND into one filter
+        Constructs a query or scan as necessary from arguments
+        (see _query and _scan for arg details). Filters are joined with
+        AND into one filter
         """
         (
             index,
@@ -699,23 +700,20 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         self,
         key: Union[DynamoDBKey, DB_MODEL],
         error_on_nonexistent: Literal[True],
-    ) -> DB_MODEL:
-        ...
+    ) -> DB_MODEL: ...
 
     @overload
     def delete(
         self,
         key: Union[DynamoDBKey, DB_MODEL],
         error_on_nonexistent: Literal[False],
-    ) -> Optional[DB_MODEL]:
-        ...
+    ) -> Optional[DB_MODEL]: ...
 
     @overload
     def delete(
         self,
         key: Union[DynamoDBKey, DB_MODEL],
-    ) -> Optional[DB_MODEL]:
-        ...
+    ) -> Optional[DB_MODEL]: ...
 
     def delete(
         self,
@@ -729,7 +727,9 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         e_msg = f"{self.table_name} - Delete failed for the following primary key: {key}"
         try:
             deleted_attributes = table_delete_item(
-                table_name=self.table_name, key=key, return_values="ALL_OLD"  # type: ignore[arg-type] # expected type more general than specified here
+                table_name=self.table_name,
+                key=key,
+                return_values="ALL_OLD",  # type: ignore[arg-type] # expected type more general than specified here
             )
 
             if not deleted_attributes:

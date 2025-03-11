@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
 from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 import boto3
@@ -17,6 +16,7 @@ from aibs_informatics_aws_utils.efs import (
     deduplicate_mount_points,
     detect_mount_points,
 )
+from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
 
 if TYPE_CHECKING:
     from mypy_boto3_lambda.type_defs import FileSystemConfigTypeDef
@@ -45,10 +45,12 @@ class MountPointConfigurationTests(EFSTestsBase):
     def test__as_env_vars__happy_case(self):
         c = self.get_mount_point("/opt/A", "ap1", "/a")
 
+        assert c.access_point is not None
+        assert "AccessPointId" in c.access_point
         self.assertEqual(
             c.as_env_vars(name="TEST"),
             {
-                EFS_MOUNT_POINT_ID_VAR + "_TEST": c.access_point["AccessPointId"],  # type: ignore
+                EFS_MOUNT_POINT_ID_VAR + "_TEST": c.access_point["AccessPointId"],
                 EFS_MOUNT_POINT_PATH_VAR + "_TEST": "/opt/A",
             },
         )
@@ -258,6 +260,8 @@ class MountPointConfigurationTests(EFSTestsBase):
         # Batch Resources: Job Definition, Compute Environment, Job Queue
         batch_client = AWSService.BATCH.get_client()
 
+        assert c2.access_point is not None
+        assert "AccessPointId" in c2.access_point
         job_definition_arn = batch_client.register_job_definition(
             jobDefinitionName="test",
             type="container",
@@ -280,7 +284,7 @@ class MountPointConfigurationTests(EFSTestsBase):
                     ]
                 ),
                 "volumes": (
-                    batch_volume_configs := [
+                    _batch_volume_configs := [
                         {
                             "name": "test1",
                             "efsVolumeConfiguration": {
@@ -294,7 +298,9 @@ class MountPointConfigurationTests(EFSTestsBase):
                                 "fileSystemId": c2.file_system["FileSystemId"],
                                 "rootDirectory": "/b",
                                 "transitEncryption": "ENABLED",
-                                "authorizationConfig": {"accessPointId": c2.access_point["AccessPointId"]},  # type: ignore
+                                "authorizationConfig": {
+                                    "accessPointId": c2.access_point["AccessPointId"]
+                                },
                             },
                         },
                     ]

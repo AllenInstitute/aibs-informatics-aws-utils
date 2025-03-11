@@ -89,7 +89,7 @@ class UpdateExpressionComponents(ExpressionComponentsBase):
             expression_attr_names[attr_name_key] = attr_name
             expression_attr_values[attr_value_key] = attr_value
             update_expressions.append(f"{attr_name_key} = {attr_value_key}")
-        update_expression = f"SET " + ", ".join(update_expressions)
+        update_expression = "SET " + ", ".join(update_expressions)
         return UpdateExpressionComponents(
             expression=update_expression,
             expression_attribute_names=expression_attr_names,
@@ -113,8 +113,8 @@ class ConditionExpressionComponents(ExpressionComponentsBase):
             condition (ConditionBase): The ConditionBase to create expression components from
             is_key_condition (bool): If the provided condition is for a query()
                 KeyConditionExpression then this should be True. Otherwise if the condition is for
-                a query() FilterExpression or for a put_item() ConditionExpression then this should
-                be set to false.
+                a query() FilterExpression or for a put_item() ConditionExpression then this
+                should be set to false.
 
         Returns:
             ConditionExpressionComponents
@@ -144,8 +144,9 @@ class ConditionExpressionComponents(ExpressionComponentsBase):
             other (ConditionExpressionComponents): the other Expression Condition to modify
 
         Returns:
-            ConditionExpressionComponents: The other, as a modified non-overlapping Expression Condition
-        """
+            ConditionExpressionComponents: The other, as a modified
+                non-overlapping Expression Condition
+        """  # noqa: E501
 
         this_placeholder_names = AttrPlaceholder.sorted(self.expression_attribute_names.keys())
         this_placeholder_values = AttrPlaceholder.sorted(self.expression_attribute_values.keys())

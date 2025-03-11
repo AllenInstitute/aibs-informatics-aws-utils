@@ -246,7 +246,7 @@ class LifecyclePolicyRule(DataClassModel):
             description=f"Remove untagged images after {days} days",
             selection=LifecyclePolicySelection(
                 tag_status="untagged",
-                tag_prefix_list=None,
+                tag_prefix_list=None,  # type: ignore[arg-type]
                 count_type="sinceImagePushed",
                 count_number=days,
                 count_unit="days",
@@ -270,7 +270,9 @@ class LifecyclePolicy(DataClassModel):
 
         sorted_rules: List[LifecyclePolicyRule]
 
-        sort_key = lambda _: _.rule_priority
+        def sort_key(_):
+            return _.rule_priority
+
         if in_place:
             rules.sort(key=sort_key)
             sorted_rules = rules
@@ -334,7 +336,7 @@ class ECRMixins(LoggingMixin):
 class ECRImage(ECRMixins, DataClassModel):
     repository_name: str
     image_digest: str
-    image_manifest: str = field(default=None, repr=False)
+    image_manifest: str = field(default=None, repr=False)  # type: ignore[assignment]
 
     def __post_init__(self):
         super().__post_init__()
@@ -345,7 +347,8 @@ class ECRImage(ECRMixins, DataClassModel):
                 imageIds=[dict(imageDigest=self.image_digest)],
             )
 
-            if len(response["images"]) == 0 or "imageManifest" not in response["images"][0]:
+            no_images = len(response["images"]) == 0
+            if no_images or "imageManifest" not in response["images"][0]:
                 raise ResourceNotFoundError(f"Could not resolve image manifest for {self.uri}")
 
             self.image_manifest = response["images"][0]["imageManifest"]
@@ -467,7 +470,7 @@ class ECRImage(ECRMixins, DataClassModel):
                 registryId=account_id,
                 imageIds=[dict(imageTag=image_tag)],
             )["imageDetails"][0]
-            image_digest = image_details["imageDigest"]  # type: ignore # type def optional, but actually required
+            image_digest = image_details["imageDigest"]
 
         return ECRImage(
             account_id=account_id,
@@ -512,7 +515,8 @@ class ECRResource(ECRMixins, DataClassModel):
 
 
         Args:
-            mode (TagMode, optional): Either append or overwrite tags of resource. Defaults to TagMode.APPEND.
+            mode (TagMode, optional): Either append or overwrite tags of resource.
+                Defaults to TagMode.APPEND.
         """
         tag_dict = dict([(tag["Key"], tag["Value"]) for tag in tags])
         if mode == TagMode.OVERWRITE:
@@ -547,7 +551,7 @@ class ECRRepository(ECRResource):
 
     def create(
         self,
-        tags: List[ResourceTag] = None,
+        tags: Optional[List[ResourceTag]] = None,
         image_tag_mutability: ImageTagMutabilityType = "MUTABLE",
         exists_ok: bool = True,
     ):
@@ -555,17 +559,20 @@ class ECRRepository(ECRResource):
 
         Args:
             tags (List[ResourceTag], optional): list of repo tags to add. Defaults to None.
-            image_tag_mutability (ImageTagMutabilityType, optional): whether image tag is immutable.
-                                                                     Defaults to "MUTABLE".
+            image_tag_mutability (ImageTagMutabilityType, optional): whether image
+                tag is immutable. Defaults to "MUTABLE".
             exists_ok (bool, optional): Suppress error if repository already exists.
-                                        Defaults to True.
+                Defaults to True.
 
         """
+        if tags is None:
+            tags = []
+
         try:
             self.client.create_repository(
                 registryId=self.account_id,
                 repositoryName=self.repository_name,
-                tags=tags or [],
+                tags=tags,
                 imageTagMutability=image_tag_mutability,
             )
         except ClientError as e:
@@ -690,8 +697,7 @@ class ECRRepository(ECRResource):
             if image_digest in digest_to_manifest_map:
                 if image_manifest != digest_to_manifest_map[image_digest]:
                     raise ValueError(
-                        f"Not all image manifests are equivalent "
-                        f"for {image_digest} in {self.uri}"
+                        f"Not all image manifests are equivalent for {image_digest} in {self.uri}"
                     )
             else:
                 digest_to_manifest_map[image_digest] = image_manifest
@@ -846,7 +852,13 @@ def resolve_image_uri(name: str, default_tag: Optional[str] = None) -> str:
                 return image.uri
             else:
                 # Fetch latest tagged
-                images = sorted(repo.get_images("TAGGED"), key=lambda _: _.image_pushed_at)
+
+                def get_image_push_time(image: ECRImage) -> datetime:
+                    if image.image_pushed_at is None:
+                        raise RuntimeError(f"Couldn't get 'image_pushed_at' for: {image}")
+                    return image.image_pushed_at
+
+                images = sorted(repo.get_images("TAGGED"), key=get_image_push_time)
                 return images[-1].uri
         else:
             raise ValueError(f"Could not resolve full URI for image {uri} (raw={name})")

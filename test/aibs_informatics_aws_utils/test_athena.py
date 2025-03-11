@@ -21,9 +21,7 @@ def test__start_query_execution__works(athena_client):
     athena_client.create_work_group(Name="test", Configuration=dict())
 
     query_string = "SELECT * FROM table"
-    metadata = start_query_execution(
-        query_string, work_group="test", execution_parameters=["test"]
-    )
+    start_query_execution(query_string, work_group="test", execution_parameters=["test"])
 
 
 def test__start_query_execution__fails(athena_client):

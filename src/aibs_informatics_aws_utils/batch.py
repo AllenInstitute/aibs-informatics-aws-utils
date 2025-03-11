@@ -175,7 +175,7 @@ def register_job_definition(
     retry_strategy: Optional[RetryStrategyTypeDef] = None,
     tags: Optional[Mapping[str, str]] = None,
     propagate_tags: bool = False,
-    region: str = None,
+    region: Optional[str] = None,
 ) -> JobDefinitionTypeDef:
     batch = get_batch_client(region=region)
 
@@ -215,7 +215,7 @@ def register_job_definition(
 
 
 def get_latest_job_definition(
-    job_definition_name: str, region: str = None
+    job_definition_name: str, region: Optional[str] = None
 ) -> Optional[JobDefinitionTypeDef]:
     batch = get_batch_client(region=region)
     response = batch.describe_job_definitions(
@@ -233,16 +233,16 @@ def get_latest_job_definition(
 def submit_job(
     job_definition: str,
     job_queue: str,
-    job_name: JobName = None,
-    env_base: EnvBase = None,
-    region: str = None,
+    job_name: Optional[JobName] = None,
+    env_base: Optional[EnvBase] = None,
+    region: Optional[str] = None,
 ):
     batch_client = get_batch_client(region=region)
     env_base = env_base or get_env_base()
     if job_name is None:
         job_name = JobName(f"{env_base}-{sha256_hexdigest()}")
 
-    response = batch_client.submit_job(
+    batch_client.submit_job(
         jobName=job_name,
         jobQueue=job_queue,
         jobDefinition=job_definition,
@@ -310,14 +310,14 @@ class BatchJobBuilder:
 
 def describe_jobs(
     job_ids: List[str],
-    region: str = None,
+    region: Optional[str] = None,
 ) -> DescribeJobsResponseTypeDef:
     batch = get_batch_client(region=region)
     response = batch.describe_jobs(jobs=job_ids)
     return response
 
 
-def batch_log_stream_name_to_url(log_stream_name: str, region: str = None) -> str:
+def batch_log_stream_name_to_url(log_stream_name: str, region: Optional[str] = None) -> str:
     log_group_name = "/aws/batch/job"
     return build_log_stream_url(
         log_group_name=log_group_name, log_stream_name=log_stream_name, region=region

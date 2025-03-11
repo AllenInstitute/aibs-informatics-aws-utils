@@ -132,11 +132,12 @@ def get_region(region: Optional[str] = None) -> str:
         region = next((os.environ.get(key) for key in ENV_VARS if os.environ.get(key)), None)
 
     if not region:
-        error_msg = f"Could not determine region from default session or environment"
+        error_msg = "Could not determine region from default session or environment"
         logger.error(error_msg)
         raise AWSError(error_msg)
     try:
         region = AWSRegion(region)
+        assert region is not None
     except Exception as e:
         raise AWSError from e
     return region

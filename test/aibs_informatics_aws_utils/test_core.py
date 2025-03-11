@@ -1,4 +1,3 @@
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from unittest import mock
 
 import moto
@@ -15,6 +14,7 @@ from aibs_informatics_aws_utils.core import (
     get_user_id,
 )
 from aibs_informatics_aws_utils.exceptions import AWSError
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 class AWSGetterTests(AwsBaseTest):
@@ -65,17 +65,17 @@ class AWSGetterTests(AwsBaseTest):
 
     def test__get_account_id__succeeds(self):
         # moto sets account to be 123456789012
-        with moto.mock_aws() as sts:
+        with moto.mock_aws():
             self.assertEqual(get_account_id(), self.ACCOUNT_ID)
 
     def test__get_user_id__succeeds(self):
         # moto sets user to be AKIAIOSFODNN7EXAMPLE
-        with moto.mock_aws() as sts:
+        with moto.mock_aws():
             self.assertEqual(get_user_id(), "AKIAIOSFODNN7EXAMPLE")
 
     def test__get_iam_arn__succeeds(self):
         # moto sets user to be arn:aws:sts::123456789012:user/moto
-        with moto.mock_aws() as sts:
+        with moto.mock_aws():
             self.assertEqual(get_iam_arn(), "arn:aws:sts::123456789012:user/moto")
 
 
@@ -87,12 +87,12 @@ class AWSServiceTests(AwsBaseTest):
         self.get_resource = self.create_patch("aibs_informatics_aws_utils.core.get_resource")
 
     def test__get_client__gets_service_clients(self):
-        apigw = AWSService.API_GATEWAY.get_client()
-        ddb = AWSService.DYNAMO_DB.get_client()
-        ecr = AWSService.ECR.get_client()
-        s3 = AWSService.S3.get_client()
-        sfn = AWSService.STEPFUNCTIONS.get_client()
-        sqs = AWSService.SQS.get_client()
+        AWSService.API_GATEWAY.get_client()
+        AWSService.DYNAMO_DB.get_client()
+        AWSService.ECR.get_client()
+        AWSService.S3.get_client()
+        AWSService.STEPFUNCTIONS.get_client()
+        AWSService.SQS.get_client()
 
         self.get_client.assert_has_calls(
             [
@@ -106,9 +106,9 @@ class AWSServiceTests(AwsBaseTest):
         )
 
     def test__get_resource__gets_service_resources(self):
-        s3 = AWSService.S3.get_resource()
-        ddb = AWSService.DYNAMO_DB.get_resource()
-        sqs = AWSService.SQS.get_resource()
+        AWSService.S3.get_resource()
+        AWSService.DYNAMO_DB.get_resource()
+        AWSService.SQS.get_resource()
 
         self.get_resource.assert_has_calls(
             [

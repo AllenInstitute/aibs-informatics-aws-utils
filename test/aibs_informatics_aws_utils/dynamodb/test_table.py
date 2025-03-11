@@ -1,9 +1,7 @@
-from contextlib import nullcontext as does_not_raise
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
-from typing import ClassVar, Optional
+from typing import Optional
 
 import moto
 import pytest
@@ -23,6 +21,7 @@ from aibs_informatics_core.models.db import (
     DBSortKeyNameEnum,
 )
 from aibs_informatics_core.utils.time import from_isoformat_8601
+from aibs_informatics_test_resources import does_not_raise
 
 from aibs_informatics_aws_utils.dynamodb.conditions import Attr, Key
 from aibs_informatics_aws_utils.dynamodb.functions import (
@@ -32,8 +31,6 @@ from aibs_informatics_aws_utils.dynamodb.functions import (
 from aibs_informatics_aws_utils.dynamodb.table import (
     DynamoDBEnvBaseTable,
     build_optimized_condition_expression_set,
-    check_db_query_non_empty,
-    check_db_query_unique,
     check_index_supports_strongly_consistent_read,
     check_table_name_and_index_match,
 )
@@ -44,6 +41,7 @@ from aibs_informatics_aws_utils.exceptions import (
     EmptyQueryResultException,
     NonUniqueQueryResultException,
 )
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 SIMPLE_TABLE_NAME = "simple-table"
 
@@ -244,7 +242,7 @@ class SimpleTableTests(AwsBaseTest):
             self.table.batch_get(["primary_key1", "primary_key2"])
 
     def test__query__expect_non_empty__expect_unique__work_as_intented(self):
-        entries = [
+        [
             self.table.put(
                 self.create_entry(primary_key=f"primary_key_{i}", str_attr="str_attr", int_attr=i)
             )
@@ -352,7 +350,7 @@ class SimpleTableTests(AwsBaseTest):
         self.assertEqual(len(entries), len(actual))
 
     def test__scan__expect_non_empty__expect_unique__work_as_intented(self):
-        entries = [
+        [
             self.table.put(
                 self.create_entry(primary_key=f"primary_key_{i}", str_attr="str_attr", int_attr=i)
             )
@@ -416,7 +414,7 @@ class SimpleTableTests(AwsBaseTest):
             self.table.smart_query(allow_scan=False)
 
     def test__smart_query__only_attributes_does_scan(self):
-        entries = [
+        [
             self.table.put(
                 self.create_entry(primary_key=f"primary_key_{i}", str_attr="str_attr", int_attr=i)
             )
@@ -426,7 +424,7 @@ class SimpleTableTests(AwsBaseTest):
         self.assertEqual(len(actual), 1)
 
     def test__smart_query__only_key_attributes_does_query(self):
-        entries = [
+        [
             self.table.put(
                 self.create_entry(primary_key=f"primary_key_{i}", str_attr="str_attr", int_attr=i)
             )
@@ -474,7 +472,7 @@ class SimpleTableTests(AwsBaseTest):
         )
 
     def test__from_env__works(self):
-        table = SimpleTable.from_env()
+        SimpleTable.from_env()
 
     def create_entry(self, **kwargs) -> SimpleModel:
         entry_dict = dict(

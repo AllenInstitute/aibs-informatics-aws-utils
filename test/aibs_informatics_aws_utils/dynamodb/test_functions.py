@@ -1,8 +1,7 @@
 from copy import deepcopy
 from decimal import Decimal
 from operator import itemgetter
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import boto3
 import moto
@@ -24,6 +23,7 @@ from aibs_informatics_aws_utils.dynamodb.functions import (
     convert_decimals_to_floats,
     convert_floats_to_decimals,
 )
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 class DynamoDBTests(AwsBaseTest):
@@ -138,7 +138,7 @@ def mock_dynamodb_fixture(aws_credentials_fixture, request):
         )
 
         if index_updates:
-            _ = mock_client.update_table(
+            mock_client.update_table(
                 TableName=mock_table_name, GlobalSecondaryIndexUpdates=index_updates
             )
 

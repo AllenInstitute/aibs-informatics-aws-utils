@@ -1,14 +1,10 @@
 from pathlib import Path
-from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 from aibs_informatics_core.models.aws.efs import EFSPath
 
-from aibs_informatics_aws_utils.constants.efs import (
-    EFS_MOUNT_POINT_ID_VAR,
-    EFS_MOUNT_POINT_PATH_VAR,
-)
 from aibs_informatics_aws_utils.efs import MountPointConfiguration, get_efs_path, get_local_path
+from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
 
 
 class EFSPathTests(EFSTestsBase):

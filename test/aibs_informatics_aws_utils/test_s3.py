@@ -1,7 +1,5 @@
 import re
 from pathlib import Path
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
-from test.base import does_not_raise
 from time import sleep
 
 import moto
@@ -14,6 +12,7 @@ from aibs_informatics_core.models.aws.s3 import (
     S3UploadRequest,
 )
 from aibs_informatics_core.utils.os_operations import find_all_paths
+from aibs_informatics_test_resources import does_not_raise
 from boto3.s3.transfer import TransferConfig
 from pytest import fixture, mark, param, raises
 
@@ -50,6 +49,7 @@ from aibs_informatics_aws_utils.s3 import (
     upload_path,
     upload_scratch_file,
 )
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 def any_s3_uri(key: str = "key", bucket: str = "bucket") -> S3URI:
@@ -270,7 +270,7 @@ class S3Tests(AwsBaseTest):
         #                                 |--------------------- is_object
         #                                 |       |------------- is_object_prefix
         #                                 |       |       |----- is_folder
-        #                                 |       |       | 
+        #                                 |       |       |
         assertions = [
             (s3_path_to_object,         (True,   True,   True)),
             (s3_path_to_object_dash,    (False,  True,   False)),
@@ -600,7 +600,7 @@ class S3Tests(AwsBaseTest):
         destination_path = self.get_s3_path("destination/path")
         path1 = self.put_object("source/path", "hello")
         path2 = self.put_object("source/path/obj1", "hello again")
-        path3 = self.put_object("source/path_obj", "did you hear me")
+        self.put_object("source/path_obj", "did you hear me")
         # This should be deleted
         source_paths = [path1, path2]
         sync_paths(source_path=source_path, destination_path=destination_path)
@@ -720,23 +720,22 @@ class S3Tests(AwsBaseTest):
     def test__update_s3_storage_class__handles_shallow_to_GLACIER(self):
         s3_root = self.get_s3_path("source/path/")
 
-        storage_class_paths = {
-            storage_class: self.put_object(
+        for storage_class in [
+            S3StorageClass.STANDARD,
+            S3StorageClass.STANDARD_IA,
+            S3StorageClass.INTELLIGENT_TIERING,
+            S3StorageClass.GLACIER,
+            # These will not be tested since they require restore before transition
+            # Unfortunately, archive restores are not currently supported by moto
+            # S3StorageClass.GLACIER_IR,
+            # S3StorageClass.DEEP_ARCHIVE,
+        ]:
+            self.put_object(
                 f"{s3_root.key}{storage_class.value}",
                 "content",
                 StorageClass=storage_class.value,
             )
-            for storage_class in [
-                S3StorageClass.STANDARD,
-                S3StorageClass.STANDARD_IA,
-                S3StorageClass.INTELLIGENT_TIERING,
-                S3StorageClass.GLACIER,
-                # These will not be tested since they require restore before transition
-                # Unfortunately, archive restores are not currently supported by moto
-                # S3StorageClass.GLACIER_IR,
-                # S3StorageClass.DEEP_ARCHIVE,
-            ]
-        }
+
         target_storage_class = S3StorageClass.GLACIER
         update_s3_storage_class(s3_root, target_storage_class)
 
@@ -1232,7 +1231,7 @@ def test__determine_multipart_attributes__works(
             (Path("/src/key"), any_s3_uri("dest/key"), "/src/"),
             S3UploadRequest(Path("/src/key"), any_s3_uri("dest/keykey")),
             does_not_raise(),
-            id="(local -> s3) removes part of source path specified from prefix with trailing slash",
+            id="(local -> s3) removes part of source path specified from prefix with trailing slash",  # noqa: E501
         ),
         param(
             (Path("/A/folder/"), any_s3_uri("B/key", "dest"), "/A"),
@@ -1270,7 +1269,7 @@ def test__determine_multipart_attributes__works(
             # TODO: this might not be appropriate
             S3DownloadRequest(any_s3_uri("src/key"), Path("/dest/key/key")),
             does_not_raise(),
-            id="(s3 -> local) removes part of source path specified from prefix with trailing slash",
+            id="(s3 -> local) removes part of source path specified from prefix with trailing slash",  # noqa: E501
         ),
         param(
             (any_s3_uri("A/folder/"), Path("/B/key"), "A"),
@@ -1288,7 +1287,7 @@ def test__determine_multipart_attributes__works(
             (any_s3_uri("src/key//value"), Path("/dest/key//value"), "src"),
             S3DownloadRequest(any_s3_uri("src/key//value"), Path("/dest/key/value/key/value")),
             does_not_raise(),
-            id="(s3 -> local) removes part of source path specified from prefix and cleans extra slashes",
+            id="(s3 -> local) removes part of source path specified from prefix and cleans extra slashes",  # noqa: E501
         ),
         # S3 to S3
         param(
@@ -1331,7 +1330,7 @@ def test__determine_multipart_attributes__works(
             (any_s3_uri("src/key//value"), any_s3_uri("dest/key//value"), "src"),
             S3CopyRequest(any_s3_uri("src/key//value"), any_s3_uri("dest/key/value/key/value")),
             does_not_raise(),
-            id="(s3 -> s3) removes part of source path specified from prefix and cleans extra slashes",
+            id="(s3 -> s3) removes part of source path specified from prefix and cleans extra slashes",  # noqa: E501
         ),
         param(
             (any_s3_uri("src/key"), any_s3_uri("dest/key"), "dest"),

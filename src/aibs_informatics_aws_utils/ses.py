@@ -129,7 +129,8 @@ def send_email_with_attachment(
         source: Source email address
         to_addresses: List of recipient email addresses
         subject: Email subject
-        body: Email body which can be either basic str or MIMEText (which can allow html with hyperlinks)
+        body: Email body which can be either basic str or MIMEText, which can
+            allow html with hyperlinks.
         attachments_paths: List of optional paths to read contents from and attach to the email
     Returns: `SendEmailResponseTypeDef`
     """

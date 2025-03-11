@@ -1,5 +1,4 @@
 import json
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 import boto3
 import moto
@@ -9,6 +8,7 @@ from aibs_informatics_aws_utils.lambda_ import (
     get_lambda_function_file_systems,
     get_lambda_function_url,
 )
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 @moto.mock_aws
@@ -40,11 +40,11 @@ class LambdaTests(AwsBaseTest):
         lambda_client = boto3.client("lambda")
         file_system_configs = [
             {
-                "Arn": "arn:aws:elasticfilesystem:us-west-2:123456789012:access-point/fsap-1234abcd",
+                "Arn": "arn:aws:elasticfilesystem:us-west-2:123456789012:access-point/fsap-1234abcd",  # noqa: E501
                 "LocalMountPath": "/mnt/efs1",
             },
             {
-                "Arn": "arn:aws:elasticfilesystem:us-west-2:123456789012:access-point/fsap-1234abcd2",
+                "Arn": "arn:aws:elasticfilesystem:us-west-2:123456789012:access-point/fsap-1234abcd2",  # noqa: E501
                 "LocalMountPath": "/mnt/efs2",
             },
         ]

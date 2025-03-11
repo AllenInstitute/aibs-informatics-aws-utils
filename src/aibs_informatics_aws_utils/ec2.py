@@ -81,7 +81,8 @@ def normalize_range(
         min_limit (Optional[N]): Restricts min end of range, if specified. Defaults to None.
         raise_on_invalid (bool): Raise an error if the range is invalid.
             If not, range is modified to match the max requirements. Defaults to True.
-        treat_single_value_as_max (bool): If True, a single number is treated as the max end of the range. Defaults to False.
+        treat_single_value_as_max (bool): If True, a single number is treated
+            as the max end of the range. Defaults to False.
         num_type (Type[N], optional): the data type to use. Defaults to int.
 
     Returns:
@@ -218,18 +219,24 @@ def describe_availability_zones(
     """Describe availability zones
 
     Args:
-        regions (Optional[List[str]], optional): Return AZs for regions if specified. Defaults to None.
-        all_regions (bool, optional): Whether to return for all regions (if no regions specified). Defaults to False.
+        regions (Optional[List[str]], optional): Return AZs for regions if specified.
+            Defaults to None.
+        all_regions (bool, optional): Whether to return for all regions (if no regions specified).
+            Defaults to False.
 
     Returns:
         List of availability zone info
     """
+    normalized_regions: list[str] | list[None] = [None]
     if regions is None and all_regions:
         regions = get_regions()
 
+    if regions:
+        normalized_regions = regions
+
     az_infos = []
 
-    for region in regions or [None]:
+    for region in normalized_regions:
         try:
             az_infos.extend(
                 get_ec2_client(region=region).describe_availability_zones()["AvailabilityZones"]
@@ -248,8 +255,10 @@ def get_availability_zones(
     """Gets a list of availability zones
 
     Args:
-        regions (Optional[List[str]], optional): Return AZs for regions if specified. Defaults to None.
-        all_regions (bool, optional): Whether to return for all regions (if no regions specified). Defaults to False.
+        regions (Optional[List[str]], optional): Return AZs for regions if specified.
+            Defaults to None.
+        all_regions (bool, optional): Whether to return for all regions (if no regions specified).
+            Defaults to False.
 
     Returns:
         List[str]: List of availability zones
@@ -269,9 +278,11 @@ def describe_instance_type_offerings(
     """Describe instance type offerings
 
     Args:
-        instance_types (Optional[List[str]], optional): Optional subset of instance types. Defaults to None.
+        instance_types (Optional[List[str]], optional): Optional subset of instance types.
+            Defaults to None.
         regions (Optional[List[str]], optional): Optional subset of regions. Defaults to None.
-        availability_zones (Optional[List[str]], optional): Optional subset of availability zones. Defaults to None.
+        availability_zones (Optional[List[str]], optional): Optional subset of availability zones.
+            Defaults to None.
 
     Returns:
         _type_: List of instance type offerings
@@ -287,9 +298,13 @@ def describe_instance_type_offerings(
         kwargs["LocationType"] = "availability-zone"
         kwargs["Filters"] = [dict(Name="location", Values=availability_zones)]
 
+    normalized_regions: list[str] | list[None] = [None]
+    if regions:
+        normalized_regions = regions
+
     return [
         _
-        for region in regions or [None]
+        for region in normalized_regions
         for response in get_ec2_client(region=region)
         .get_paginator("describe_instance_type_offerings")
         .paginate(**kwargs)
@@ -304,7 +319,8 @@ def describe_instance_types(
     """Describe instance types
 
     Args:
-        instance_types (Optional[List[str]], optional): subset of instance types. Defaults to None.
+        instance_types (Optional[List[str]], optional): subset of instance types.
+            Defaults to None.
         filters (Optional[Dict[str, List[str]]], optional): Filters to apply. Defaults to None.
 
     Returns:
@@ -353,11 +369,12 @@ def describe_instance_types_by_props(
         spot_support (Optional[bool], optional): Filter based on spot support. Defaults to None.
         regions (Optional[List[str]], optional): Filter based on availability in regions.
             Defaults to None.
-        availability_zones (Optional[List[str]], optional): Filter based on availability in availability zones.
-            Defaults to None.
+        availability_zones (Optional[List[str]], optional): Filter based on
+            availability in availability zones. Defaults to None.
 
     Returns:
-        List[InstanceTypeInfoTypeDef]: List of instance type details matching the specified filters
+        List[InstanceTypeInfoTypeDef]: List of instance type details matching
+            the specified filters
     """
 
     filters: List[Tuple[str, List[str]]] = []
@@ -453,10 +470,12 @@ def get_common_instance_types(
         regions (Optional[List[str]], optional): Optionally filter based on regions.
             Defaults to None. (uses current region if azs not specified)
         availability_zones (Optional[List[str]], optional): Filter based on availability zone.
-            Defaults to None. If not specified, all availability zones in the specified regions are used.
+            Defaults to None. If not specified, all availability zones in the
+                specified regions are used.
 
     Returns:
-        List[str]: List of instance types common across the specified regions or availability zones
+        List[str]: List of instance types common across the specified
+            regions or availability zones
     """
 
     instance_types_by_az = get_instance_types_by_az(

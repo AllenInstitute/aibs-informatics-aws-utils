@@ -7,13 +7,12 @@ __all__ = [
 ]
 
 import logging
-import re
 from typing import TYPE_CHECKING, Mapping, Optional
 
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
 from botocore.exceptions import ClientError
 
-from aibs_informatics_aws_utils.core import AWSService, get_region
+from aibs_informatics_aws_utils.core import AWSService
 from aibs_informatics_aws_utils.exceptions import AWSError
 
 if TYPE_CHECKING:  # pragma: no cover

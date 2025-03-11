@@ -1,7 +1,6 @@
 import hashlib
 import json
 import uuid
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from typing import TYPE_CHECKING, List, Optional, Union
 
 import boto3
@@ -10,7 +9,7 @@ from aibs_informatics_core.utils.tools.dicttools import remove_null_values
 
 from aibs_informatics_aws_utils.core import get_client
 from aibs_informatics_aws_utils.ecr import ECRImage, ECRRepository, ResourceTag
-from aibs_informatics_aws_utils.ecr.core import get_ecr_client
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_ecr import ECRClient

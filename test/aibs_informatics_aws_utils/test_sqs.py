@@ -1,7 +1,6 @@
 import decimal
 import json
 from hashlib import md5
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 import moto
 import pytest
@@ -14,6 +13,7 @@ from aibs_informatics_aws_utils.sqs import (
     send_sqs_message,
     send_to_dispatch_queue,
 )
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 class SqsTests(AwsBaseTest):

@@ -1,5 +1,4 @@
 import json
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 import moto
 
@@ -9,6 +8,7 @@ from aibs_informatics_aws_utils.ssm import (
     has_ssm_parameter,
     put_ssm_parameter,
 )
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 class SSMTests(AwsBaseTest):

@@ -8,7 +8,6 @@ from aibs_informatics_aws_utils.ec2 import (
     describe_instance_types_by_props,
     get_availability_zones,
     get_common_instance_types,
-    get_instance_type_on_demand_price,
     get_instance_type_spot_price,
     get_instance_types_by_az,
     get_regions,
@@ -18,27 +17,151 @@ from aibs_informatics_aws_utils.ec2 import (
 )
 
 
+# Need to use multiple E501 because ruff ignore blocks aren't a thing yet: https://github.com/astral-sh/ruff/issues/3711
 @mark.parametrize(
-    "expected, raw_range, min_limit, max_limit, raise_on_invalid, treat_single_value_as_max, raise_expectation",
+    "expected, raw_range, min_limit, max_limit, raise_on_invalid, treat_single_value_as_max, raise_expectation",  # noqa: E501
     [
-        # fmt: off
-        param((None, None), None, None, None, False, False, does_not_raise(), id="None -> (None, None)"),
-        param((None, None), None, 0, 10, False, False, does_not_raise(), id="None -> (None, None) with min/max limits"),
-        param((None, None), (None, None), None, None, False, False, does_not_raise(), id="(None, None) -> (None, None)"),
-        param((None, None), (None, None), 0, 10, False, False, does_not_raise(), id="(None, None) -> (None, None) with min/max limits"),
-        param((None, 0), 0, None, None, False, True, does_not_raise(), id="0 -> (None, 0) treated as max"),
-        param((0, None), 0, None, None, False, False, does_not_raise(), id="0 -> (0, None) treated as min"),
-        param((5, None), (5, None), None, None, False, False, does_not_raise(), id="(5, None) -> (5, None)"),
-        param((None, 5), (None, 5), 0, 10, False, False, does_not_raise(), id="(None, 5) -> (None, 5)"),
-        param((0, 0), (-1, 1), 0, 0, False, False, does_not_raise(), id="(-1, 1) -> (0, 0) for min/max limits"),
-        param((-1, 1), (1, -1), None, None, False, False, does_not_raise(), id="(1, -1) -> (-1, 1) corrects order"),
-        
+        param(
+            (None, None),
+            None,
+            None,
+            None,
+            False,
+            False,
+            does_not_raise(),
+            id="None -> (None, None)",
+        ),  # noqa: E501
+        param(
+            (None, None),
+            None,
+            0,
+            10,
+            False,
+            False,
+            does_not_raise(),
+            id="None -> (None, None) with min/max limits",
+        ),  # noqa: E501
+        param(
+            (None, None),
+            (None, None),
+            None,
+            None,
+            False,
+            False,
+            does_not_raise(),
+            id="(None, None) -> (None, None)",
+        ),  # noqa: E501
+        param(
+            (None, None),
+            (None, None),
+            0,
+            10,
+            False,
+            False,
+            does_not_raise(),
+            id="(None, None) -> (None, None) with min/max limits",
+        ),  # noqa: E501
+        param(
+            (None, 0),
+            0,
+            None,
+            None,
+            False,
+            True,
+            does_not_raise(),
+            id="0 -> (None, 0) treated as max",
+        ),  # noqa: E501
+        param(
+            (0, None),
+            0,
+            None,
+            None,
+            False,
+            False,
+            does_not_raise(),
+            id="0 -> (0, None) treated as min",
+        ),  # noqa: E501
+        param(
+            (5, None),
+            (5, None),
+            None,
+            None,
+            False,
+            False,
+            does_not_raise(),
+            id="(5, None) -> (5, None)",
+        ),  # noqa: E501
+        param(
+            (None, 5),
+            (None, 5),
+            0,
+            10,
+            False,
+            False,
+            does_not_raise(),
+            id="(None, 5) -> (None, 5)",
+        ),  # noqa: E501
+        param(
+            (0, 0),
+            (-1, 1),
+            0,
+            0,
+            False,
+            False,
+            does_not_raise(),
+            id="(-1, 1) -> (0, 0) for min/max limits",
+        ),  # noqa: E501
+        param(
+            (-1, 1),
+            (1, -1),
+            None,
+            None,
+            False,
+            False,
+            does_not_raise(),
+            id="(1, -1) -> (-1, 1) corrects order",
+        ),  # noqa: E501
         # Invalid cases
-        param(None, "string", 0, 0, False, False, raises(TypeError), id="string INVALID not a valid type"),
-        param(None, (1,2,3), 0, 0, False, False, raises(ValueError), id="(1, 2, 3) INVALID not a tuple of length 2"),
-        param(None, (-1, None), 0, 0, True, False, raises(ValueError), id="(-1, None) INVALID breaks max limit"),
-        param(None, (None, 1), 0, 0, True, False, raises(ValueError), id="(None, 1) INVALID breaks min limit"),
-        # fmt: on
+        param(
+            None,
+            "string",
+            0,
+            0,
+            False,
+            False,
+            raises(TypeError),
+            id="string INVALID not a valid type",
+        ),  # noqa: E501
+        param(
+            None,
+            (1, 2, 3),
+            0,
+            0,
+            False,
+            False,
+            raises(ValueError),
+            id="(1, 2, 3) INVALID not a tuple of length 2",
+        ),  # noqa: E501
+        param(
+            None,
+            (-1, None),
+            0,
+            0,
+            True,
+            False,
+            raises(ValueError),
+            id="(-1, None) INVALID breaks max limit",
+        ),  # noqa: E501
+        param(
+            None,
+            (None, 1),
+            0,
+            0,
+            True,
+            False,
+            raises(ValueError),
+            id="(None, 1) INVALID breaks min limit",
+        ),  # noqa: E501
     ],
 )
 def test__normalize_range(
@@ -259,10 +382,3 @@ def test__get_common_instance_types__regions_specified(aws_credentials_fixture):
 def test__get_instance_types_spot_price__no_args(aws_credentials_fixture):
     spot_price = get_instance_type_spot_price(region="us-west-2", instance_type="t2.micro")
     assert spot_price > 0
-
-
-# TODO: Not supported by moto
-# @mock_ec2
-# def test__get_instance_type_on_demand_price__no_args(aws_credentials_fixture):
-#     on_demand_price = get_instance_type_on_demand_price(region="us-west-2", instance_type="t2.micro")
-#     assert on_demand_price > 0

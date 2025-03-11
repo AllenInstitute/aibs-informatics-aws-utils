@@ -79,7 +79,7 @@ def send_sqs_message(
     sqs = get_sqs_client(region=get_region())
     try:
         queue_url_response = sqs.get_queue_url(QueueName=queue_name)
-    except ClientError as e:
+    except ClientError:
         raise AWSError(
             f"Could not find SQS queue with name: {queue_name}. "
             "Does the code calling send_sqs_message() have sqs:GetQueueUrl permissions?"
