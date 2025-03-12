@@ -21,149 +21,23 @@ from aibs_informatics_aws_utils.ec2 import (
 @mark.parametrize(
     "expected, raw_range, min_limit, max_limit, raise_on_invalid, treat_single_value_as_max, raise_expectation",  # noqa: E501
     [
-        param(
-            (None, None),
-            None,
-            None,
-            None,
-            False,
-            False,
-            does_not_raise(),
-            id="None -> (None, None)",
-        ),  # noqa: E501
-        param(
-            (None, None),
-            None,
-            0,
-            10,
-            False,
-            False,
-            does_not_raise(),
-            id="None -> (None, None) with min/max limits",
-        ),  # noqa: E501
-        param(
-            (None, None),
-            (None, None),
-            None,
-            None,
-            False,
-            False,
-            does_not_raise(),
-            id="(None, None) -> (None, None)",
-        ),  # noqa: E501
-        param(
-            (None, None),
-            (None, None),
-            0,
-            10,
-            False,
-            False,
-            does_not_raise(),
-            id="(None, None) -> (None, None) with min/max limits",
-        ),  # noqa: E501
-        param(
-            (None, 0),
-            0,
-            None,
-            None,
-            False,
-            True,
-            does_not_raise(),
-            id="0 -> (None, 0) treated as max",
-        ),  # noqa: E501
-        param(
-            (0, None),
-            0,
-            None,
-            None,
-            False,
-            False,
-            does_not_raise(),
-            id="0 -> (0, None) treated as min",
-        ),  # noqa: E501
-        param(
-            (5, None),
-            (5, None),
-            None,
-            None,
-            False,
-            False,
-            does_not_raise(),
-            id="(5, None) -> (5, None)",
-        ),  # noqa: E501
-        param(
-            (None, 5),
-            (None, 5),
-            0,
-            10,
-            False,
-            False,
-            does_not_raise(),
-            id="(None, 5) -> (None, 5)",
-        ),  # noqa: E501
-        param(
-            (0, 0),
-            (-1, 1),
-            0,
-            0,
-            False,
-            False,
-            does_not_raise(),
-            id="(-1, 1) -> (0, 0) for min/max limits",
-        ),  # noqa: E501
-        param(
-            (-1, 1),
-            (1, -1),
-            None,
-            None,
-            False,
-            False,
-            does_not_raise(),
-            id="(1, -1) -> (-1, 1) corrects order",
-        ),  # noqa: E501
+        param((None, None), None, None, None, False, False, does_not_raise(), id="None -> (None, None)"),  # noqa: E501
+        param((None, None),None, 0, 10, False, False, does_not_raise(), id="None -> (None, None) with min/max limits"),  # noqa: E501
+        param((None, None), (None, None), None, None, False, False, does_not_raise(), id="(None, None) -> (None, None)"),  # noqa: E501
+        param((None, None), (None, None), 0, 10, False, False, does_not_raise(), id="(None, None) -> (None, None) with min/max limits"),  # noqa: E501
+        param((None, 0), 0, None, None, False, True, does_not_raise(), id="0 -> (None, 0) treated as max"),  # noqa: E501
+        param((0, None), 0, None, None, False, False, does_not_raise(), id="0 -> (0, None) treated as min"),  # noqa: E501
+        param((5, None), (5, None), None, None, False, False, does_not_raise(), id="(5, None) -> (5, None)"),  # noqa: E501
+        param((None, 5), (None, 5), 0, 10, False, False, does_not_raise(), id="(None, 5) -> (None, 5)"),  # noqa: E501
+        param((0, 0), (-1, 1), 0, 0, False, False, does_not_raise(), id="(-1, 1) -> (0, 0) for min/max limits"),  # noqa: E501
+        param((-1, 1), (1, -1), None, None, False, False, does_not_raise(), id="(1, -1) -> (-1, 1) corrects order"),  # noqa: E501
         # Invalid cases
-        param(
-            None,
-            "string",
-            0,
-            0,
-            False,
-            False,
-            raises(TypeError),
-            id="string INVALID not a valid type",
-        ),  # noqa: E501
-        param(
-            None,
-            (1, 2, 3),
-            0,
-            0,
-            False,
-            False,
-            raises(ValueError),
-            id="(1, 2, 3) INVALID not a tuple of length 2",
-        ),  # noqa: E501
-        param(
-            None,
-            (-1, None),
-            0,
-            0,
-            True,
-            False,
-            raises(ValueError),
-            id="(-1, None) INVALID breaks max limit",
-        ),  # noqa: E501
-        param(
-            None,
-            (None, 1),
-            0,
-            0,
-            True,
-            False,
-            raises(ValueError),
-            id="(None, 1) INVALID breaks min limit",
-        ),  # noqa: E501
+        param(None, "string", 0, 0, False, False, raises(TypeError), id="string INVALID not a valid type"),  # noqa: E501
+        param(None, (1, 2, 3), 0, 0, False, False, raises(ValueError), id="(1, 2, 3) INVALID not a tuple of length 2"),  # noqa: E501
+        param( None, (-1, None), 0, 0, True, False, raises(ValueError), id="(-1, None) INVALID breaks max limit"),  # noqa: E501
+        param(None, (None, 1), 0, 0, True, False, raises(ValueError), id="(None, 1) INVALID breaks min limit"),  # noqa: E501
     ],
-)
+)  # fmt: skip
 def test__normalize_range(
     expected,
     raw_range,
