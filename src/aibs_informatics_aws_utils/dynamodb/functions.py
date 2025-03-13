@@ -255,7 +255,7 @@ def table_query(
     for i, response in enumerate(paginator.paginate(**db_request)):  # type: ignore  # pylance complains about extra fields
         new_items = response.get("Items", [])
         items.extend(new_items)
-        logger.debug(f"Iter #{i+1}: item count from table. Query: {len(new_items)}")
+        logger.debug(f"Iter #{i + 1}: item count from table. Query: {len(new_items)}")
     logger.info(f"Complete item count from table. Query (after any filtering): {len(items)}")
 
     deserializer = TypeDeserializer()
@@ -322,7 +322,7 @@ def table_scan(
     for i, response in enumerate(paginator.paginate(**db_request)):  # type: ignore  # pylance complains about extra fields
         new_items = response.get("Items", [])
         items.extend(new_items)
-        logger.debug(f"Iter #{i+1}: item count from table. Scan: {len(new_items)}")
+        logger.debug(f"Iter #{i + 1}: item count from table. Scan: {len(new_items)}")
     logger.info(
         f"Complete item count from table. Scan results (after any filtering): {len(items)}"
     )

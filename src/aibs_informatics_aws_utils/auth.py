@@ -1,6 +1,5 @@
 from typing import Optional
 
-import requests
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 from botocore.compat import parse_qsl, urlparse

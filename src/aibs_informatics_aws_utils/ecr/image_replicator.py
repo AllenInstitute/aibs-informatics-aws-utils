@@ -17,7 +17,6 @@ else:
 
 
 from dataclasses import dataclass, field
-from typing import List
 
 from aibs_informatics_core.models.base.model import SchemaModel
 
@@ -179,7 +178,7 @@ class ECRImageReplicator(LoggingMixin):
                 check_if_exists=False,
             )
 
-            self.logger.info(f"uploaded all missing layers, retrying put_image request")
+            self.logger.info("uploaded all missing layers, retrying put_image request")
             self.put_image(source_image, destination_repository, destination_image_tags)
         return dest_image
 
@@ -199,7 +198,7 @@ class ECRImageReplicator(LoggingMixin):
             check_if_exists (bool, optional): _description_. Defaults to True.
         """
         for i, layer in enumerate(layers):
-            self.logger.info(f"Starting upload of layer {i+1} / {len(layers)}")
+            self.logger.info(f"Starting upload of layer {i + 1} / {len(layers)}")
             if check_if_exists:
                 layer_exists = self._check_layer_exists(
                     client=destination_repository.client,
@@ -225,8 +224,7 @@ class ECRImageReplicator(LoggingMixin):
         layer: LayerTypeDef,
     ):
         self.logger.info(
-            f"uploading layer {layer} from "
-            f"{source_repository.uri} to {destination_repository.uri}"
+            f"uploading layer {layer} from {source_repository.uri} to {destination_repository.uri}"
         )
         layer_digest = layer["layerDigest"]  # type: ignore
         layer_size = layer["layerSize"]  # type: ignore
@@ -259,8 +257,7 @@ class ECRImageReplicator(LoggingMixin):
             part_last_byte = min(current_source_layer_size, part_first_byte + part_size) - 1
 
             self.logger.info(
-                f"uploading bytes {part_first_byte:,} - {part_last_byte:,} of "
-                f"layer {layer_digest}"
+                f"uploading bytes {part_first_byte:,} - {part_last_byte:,} of layer {layer_digest}"
             )
             last_byte_received = self._upload_layer_part(
                 client=destination_repository.client,

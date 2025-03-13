@@ -49,19 +49,22 @@ get_batch_client = AWSService.BATCH.get_client
 @dataclass
 class MountPointConfiguration:
     """
-    Adapter for translating and mapping paths between AWS Elastic File System (EFS) mount points and local file system paths.
+    Adapter for translating and mapping paths between AWS Elastic File System
+    (EFS) mount points and local file system paths.
 
     local file systems are most often used by:
     - EC2 instances
     - AWS Lambda functions
 
-    This class provides functionality to adapt file paths for applications that interact with AWS EFS. It allows for the conversion
-    of paths from the EFS perspective to the local file system perspective and vice versa, considering the mount point and access
-    point configurations.
+    This class provides functionality to adapt file paths for applications
+    that interact with AWS EFS. It allows for the conversion of paths from the
+    EFS perspective to the local file system perspective and vice versa,
+    considering the mount point and access point configurations.
 
     Attributes:
         file_system (FileSystemDescriptionTypeDef): The description of the EFS file system.
-        access_point (Optional[AccessPointDescriptionTypeDef]): The description of the EFS access point, if used.
+        access_point (Optional[AccessPointDescriptionTypeDef]): The description
+            of the EFS access point, if used.
         mount_point (Path): The local file system path where the EFS is mounted.
     """
 
@@ -92,14 +95,17 @@ class MountPointConfiguration:
 
     def translate_mounted_path(self, path: StrPath, other: MountPointConfiguration) -> Path:
         """
-        Translates the location of a path described by another mount point to a location on this mount point
+        Translates the location of a path described by another mount point to
+        a location on this mount point
 
         Args:
-            path (StrPath): The path to translate. should be relative path or absolute relative to the other mount point/access point.
+            path (StrPath): The path to translate. should be relative path
+                or absolute relative to the other mount point/access point.
             other (T): The config of other mount point/access point to translate from.
 
         Raises:
-            ValueError: If file system of other mount point/access point is not the same as this mount point/access point.
+            ValueError: If file system of other mount point/access point is
+                not the same as this mount point/access point.
 
         Returns:
             Path: The translated absolute path on this mount point.
@@ -107,8 +113,9 @@ class MountPointConfiguration:
         path = Path(path)
         if self.file_system["FileSystemId"] != other.file_system["FileSystemId"]:
             raise ValueError(
-                f"Cannot resolve path {path} from file system {other.file_system['FileSystemId']} "
-                f"to file system {self.file_system['FileSystemId']}. They are not the same file system!"
+                f"Cannot resolve path {path} from file system "
+                f"{other.file_system['FileSystemId']} to file system "
+                f"{self.file_system['FileSystemId']}. They are not the same file system!"
             )
 
         # First, convert the path to a global path on EFS File System
@@ -161,8 +168,8 @@ class MountPointConfiguration:
         Converts a path to a path on the EFS file system.
 
         Behavior:
-        - If the path is absolute, the path is made relative to either the mount point or access point first.
-            examples:
+        - If the path is absolute, the path is made relative to either the
+            mount point or access point first. examples:
             - "/efs/accesspoint/path/to/file" -> "path/to/file"
             - "/mnt/efs/path/to/file" -> "path/to/file"
         - If the path is absolute and does not start with the mount point or access point,
@@ -199,8 +206,8 @@ class MountPointConfiguration:
         Converts a path to a path on the host where the EFS is mounted.
 
         Behavior:
-        - If the path is absolute, the path is made relative to either the mount point or access point first.
-            examples:
+        - If the path is absolute, the path is made relative to either the mount point
+            or access point first. examples:
             - "/efs/accesspoint/path/to/file" -> "path/to/file"
             - "/mnt/efs/path/to/file" -> "path/to/file"
         - If the path is absolute and does not start with the mount point or access point,
@@ -228,7 +235,7 @@ class MountPointConfiguration:
     def as_env_vars(self, name: Optional[str] = None) -> Dict[str, str]:
         """Converts the mount point configuration to environment variables."""
         if self.access_point and self.access_point.get("AccessPointId"):
-            mount_point_id = self.access_point["AccessPointId"]  # type: ignore  # pylance complains even though we checked
+            mount_point_id = self.access_point["AccessPointId"]
         else:
             mount_point_id = self.file_system["FileSystemId"]
 
@@ -353,7 +360,8 @@ class MountPointConfiguration:
                 mount_point_id = FileSystemId(mount_point_id).normalized
             else:
                 raise ValueError(
-                    f"Invalid mount point id {mount_point_id}. Must be either an access point id or file system id."
+                    f"Invalid mount point id {mount_point_id}. "
+                    "Must be either an access point id or file system id."
                 )
         else:
             mount_point_id = mount_point_id.normalized
@@ -371,9 +379,10 @@ class MountPointConfiguration:
         }
 
     def __repr__(self) -> str:
+        access_point = self.access_point.get("AccessPointId") if self.access_point else None
         return (
             f"{self.__class__.__name__}(file_system={self.file_system['FileSystemId']}, "
-            f"access_point={self.access_point.get('AccessPointId') if self.access_point else None},"
+            f"access_point={access_point},"
             f"access_point_path={self.access_point_path}, mount_point={self.mount_point})"
         )
 
@@ -410,7 +419,8 @@ def deduplicate_mount_points(
     mount_points: List[MountPointConfiguration],
 ) -> List[MountPointConfiguration]:
     """
-    Deduplicates a list of MountPointConfiguration objects based on the file system id and access point id.
+    Deduplicates a list of MountPointConfiguration objects based on the file
+    system id and access point id.
     """
 
     unique_configs: Dict[str, MountPointConfiguration] = {}
@@ -427,7 +437,8 @@ def deduplicate_mount_points(
             elif mp_config.file_system["FileSystemId"] != other.file_system["FileSystemId"]:
                 raise ValueError(
                     f"Found conflicting file systems for {key}: "
-                    f"{mp_config.file_system['FileSystemId']} and {unique_configs[key].file_system['FileSystemId']}"
+                    f"{mp_config.file_system['FileSystemId']} "
+                    f"and {unique_configs[key].file_system['FileSystemId']}"
                 )
             elif mp_config.access_point != other.access_point:
                 raise ValueError(

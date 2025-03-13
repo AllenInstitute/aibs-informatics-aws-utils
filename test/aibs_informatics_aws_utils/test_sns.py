@@ -1,10 +1,9 @@
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
-
 import moto
 from aibs_informatics_core.models.aws.sns import SNSTopicArn
 
 from aibs_informatics_aws_utils.exceptions import AWSError
 from aibs_informatics_aws_utils.sns import get_sns_client, publish, publish_to_topic
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 @moto.mock_aws

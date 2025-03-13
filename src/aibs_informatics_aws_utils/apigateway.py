@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 from aibs_informatics_aws_utils.core import AWSService, get_region
 from aibs_informatics_aws_utils.exceptions import ResourceNotFoundError
@@ -11,7 +11,7 @@ else:
 get_apigateway_client = AWSService.API_GATEWAY.get_client
 
 
-def get_rest_api(api_name: str, region: str = None) -> RestApiTypeDef:
+def get_rest_api(api_name: str, region: Optional[str] = None) -> RestApiTypeDef:
     apigw = get_apigateway_client(region=region)
 
     paginator = apigw.get_paginator("get_rest_apis")
@@ -28,7 +28,7 @@ def get_rest_api(api_name: str, region: str = None) -> RestApiTypeDef:
 
 
 def get_rest_api_endpoint(
-    rest_api: RestApiTypeDef, stage: str = "prod", region: str = None
+    rest_api: RestApiTypeDef, stage: str = "prod", region: Optional[str] = None
 ) -> str:
     api_id = rest_api["id"]  # type: ignore  # mypy_boto3 TypeDict makes optional, but actually is required
     region = get_region(region)

@@ -37,13 +37,15 @@ def put_ssm_parameter(
 
 
 @overload
-def get_ssm_parameter(param_name: str, as_dict: Literal[True]) -> Dict[str, Any]:
-    ...  # pragma: no cover
+def get_ssm_parameter(
+    param_name: str, as_dict: Literal[True]
+) -> Dict[str, Any]: ...  # pragma: no cover
 
 
 @overload
-def get_ssm_parameter(param_name: str, as_dict: Literal[False] = False) -> str:
-    ...  # pragma: no cover
+def get_ssm_parameter(
+    param_name: str, as_dict: Literal[False] = False
+) -> str: ...  # pragma: no cover
 
 
 def get_ssm_parameter(param_name: str, as_dict: bool = False) -> Union[str, Dict[str, Any]]:

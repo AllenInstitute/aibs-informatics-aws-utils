@@ -1,5 +1,4 @@
 from pathlib import Path
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from typing import Dict, Optional, Union
 
 import boto3
@@ -7,6 +6,8 @@ import moto
 import moto.core
 import moto.core.config
 import moto.core.decorator
+
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 class EFSTestsBase(AwsBaseTest):
@@ -20,7 +21,8 @@ class EFSTestsBase(AwsBaseTest):
         #       now fails in python 3.12 (perhaps cleanup of mock collisions leniency).
         #
         #       This is a workaround until we can find a better solution. If configs need to be
-        #       overridden, they can be passed in via the mock_aws_config property on the child class.
+        #       overridden, they can be passed in via the mock_aws_config property on the child
+        #       class.
         self.mock_efs = moto.mock_aws(config=self.mock_aws_config)
         self.mock_efs.start()
 

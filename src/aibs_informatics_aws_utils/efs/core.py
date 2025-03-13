@@ -10,7 +10,7 @@ __all__ = [
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
@@ -42,7 +42,9 @@ get_efs_client = AWSService.EFS.get_client
 
 StrPath = Union[Path, str]
 
-throttling_exception_callback = lambda ex: client_error_code_check(ex, "ThrottlingException")
+
+def throttling_exception_callback(ex):
+    return client_error_code_check(ex, "ThrottlingException")
 
 
 @retry(ClientError, [throttling_exception_callback])
@@ -58,8 +60,8 @@ def list_efs_file_systems(
     Args:
         file_system_id (Optional[str], optional): Optionally filter on file system id.
         name (Optional[str], optional): Optionally filter on name.
-        tags (Optional[Dict[str, str]], optional): Optionally filter on tags. They should be a dict
-            of key-value pairs.
+        tags (Optional[Dict[str, str]], optional): Optionally filter on tags.
+            They should be a dict of key-value pairs.
 
     Returns:
         List[FileSystemDescriptionTypeDef]: List of matching file systems
@@ -93,8 +95,8 @@ def get_efs_file_system(
     Args:
         file_system_id (Optional[str], optional): Optionally filter on file system id.
         name (Optional[str], optional): Optionally filter on name.
-        tags (Optional[Dict[str, str]], optional): Optionally filter on tags. They should be a dict
-            of key-value pairs.
+        tags (Optional[Dict[str, str]], optional): Optionally filter on tags.
+            They should be a dict of key-value pairs.
 
     Raises:
         ValueError: If no file system is found based on the filters.
@@ -182,7 +184,8 @@ def list_efs_access_points(
             continue
         if access_point_tags:
             ap_tags = {tag["Key"]: tag["Value"] for tag in ap.get("Tags", {})}
-            if not all([access_point_tags[k] == ap_tags.get(k) for k in access_point_tags]):
+            tags_match = [access_point_tags[k] == ap_tags.get(k) for k in access_point_tags]
+            if not all(tags_match):
                 continue
         filtered_access_points.append(ap)
     return filtered_access_points
@@ -228,13 +231,17 @@ def get_efs_access_point(
     if len(access_points) > 1:
         raise ValueError(
             f"Found more than one access points ({len(access_points)}) "
-            f"based on access point filters (id={access_point_id}, name={access_point_name}, tags={access_point_tags}) "
-            f"and on file system filters (id={file_system_id}, name={file_system_name}, tags={file_system_tags}) "
+            f"based on access point filters (id={access_point_id}, "
+            f"name={access_point_name}, tags={access_point_tags}) "
+            f"and on file system filters (id={file_system_id}, "
+            f"name={file_system_name}, tags={file_system_tags}) "
         )
     elif len(access_points) == 0:
         raise ValueError(
             f"Found no access points "
-            f"based on access point filters (id={access_point_id}, name={access_point_name}, tags={access_point_tags}) "
-            f"and on file system filters (id={file_system_id}, name={file_system_name}, tags={file_system_tags}) "
+            f"based on access point filters (id={access_point_id}, "
+            f"name={access_point_name}, tags={access_point_tags}) "
+            f"and on file system filters (id={file_system_id}, "
+            f"name={file_system_name}, tags={file_system_tags}) "
         )
     return access_points[0]

@@ -10,7 +10,6 @@ from aibs_informatics_aws_utils.fsx import (
     calculate_size_required,
     get_file_system,
     get_fsx_client,
-    list_data_repository_associations,
     list_file_systems,
     split_name_and_id,
     split_name_and_ids,
@@ -18,7 +17,9 @@ from aibs_informatics_aws_utils.fsx import (
 
 BYTES_PER_TEBIBYTE = BYTES_PER_GIBIBYTE << BYTE_UNIT_STEP
 
-convert_tib_to_bytes = lambda tib: ceil(tib * BYTES_PER_TEBIBYTE)
+
+def convert_tib_to_bytes(tib) -> int:
+    return ceil(tib * BYTES_PER_TEBIBYTE)
 
 
 @pytest.fixture(scope="function")

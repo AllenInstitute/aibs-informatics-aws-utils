@@ -1,8 +1,7 @@
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
-
 import moto
 
 from aibs_informatics_aws_utils.secretsmanager import get_secret_value, get_secretsmanager_client
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 class SecretsManagerTests(AwsBaseTest):

@@ -231,7 +231,7 @@ def start_execution(
                 raise ResourceNotFoundError(msg) from e
             else:
                 raise AWSError(
-                    "Start StepFn failed with unknown ClientError for " f"{state_machine_arn}: {e}"
+                    f"Start StepFn failed with unknown ClientError for {state_machine_arn}: {e}"
                 ) from e
         except Exception as e:
             raise AWSError(f"Unknown failure for {state_machine_arn}") from e
@@ -267,7 +267,7 @@ def get_state_machine(
     ]
     if len(matching_state_machines) == 0:
         raise ResourceNotFoundError(
-            f"No state machines with env_base={env_base} " f"and name suffix={name} exist"
+            f"No state machines with env_base={env_base} and name suffix={name} exist"
         )
     elif len(matching_state_machines) > 1:
         raise AttributeError(

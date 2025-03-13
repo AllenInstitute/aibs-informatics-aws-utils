@@ -13,11 +13,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Dict, List, Optional, Tuple, Union
 
 from aibs_informatics_core.collections import ValidatedStr
-from aibs_informatics_core.utils.decorators import retry
-from aibs_informatics_core.utils.tools.dicttools import remove_null_values
-from botocore.exceptions import ClientError
 
-from aibs_informatics_aws_utils.core import AWSService, client_error_code_check
+from aibs_informatics_aws_utils.core import AWSService
 
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_fsx.type_defs import (
@@ -181,7 +178,7 @@ def list_file_systems(
         filtered_file_systems = []
         for fs in old_filtered_file_systems:
             fs_tags_dict = {tag["Key"]: tag["Value"] for tag in fs.get("Tags", [])}
-            if names and not fs_tags_dict.get("Name") in names:
+            if names and fs_tags_dict.get("Name") not in names:
                 continue
             if tags and not all(
                 tag in fs_tags_dict and value == fs_tags_dict[tag] for tag, value in tags.items()

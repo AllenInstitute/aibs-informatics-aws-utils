@@ -1,9 +1,8 @@
 import json
-from typing import TYPE_CHECKING, List, Literal, Optional, Union
-from urllib.parse import parse_qs
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import requests
-from aibs_informatics_core.models.aws.core import AWSAccountId, AWSRegion
+from aibs_informatics_core.models.aws.core import AWSRegion
 from aibs_informatics_core.models.aws.lambda_ import LambdaFunctionName, LambdaFunctionUrl
 from aibs_informatics_core.models.base import ModelProtocol
 from botocore.exceptions import ClientError

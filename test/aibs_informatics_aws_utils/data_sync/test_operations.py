@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from typing import Optional, Union
 
 import moto
@@ -11,6 +10,7 @@ from pytest import mark
 
 from aibs_informatics_aws_utils.data_sync.operations import sync_data
 from aibs_informatics_aws_utils.s3 import get_s3_client, get_s3_resource, is_object, list_s3_paths
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3URI:
@@ -77,8 +77,8 @@ class OperationsTests(AwsBaseTest):
         self.setUpBucket()
         source_path = self.get_s3_path("source/path/")
         destination_path = self.get_s3_path("destination/path/")
-        path1 = self.put_object("source/path/obj1", "hello")
-        path2 = self.put_object("source/path/dir1/obj2", "did you hear me")
+        self.put_object("source/path/obj1", "hello")
+        self.put_object("source/path/dir1/obj2", "did you hear me")
         result = sync_data(
             source_path=source_path,
             destination_path=destination_path,
@@ -92,8 +92,8 @@ class OperationsTests(AwsBaseTest):
         self.setUpBucket()
         source_path = self.get_s3_path("source/path/")
         destination_path = self.get_s3_path("destination/path/")
-        path1 = self.put_object("source/path/obj1", "hello")
-        path2 = self.put_object("source/path/dir1/obj2", "did you hear me")
+        self.put_object("source/path/obj1", "hello")
+        self.put_object("source/path/dir1/obj2", "did you hear me")
         sync_data(
             source_path=source_path,
             destination_path=destination_path,
@@ -246,7 +246,7 @@ class OperationsTests(AwsBaseTest):
         destination_path = fs / "destination"
         self.put_file(source_path, "hello")
 
-        result = sync_data(
+        sync_data(
             source_path=source_path,
             destination_path=destination_path,
             retain_source_data=False,

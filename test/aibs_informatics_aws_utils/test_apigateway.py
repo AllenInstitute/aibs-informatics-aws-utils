@@ -1,11 +1,10 @@
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
-
 import moto
 from pytest import raises
 
 from aibs_informatics_aws_utils import apigateway
 from aibs_informatics_aws_utils.apigateway import get_rest_api, get_rest_api_endpoint
 from aibs_informatics_aws_utils.exceptions import ResourceNotFoundError
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
 class ApiGatewayTests(AwsBaseTest):

@@ -1,9 +1,8 @@
-from test.aibs_informatics_aws_utils.ecr.base import ECRTestBase
-
 import moto
 
 from aibs_informatics_aws_utils.ecr import ECRImageReplicator
 from aibs_informatics_aws_utils.ecr.image_replicator import ReplicateImageRequest
+from test.aibs_informatics_aws_utils.ecr.base import ECRTestBase
 
 
 @moto.mock_aws

@@ -129,7 +129,7 @@ class DataSyncOperations(LoggingMixin):
             @retry(CannotAcquirePathLockError, tries=tries, delay=delay, backoff=1)
             @functools.wraps(sync_paths)
             def sync_paths_with_lock(*args, **kwargs):
-                with PathLock(destination_path, lock_root=os.getenv(LOCK_ROOT_ENV_VAR)) as lock:
+                with PathLock(destination_path, lock_root=os.getenv(LOCK_ROOT_ENV_VAR)):
                     response = sync_paths(*args, **kwargs)
                 return response
 

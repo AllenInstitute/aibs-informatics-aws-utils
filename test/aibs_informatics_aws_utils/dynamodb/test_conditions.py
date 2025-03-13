@@ -1,11 +1,11 @@
 from decimal import Decimal
-from test.base import does_not_raise
 from typing import Any, Dict, Optional, Union
 
 from aibs_informatics_core.models.aws.dynamodb import (
     AttributeBaseExpression,
     ConditionBaseExpression,
 )
+from aibs_informatics_test_resources import does_not_raise
 from boto3.dynamodb.conditions import Attr, ConditionBase, Key
 from pytest import mark, param
 

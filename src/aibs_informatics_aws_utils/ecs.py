@@ -30,6 +30,9 @@ def ecs_describe_container_instances(
             containerInstances=container_instances, cluster=cluster, **kwargs
         )
     except ClientError as e:
-        msg = f"Error retrieving container instance metadata for container instances={container_instances}, cluster={cluster}: {e}"
+        msg = (
+            "Error retrieving container instance metadata for container "
+            f"instances={container_instances}, cluster={cluster}: {e}"
+        )
         logger.error(msg, exc_info=True)
         raise AWSError(msg)

@@ -2,7 +2,6 @@ import tempfile
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -21,6 +20,7 @@ from aibs_informatics_aws_utils.ses import (
     send_simple_email,
     verify_email_identity,
 )
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 if TYPE_CHECKING:
     from mypy_boto3_ses.type_defs import (
@@ -80,7 +80,7 @@ class SesTests(AwsBaseTest):
     def test__send_simple_email__fails_unverfied(self):
         with moto.mock_aws():
             with raises(AWSError):
-                response = send_simple_email(
+                send_simple_email(
                     source=self.source, to_addresses=[self.destination1], subject="subject_line"
                 )
 

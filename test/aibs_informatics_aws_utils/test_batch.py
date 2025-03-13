@@ -1,4 +1,3 @@
-from test.aibs_informatics_aws_utils.base import AwsBaseTest
 from typing import TYPE_CHECKING, Dict, List
 
 from aibs_informatics_aws_utils.batch import (
@@ -13,6 +12,7 @@ from aibs_informatics_aws_utils.batch import (
     to_resource_requirements,
     to_volume,
 )
+from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 DESCRIBE_JOB_DEFINITIONS = "describe_job_definitions"
 REGISTER_JOB_DEFINITION = "register_job_definition"

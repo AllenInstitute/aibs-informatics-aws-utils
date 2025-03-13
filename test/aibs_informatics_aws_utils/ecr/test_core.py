@@ -1,13 +1,12 @@
 import datetime
 import json
 import re
-from contextlib import nullcontext as does_not_raise
-from test.aibs_informatics_aws_utils.ecr.base import ECRTestBase
 from time import sleep
-from typing import TYPE_CHECKING, Tuple
+from typing import Tuple
 from unittest import mock
 
 import moto
+from aibs_informatics_test_resources import does_not_raise
 from pytest import mark, param, raises
 from requests.exceptions import HTTPError
 
@@ -27,6 +26,7 @@ from aibs_informatics_aws_utils.ecr.core import (
     resolve_image_uri,
 )
 from aibs_informatics_aws_utils.exceptions import ResourceNotFoundError
+from test.aibs_informatics_aws_utils.ecr.base import ECRTestBase
 
 
 @mark.parametrize(
@@ -120,7 +120,7 @@ def test__LifecyclePolicyRule__to_dict(input, expected, raises_error):
             },
             None,
             raises(ValueError),
-            id="invalid Lifecycle policy with conflicting selection tagStatus/tagPrefixList fields",
+            id="invalid Lifecycle policy with conflicting selection tagStatus/tagPrefixList fields",  # noqa: E501
         ),
     ],
 )
@@ -342,7 +342,7 @@ def test_ECRRepositoryUri_validation(uri: str, expected: Tuple[str, ...], raises
             id="Image URI with tag validated and parsed",
         ),
         param(
-            "123456789012.dkr.ecr.us-west-2.amazonaws.com/repo_name@sha256:e512dc77426a01390b2e9bdf08748080c5ead456384850ac84532f97d069e99f",
+            "123456789012.dkr.ecr.us-west-2.amazonaws.com/repo_name@sha256:e512dc77426a01390b2e9bdf08748080c5ead456384850ac84532f97d069e99f",  # noqa: E501
             (
                 "123456789012",
                 "us-west-2",
@@ -797,11 +797,11 @@ class ECRRepositoryTests(ECRTestBase):
         self.assertEqual(resolve_image_uri(repo.repository_name), image2.uri)
         self.assertEqual(resolve_image_uri(repo.uri), image2.uri)
 
-        self.assertEqual(resolve_image_uri(repo.repository_name, default_tag="latest"), image1.uri)
+        self.assertEqual(resolve_image_uri(repo.repository_name, default_tag="latest"), image1.uri)  # noqa: E501
 
     def test__resolve_image_uri__works_with_image_uri(self):
         repo = self.create_repository("repository_name")
-        image = self.put_image(repo.repository_name, image_tag="latest")
+        self.put_image(repo.repository_name, image_tag="latest")
 
         uri = "123456789012.dkr.ecr.us-west-2.amazonaws.com/repository_name:latest"
         actual = resolve_image_uri(uri)

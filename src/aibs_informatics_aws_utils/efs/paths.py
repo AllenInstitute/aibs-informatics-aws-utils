@@ -6,7 +6,7 @@ __all__ = [
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Type, Union, overload
+from typing import TYPE_CHECKING, List, Literal, Optional, Union, overload
 
 from aibs_informatics_core.models.aws.efs import EFSPath
 
@@ -39,8 +39,7 @@ def get_efs_path(
     local_path: Path,
     raise_if_unresolved: Literal[False],
     mount_points: Optional[List[MountPointConfiguration]] = None,
-) -> Optional[EFSPath]:
-    ...
+) -> Optional[EFSPath]: ...
 
 
 @overload
@@ -48,8 +47,7 @@ def get_efs_path(
     local_path: Path,
     raise_if_unresolved: Literal[True] = True,
     mount_points: Optional[List[MountPointConfiguration]] = None,
-) -> EFSPath:
-    ...
+) -> EFSPath: ...
 
 
 def get_efs_path(
@@ -61,12 +59,14 @@ def get_efs_path(
 
     Args:
         local_path (Path): Local path
-        raise_if_unresolved (bool): If True, raises an error if the local path is not under an identifiable mount point. Defaults to True.
-        mount_points (List[MountPointConfiguration] | None): Optionally can override list of mount_points.
-            If None, mount points are detected. Defaults to None.
+        raise_if_unresolved (bool): If True, raises an error if the local path is not
+            under an identifiable mount point. Defaults to True.
+        mount_points (List[MountPointConfiguration] | None): Optionally can override
+            list of mount_points. If None, mount points are detected. Defaults to None.
 
     Returns:
-        EFSPath: Corresponding EFS URI or None if the path cannot be resolved and raise_if_unresolved is False
+        EFSPath: Corresponding EFS URI or None if the path cannot be resolved and
+            raise_if_unresolved is False
     """
     mount_points = mount_points if mount_points is not None else detect_mount_points()
 
@@ -91,8 +91,7 @@ def get_local_path(
     efs_path: EFSPath,
     raise_if_unmounted: Literal[False],
     mount_points: Optional[List[MountPointConfiguration]] = None,
-) -> Optional[Path]:
-    ...
+) -> Optional[Path]: ...
 
 
 @overload
@@ -100,8 +99,7 @@ def get_local_path(
     efs_path: EFSPath,
     raise_if_unmounted: Literal[True] = True,
     mount_points: Optional[List[MountPointConfiguration]] = None,
-) -> Path:
-    ...
+) -> Path: ...
 
 
 def get_local_path(
@@ -113,12 +111,14 @@ def get_local_path(
 
     Args:
         efs_path (EFSPath): The EFS path. e.g., "efs://fs-12345678:/path/to/file.txt"
-        raise_if_unmounted (bool): If True, raises an error if the EFS path is not mounted locally. Defaults to True.
-        mount_points (List[MountPointConfiguration] | None): Optionally can override list of mount points.
-            If None, mount points are detected. Defaults to None.
+        raise_if_unmounted (bool): If True, raises an error if the EFS path is
+            not mounted locally. Defaults to True.
+        mount_points (List[MountPointConfiguration] | None): Optionally can override
+            list of mount points. If None, mount points are detected. Defaults to None.
 
     Returns:
-        Path: The local path. e.g., "/mnt/efs/path/to/file.txt" or None if the path cannot be resolved and raise_if_unmounted is False
+        Path: The local path. e.g., "/mnt/efs/path/to/file.txt" or None if the path
+            cannot be resolved and raise_if_unmounted is False
     """
     mount_points = mount_points if mount_points is not None else detect_mount_points()
     for mount_point in mount_points:
