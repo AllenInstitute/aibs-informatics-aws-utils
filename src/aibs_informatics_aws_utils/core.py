@@ -137,7 +137,7 @@ def get_region(region: Optional[str] = None) -> str:
         raise AWSError(error_msg)
     try:
         region = AWSRegion(region)
-        assert region is not None
+        assert region is not None  # mollify mypy
     except Exception as e:
         raise AWSError from e
     return region

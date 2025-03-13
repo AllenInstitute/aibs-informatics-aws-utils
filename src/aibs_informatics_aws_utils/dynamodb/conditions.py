@@ -144,8 +144,7 @@ class ConditionExpressionComponents(ExpressionComponentsBase):
             other (ConditionExpressionComponents): the other Expression Condition to modify
 
         Returns:
-            ConditionExpressionComponents: The other, as a modified
-                non-overlapping Expression Condition
+            ConditionExpressionComponents: The other, as a modified non-overlapping Expression Condition
         """  # noqa: E501
 
         this_placeholder_names = AttrPlaceholder.sorted(self.expression_attribute_names.keys())

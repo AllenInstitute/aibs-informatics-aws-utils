@@ -65,14 +65,12 @@ obliterate: clean-venv clean  ## alias to clean, clean-venv
 .uv: ## Check that uv is installed
 	@uv -V || echo 'Please install uv: https://docs.astral.sh/uv/getting-started/installation/'
 
-install: .uv  ## Installs package dependencies
-	uv sync --frozen
+install: .uv  ## Installs development (dev/lint) related dependencies
+	uv sync --frozen --group dev --group lint
 
 install-release: .uv  ## Installs package dependencies
 	uv sync --frozen --group release
 
-install-dev: .uv ## Installs development (dev/lint) related dependencies
-	uv sync --frozen --group dev --group lint
 
 rebuild-lockfile: .uv  ## Rebuilds the lockfile
 	uv lock --upgrade
@@ -109,22 +107,22 @@ unlink-packages: ## Unlink local packages from virtualenv
 		make install; \
 	fi
 
-.PHONY: .uv install install-release install-dev rebuild-lockfile link-packages unlink-packages
+.PHONY: .uv install install-release install rebuild-lockfile link-packages unlink-packages
 
 #######################
 ##@ Formatting Commands
 #######################
 
-lint-ruff: install-dev ## Run ruff checker
+lint-ruff: install ## Run ruff checker
 	uv run ruff check
 
-lint-mypy: install-dev ## Run mypy
+lint-mypy: install ## Run mypy
 	uv run mypy ./
 
 lint: lint-ruff lint-mypy  ## Run all lint targets (ruff, mypy)
 
 
-format-ruff: install-dev ## Run ruff formatter 
+format-ruff: install ## Run ruff formatter 
 	uv run ruff check --fix
 	uv run ruff format
 

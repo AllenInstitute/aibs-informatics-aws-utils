@@ -346,9 +346,7 @@ class ECRImage(ECRMixins, DataClassModel):
                 registryId=self.account_id,
                 imageIds=[dict(imageDigest=self.image_digest)],
             )
-
-            no_images = len(response["images"]) == 0
-            if no_images or "imageManifest" not in response["images"][0]:
+            if len(response["images"]) == 0 or "imageManifest" not in response["images"][0]:
                 raise ResourceNotFoundError(f"Could not resolve image manifest for {self.uri}")
 
             self.image_manifest = response["images"][0]["imageManifest"]
@@ -852,7 +850,6 @@ def resolve_image_uri(name: str, default_tag: Optional[str] = None) -> str:
                 return image.uri
             else:
                 # Fetch latest tagged
-
                 def get_image_push_time(image: ECRImage) -> datetime:
                     if image.image_pushed_at is None:
                         raise RuntimeError(f"Couldn't get 'image_pushed_at' for: {image}")

@@ -43,7 +43,7 @@ release = [
 all = [
     {include-group = "dev"},
     {include-group = "lint"},
-    {inclulde-group = "release"},
+    {include-group = "release"},
 ]
 
 [tool.setuptools.packages.find]
@@ -67,6 +67,7 @@ Repository = "https://github.com/AllenInstitute/aibs-informatics-aws-utils/"
 # -----------------------------------------------------------------------------
 
 [tool.uv]
+default-groups = ["dev", "lint"]
 
 # -----------------------------------------------------------------------------
 ##  Pyright Configurations

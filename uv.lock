@@ -18,9 +18,12 @@ dependencies = [
 all = [
     { name = "aibs-informatics-test-resources", extra = ["all"] },
     { name = "boto3-stubs", extra = ["apigateway", "athena", "batch", "ecr", "ecs", "efs", "essential", "fsx", "logs", "secretsmanager", "ses", "sns", "ssm", "stepfunctions", "sts"] },
+    { name = "build" },
+    { name = "bump-my-version" },
     { name = "moto", extra = ["all"] },
     { name = "mypy" },
     { name = "ruff" },
+    { name = "wheel" },
 ]
 dev = [
     { name = "aibs-informatics-test-resources", extra = ["all"] },
@@ -47,9 +50,12 @@ requires-dist = [
 all = [
     { name = "aibs-informatics-test-resources", extras = ["all"], specifier = "~=0.1.1" },
     { name = "boto3-stubs", extras = ["athena", "apigateway", "batch", "ecr", "ecs", "efs", "essential", "fsx", "logs", "secretsmanager", "ses", "sns", "ssm", "sts", "stepfunctions"] },
+    { name = "build" },
+    { name = "bump-my-version" },
     { name = "moto", extras = ["all"], specifier = "~=5.0" },
     { name = "mypy", specifier = "~=1.13.0" },
     { name = "ruff", specifier = "~=0.9" },
+    { name = "wheel" },
 ]
 dev = [
     { name = "aibs-informatics-test-resources", extras = ["all"], specifier = "~=0.1.1" },
