@@ -40,10 +40,15 @@ release = [
     "bump-my-version",
     "wheel",
 ]
+interactive = [
+    "ipython~=8.18",
+    "jupyter~=1.1",
+]
 all = [
     {include-group = "dev"},
     {include-group = "lint"},
     {include-group = "release"},
+    {include-group = "interactive"},
 ]
 
 [tool.setuptools.packages.find]
