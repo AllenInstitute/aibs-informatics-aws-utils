@@ -126,7 +126,7 @@ class ECRTestBase(AwsBaseTest):
         image_digest: Optional[str] = None,
         image_tag: Optional[str] = None,
         seed: int = 123,
-    ):
+    ) -> ECRImage:
         image_digest = image_digest or self.construct_image_digest(str(seed))
         if not image_manifest:
             image_manifest = self.construct_image_manifest(
@@ -160,4 +160,11 @@ class ECRTestBase(AwsBaseTest):
             repository_name=response["image"].get("repositoryName"),
             image_digest=response["image"].get("imageId", {}).get("imageDigest"),
             image_manifest=response["image"].get("imageManifest"),
+        )
+
+    def remove_image(self, repository_name: str, image_digest: str):
+        self.ecr.batch_delete_image(
+            repositoryName=repository_name,
+            imageIds=[{"imageDigest": image_digest}],
+            registryId=self.ACCOUNT_ID,
         )

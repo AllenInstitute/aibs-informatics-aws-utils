@@ -92,6 +92,7 @@ class ECRImageReplicator(LoggingMixin):
             region=destination_repository.region,
             repository_name=destination_repository.repository_name,
             image_digest=source_image.image_digest,
+            client=destination_repository.client,
         )
 
     def upload_layers(self, source_image: ECRImage, destination_repository: ECRRepository):
@@ -106,11 +107,19 @@ class ECRImageReplicator(LoggingMixin):
         )
 
         layers = source_image.get_image_layers()
-        self.logger.info(f"Source image {source_image.uri} has {len(layers)} layers.")
+        config_layer = source_image.get_image_config_layer()
+
+        all_layers = layers + [config_layer]
+
+        self.logger.info(
+            f"Source image {source_image.uri} has {len(layers)} layers and "
+            f"1 config layer totalling {len(all_layers)} layers"
+        )
+
         self._upload_layers(
             source_repository=source_image.get_repository(),
             destination_repository=destination_repository,
-            layers=layers,
+            layers=all_layers,
             check_if_exists=True,
         )
 
@@ -150,9 +159,14 @@ class ECRImageReplicator(LoggingMixin):
             repository_name=destination_repository.repository_name,
             image_digest=source_image.image_digest,
             image_manifest=source_image.image_manifest,
+            client=destination_repository.client,
         )
+        dest_image.client = destination_repository.client
         try:
-            dest_image.add_image_tags(*tags)
+            dest_image.put_image(None)
+            if tags:
+                dest_image.add_image_tags(*tags)
+
         except ClientError as e:
             # IF we have a LayersNotFoundException, then we will retry to upload layers
             if get_client_error_code(e) != "LayersNotFoundException":

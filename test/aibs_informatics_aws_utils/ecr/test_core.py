@@ -131,30 +131,22 @@ def test__LifecyclePolicyRule__from_dict(input, expected, raises_error):
         assert actual == expected
 
 
-rule_1a = LifecyclePolicyRule(
-    1,
-    "",
-    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 11, "days"),
-    LifecyclePolicyAction("expire"),
-)
-rule_1b = LifecyclePolicyRule(
-    1,
-    "",
-    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 12, "days"),
-    LifecyclePolicyAction("expire"),
-)
-rule_2 = LifecyclePolicyRule(
-    2,
-    "",
-    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 2, "days"),
-    LifecyclePolicyAction("expire"),
-)
-rule_3 = LifecyclePolicyRule(
-    3,
-    "",
-    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 3, "days"),
-    LifecyclePolicyAction("expire"),
-)
+def test__LifecyclePolicyRule__REMOVE_UNTAGGED__works_as_expected():
+    rule = LifecyclePolicyRule.REMOVE_UNTAGGED()
+    assert rule.rule_priority == 1
+    assert rule.selection.tag_status == "untagged"
+    assert rule.selection.count_type == "sinceImagePushed"
+    assert rule.selection.count_unit == "days"
+    assert rule.selection.count_number == 14
+    assert rule.action.type == "expire"
+
+    rule_override = LifecyclePolicyRule.REMOVE_UNTAGGED(rule_priority=2, days=7)
+    assert rule_override.rule_priority == 2
+    assert rule_override.selection.tag_status == "untagged"
+    assert rule_override.selection.count_type == "sinceImagePushed"
+    assert rule_override.selection.count_unit == "days"
+    assert rule_override.selection.count_number == 7
+    assert rule_override.action.type == "expire"
 
 
 @mark.parametrize(
@@ -247,6 +239,33 @@ def test__LifecyclePolicy__sorts_rules(rules, expected, raises_error):
         actual = LifecyclePolicy.from_rules(*rules)
     if expected is not None:
         assert actual == expected
+
+
+def test__LifecyclePolicy__reprioritize_rules__in_place_works():
+    rules = [
+        LifecyclePolicyRule(
+            2,
+            "two",
+            LifecyclePolicySelection("untagged", [], "sinceImagePushed", 2, "days"),
+        ),
+        LifecyclePolicyRule(
+            1,
+            "one",
+            LifecyclePolicySelection("untagged", [], "sinceImagePushed", 1, "days"),
+        ),
+    ]
+
+    ordered_rules = LifecyclePolicy.reprioritize_rules(rules, in_place=False)
+
+    assert ordered_rules[0].rule_priority == 1
+    assert ordered_rules[1].rule_priority == 2
+    assert rules[0].rule_priority == 2
+    assert rules[1].rule_priority == 1
+
+    LifecyclePolicy.reprioritize_rules(rules, in_place=True)
+
+    assert rules[0].rule_priority == 1
+    assert rules[1].rule_priority == 2
 
 
 @mark.parametrize(
@@ -408,6 +427,24 @@ def test_ECRImageUri_validation(
         assert ecr_image_uri.image_digest == expected_image_digest
 
 
+def test__ECRImageUri__from_components__raises_error_with_invalid_args():
+    with raises(ValueError):
+        ECRImageUri.from_components(
+            account_id="123456789012",
+            region="us-west-2",
+            repository_name="repo_name",
+            image_tag="latest",
+            image_digest="sha256:asdfasdfa",
+        )
+
+    with raises(ValueError):
+        ECRImageUri.from_components(
+            account_id="123456789012",
+            region="us-west-2",
+            repository_name="repo_name",
+        )
+
+
 @moto.mock_aws
 class ECRImageTests(ECRTestBase):
     def test__init__with_manifest__does_not_call_ecr_for_info(self):
@@ -470,6 +507,13 @@ class ECRImageTests(ECRTestBase):
         actual = image.get_repository()
         self.assertEqual(actual, repo)
 
+    def test__get_image_detail__fails_for_non_existent_image(self):
+        repo = self.create_repository("repository_name")
+        image: ECRImage = self.put_image(repo.repository_name, image_tag="latest")
+        self.remove_image(image.repository_name, image.image_digest)
+        with self.assertRaises(Exception):
+            image.get_image_detail()
+
     def test__get_image_tags__returns_tags(self):
         repo = self.create_repository("repository_name")
         image = self.put_image(repo.repository_name, image_tag="latest")
@@ -491,6 +535,13 @@ class ECRImageTests(ECRTestBase):
         with self.assertRaises(Exception):
             repo.delete(True)
             image.add_image_tags("latest")
+
+    def test__put_image__handles_no_tag(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+        self.assertListEqual(image.image_tags, ["latest"])
+        image.put_image(None)
+        self.assertListEqual(image.image_tags, ["latest"])
 
     def test__get_image_layers__gets_layers_from_manifest(self):
         repo = self.create_repository("repository_name")

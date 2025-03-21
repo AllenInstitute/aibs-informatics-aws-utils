@@ -44,7 +44,11 @@ if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_ecr.type_defs import (
         BatchGetImageResponseTypeDef,
         ImageDetailTypeDef,
+        ImageIdentifierTypeDef,
         LayerTypeDef,
+        ListImagesFilterTypeDef,
+        ListImagesRequestPaginateTypeDef,
+        TagTypeDef,
     )
 else:
     ECRClient = object
@@ -52,7 +56,11 @@ else:
     TagStatusType = object
     BatchGetImageResponseTypeDef = dict
     ImageDetailTypeDef = dict
+    ImageIdentifierTypeDef = dict
     LayerTypeDef = dict
+    ListImagesFilterTypeDef = dict
+    ListImagesRequestPaginateTypeDef = dict
+    TagTypeDef = dict
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +285,7 @@ class LifecyclePolicy(DataClassModel):
             rules.sort(key=sort_key)
             sorted_rules = rules
         else:
-            sorted_rules = sorted(rules, key=sort_key)
+            sorted_rules = sorted(deepcopy(rules), key=sort_key)
 
         for rule in sorted_rules:
             if rule.rule_priority <= rule_priority:
@@ -310,8 +318,10 @@ class ECRMixins(LoggingMixin):
     account_id: str
     region: str
 
-    def __post_init__(self):
-        self._client = None
+    def __init__(self, account_id: str, region: str, client: Optional[ECRClient] = None):
+        self.account_id = account_id
+        self.region = region
+        self._client = client
 
     @property
     def client(self) -> ECRClient:
@@ -336,20 +346,33 @@ class ECRMixins(LoggingMixin):
 class ECRImage(ECRMixins, DataClassModel):
     repository_name: str
     image_digest: str
+    # https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
     image_manifest: str = field(default=None, repr=False)  # type: ignore[assignment]
 
-    def __post_init__(self):
-        super().__post_init__()
-        if not self.image_manifest:
+    def __init__(
+        self,
+        account_id: str,
+        region: str,
+        repository_name: str,
+        image_digest: str,
+        image_manifest: Optional[str] = None,
+        client: Optional[ECRClient] = None,
+    ):
+        super().__init__(account_id=account_id, region=region, client=client)
+        self.repository_name = repository_name
+        self.image_digest = image_digest
+        if image_manifest is None:
             response = self.client.batch_get_image(
                 repositoryName=self.repository_name,
                 registryId=self.account_id,
-                imageIds=[dict(imageDigest=self.image_digest)],
+                imageIds=[ImageIdentifierTypeDef(imageDigest=self.image_digest)],
             )
             if len(response["images"]) == 0 or "imageManifest" not in response["images"][0]:
                 raise ResourceNotFoundError(f"Could not resolve image manifest for {self.uri}")
 
             self.image_manifest = response["images"][0]["imageManifest"]
+        else:
+            self.image_manifest = image_manifest
 
     @property
     def image_pushed_at(self) -> Optional[datetime]:
@@ -377,24 +400,36 @@ class ECRImage(ECRMixins, DataClassModel):
         )
 
     def get_image_detail(self) -> ImageDetailTypeDef:
+        """Get image detail of this image from ECR
+
+        Returns:
+            ImageDetailTypeDef: image detail dictionary
+        """
         response = self.client.describe_images(
             repositoryName=self.repository_name,
             registryId=self.account_id,
-            imageIds=[dict(imageDigest=self.image_digest)],
+            imageIds=[ImageIdentifierTypeDef(imageDigest=self.image_digest)],
         )
         image_details = response["imageDetails"]
         if len(image_details) == 0:
-            raise ResourceNotFoundError(f"Could not resolve image detail for {self}")
+            raise ResourceNotFoundError(
+                f"Could not resolve image detail for {self}"
+            )  # pragma: no cover
         return image_details[0]
 
     def get_image_layers(self) -> List[LayerTypeDef]:
         """Get layers from image manifest into ECR Layer objects
 
-        Args:
-            image (ECRImage):
+        The schema of the image manifest layers is defined here:
+        https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
+
+        Note: While docker image manifests can have multiple formats, ECR only supports
+              the schema defined in the link above, a v2 single image manifest. There is
+              a manifest list, that describes multiple architectures, but ECR does not support
+              this. This method assumes the image manifest is in the correct format.
 
         Returns:
-            List[LayerTypeDef]: _description_
+            List[LayerTypeDef]: List of ECR Image layers
         """
         image_manifest = json.loads(self.image_manifest)
 
@@ -407,6 +442,29 @@ class ECRImage(ECRMixins, DataClassModel):
             )
             for layer in image_manifest["layers"]
         ]
+
+    def get_image_config_layer(self) -> LayerTypeDef:
+        """Get the image config layer from image manifest
+
+        The schema of the image manifest config layer is defined here:
+        https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
+
+        Note: While docker image manifests can have multiple formats, ECR only supports
+              the schema defined in the link above, a v2 single image manifest. There is
+              a manifest list, that describes multiple architectures, but ECR does not support
+              this. This method assumes the image manifest is in the correct format.
+
+        Returns:
+            List[LayerTypeDef]: Layer Type dict of the config object
+        """
+        image_manifest = json.loads(self.image_manifest)
+        layer = image_manifest["config"]
+        return LayerTypeDef(
+            layerDigest=layer["digest"],
+            layerAvailability="AVAILABLE",
+            layerSize=layer["size"],
+            mediaType=layer["mediaType"],
+        )
 
     def get_image_config(self) -> Dict[str, Any]:
         """Get ECR or docker image configuration json metadata
@@ -426,25 +484,54 @@ class ECRImage(ECRMixins, DataClassModel):
         return response.json()
 
     def add_image_tags(self, *image_tags: str):
+        """
+        Add tags to image
+
+        Args:
+            image_tags (Union[str, None]): list of tags to add to image
+        """
         self.logger.info(f"Adding tags={image_tags} to {self.uri}")
         for tag in image_tags:
-            try:
+            self.put_image(image_tag=tag)
+
+    def put_image(self, image_tag: Optional[str]):
+        """Make a call to put_image API to add image to ECR repository
+
+        This method will add an image to the ECR repository. If the image already exists,
+        it will not raise an error. Instead, it will log that the image already
+        exists with the given tag.
+
+        Note: This operation does not push an image to the repository. It only adds
+        the image manifest to the repository.
+
+        Args:
+            image_tag (Optional[str]): tag to associate with image. If None, image is untagged.
+
+        """
+        try:
+            if image_tag is None:
                 self.client.put_image(
                     registryId=self.account_id,
                     repositoryName=self.repository_name,
                     imageManifest=self.image_manifest,
                     imageDigest=self.image_digest,
-                    imageTag=tag,
                 )
-            except ClientError as e:
-                # IF we receive a ImageAlreadyExistsException,
-                # then we have nothing to worry about. Otherwise, raise error.
-                if get_client_error_code(e) != "ImageAlreadyExistsException":
-                    raise e
-                self.logger.info(f"Image already exists with tag={tag}")
-                continue
             else:
-                self.logger.info(f"Added new image with tag={tag}")
+                self.client.put_image(
+                    registryId=self.account_id,
+                    repositoryName=self.repository_name,
+                    imageManifest=self.image_manifest,
+                    imageDigest=self.image_digest,
+                    imageTag=image_tag,
+                )
+        except ClientError as e:
+            # IF we receive a ImageAlreadyExistsException,
+            # then we have nothing to worry about. Otherwise, raise error.
+            if get_client_error_code(e) != "ImageAlreadyExistsException":
+                raise e
+            self.logger.info(f"Image already exists with tag={image_tag}")
+        else:
+            self.logger.info(f"Added new image with tag={image_tag}")
 
     @classmethod
     def from_repository_uri(cls, repository_uri: str, image_digest: str) -> "ECRImage":
@@ -466,8 +553,9 @@ class ECRImage(ECRMixins, DataClassModel):
             image_details = ecr.describe_images(
                 repositoryName=repo_name,
                 registryId=account_id,
-                imageIds=[dict(imageTag=image_tag)],
+                imageIds=[ImageIdentifierTypeDef(imageTag=image_tag)] if image_tag else [],
             )["imageDetails"][0]
+            assert "imageDigest" in image_details
             image_digest = image_details["imageDigest"]
 
         return ECRImage(
@@ -487,7 +575,6 @@ class ECRImage(ECRMixins, DataClassModel):
         )
 
 
-@dataclass
 class ECRResource(ECRMixins, DataClassModel):
     @property
     def arn(self) -> str:
@@ -527,13 +614,23 @@ class ECRResource(ECRMixins, DataClassModel):
             self.client.untag_resource(resourceArn=self.arn, tagKeys=tag_keys_to_remove)
         self.client.tag_resource(
             resourceArn=self.arn,
-            tags=[dict(Key=key, Value=value) for key, value in tag_dict.items()],
+            tags=[TagTypeDef(Key=key, Value=value) for key, value in tag_dict.items()],
         )
 
 
 @dataclass
 class ECRRepository(ECRResource):
     repository_name: str
+
+    def __init__(
+        self,
+        account_id: str,
+        region: str,
+        repository_name: str,
+        client: Optional[ECRClient] = None,
+    ):
+        super().__init__(account_id=account_id, region=region, client=client)
+        self.repository_name = repository_name
 
     @property
     def arn(self) -> str:
@@ -662,8 +759,9 @@ class ECRRepository(ECRResource):
 
         # Call 1: list_images
         paginator = self.client.get_paginator("list_images")
-        list_image_request = dict(
-            repositoryName=self.repository_name, filter=dict(tagStatus=tag_status)
+        list_image_request = ListImagesRequestPaginateTypeDef(
+            repositoryName=self.repository_name,
+            filter=ListImagesFilterTypeDef(tagStatus=tag_status),
         )
         image_digests: List[str] = sorted(
             list(
@@ -682,7 +780,7 @@ class ECRRepository(ECRResource):
         response: BatchGetImageResponseTypeDef = self.client.batch_get_image(
             repositoryName=self.repository_name,
             registryId=self.account_id,
-            imageIds=[dict(imageDigest=digest) for digest in image_digests],
+            imageIds=[ImageIdentifierTypeDef(imageDigest=digest) for digest in image_digests],
         )
 
         # Next we consolidate the results, ensuring that the image manifests
@@ -745,7 +843,6 @@ class ECRRepository(ECRResource):
         return ECRRepository(account_id=account_id, region=region, repository_name=repository_name)
 
 
-@dataclass
 class ECRRegistry(ECRResource):
     @property
     def uri(self) -> str:
@@ -791,12 +888,15 @@ class ECRRegistry(ECRResource):
         paginator = self.client.get_paginator("describe_repositories")
         repositories: List[ECRRepository] = []
         for describe_repos_response in paginator.paginate(registryId=self.account_id):
-            repositories.extend(
-                [
-                    ECRRepository.from_uri(repository.get("repositoryUri"))
-                    for repository in describe_repos_response["repositories"]
-                ]
-            )
+            for repository in describe_repos_response["repositories"]:
+                assert "repositoryName" in repository
+                repositories.append(
+                    ECRRepository(
+                        account_id=self.account_id,
+                        region=self.region,
+                        repository_name=repository["repositoryName"],
+                    )
+                )
         return repositories
 
     def get_ecr_login(self) -> ECRLogin:
@@ -808,8 +908,8 @@ class ECRRegistry(ECRResource):
         username, password = auth_token.split(":")
         registry = auth_data_entry["proxyEndpoint"].replace("https://", "")  # type: ignore
         self.logger.debug(f"Registry (proxy endpoint): {registry}")
-
-        expires_at = auth_data_entry.get("expiresAt", "").isoformat()
+        assert "expiresAt" in auth_data_entry
+        expires_at = auth_data_entry["expiresAt"].isoformat()
         self.logger.debug(f"Token expires at: {expires_at}")
 
         return ECRLogin(username=username, password=password, registry=registry)
