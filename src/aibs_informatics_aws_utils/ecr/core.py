@@ -346,6 +346,7 @@ class ECRMixins(LoggingMixin):
 class ECRImage(ECRMixins, DataClassModel):
     repository_name: str
     image_digest: str
+    # https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
     image_manifest: str = field(default=None, repr=False)  # type: ignore[assignment]
 
     def __init__(
@@ -399,6 +400,11 @@ class ECRImage(ECRMixins, DataClassModel):
         )
 
     def get_image_detail(self) -> ImageDetailTypeDef:
+        """Get image detail of this image from ECR
+
+        Returns:
+            ImageDetailTypeDef: image detail dictionary
+        """
         response = self.client.describe_images(
             repositoryName=self.repository_name,
             registryId=self.account_id,
@@ -414,11 +420,16 @@ class ECRImage(ECRMixins, DataClassModel):
     def get_image_layers(self) -> List[LayerTypeDef]:
         """Get layers from image manifest into ECR Layer objects
 
-        Args:
-            image (ECRImage):
+        The schema of the image manifest layers is defined here:
+        https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
+
+        Note: While docker image manifests can have multiple formats, ECR only supports
+              the schema defined in the link above, a v2 single image manifest. There is
+              a manifest list, that describes multiple architectures, but ECR does not support
+              this. This method assumes the image manifest is in the correct format.
 
         Returns:
-            List[LayerTypeDef]: _description_
+            List[LayerTypeDef]: List of ECR Image layers
         """
         image_manifest = json.loads(self.image_manifest)
 
@@ -435,11 +446,16 @@ class ECRImage(ECRMixins, DataClassModel):
     def get_image_config_layer(self) -> LayerTypeDef:
         """Get the image config layer from image manifest
 
-        Args:
-            image (ECRImage):
+        The schema of the image manifest config layer is defined here:
+        https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
+
+        Note: While docker image manifests can have multiple formats, ECR only supports
+              the schema defined in the link above, a v2 single image manifest. There is
+              a manifest list, that describes multiple architectures, but ECR does not support
+              this. This method assumes the image manifest is in the correct format.
 
         Returns:
-            List[LayerTypeDef]: Layer Type dict
+            List[LayerTypeDef]: Layer Type dict of the config object
         """
         image_manifest = json.loads(self.image_manifest)
         layer = image_manifest["config"]
