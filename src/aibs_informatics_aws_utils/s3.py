@@ -172,6 +172,7 @@ def download_s3_path(
             exist_ok=exist_ok,
             transfer_config=transfer_config,
             force=force,
+            size_only=size_only,
             **kwargs,
         )
     elif (path_is_prefix and not path_is_object) or (
