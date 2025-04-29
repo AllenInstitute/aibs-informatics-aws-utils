@@ -20,7 +20,7 @@ requires-python = ">=3.9"
 
 dependencies = [
     "boto3~=1.35",
-    "aibs-informatics-core~=0.0.8",
+    "aibs-informatics-core~=0.1.0",
 ]
 
 # For dev dependencies: https://peps.python.org/pep-0735/
