@@ -764,8 +764,8 @@ class S3Tests(AwsBaseTest):
                 S3StorageClass.STANDARD,
                 S3StorageClass.STANDARD_IA,
                 S3StorageClass.INTELLIGENT_TIERING,
-                S3StorageClass.GLACIER,
                 S3StorageClass.GLACIER_IR,
+                S3StorageClass.GLACIER,
                 S3StorageClass.DEEP_ARCHIVE,
             ]
         }
