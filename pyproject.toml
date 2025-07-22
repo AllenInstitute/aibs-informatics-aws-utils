@@ -222,6 +222,7 @@ ignore_errors = false
 [tool.ruff]
 line-length = 99
 src = ["src", "test"]
+cache-dir = "build/.ruff_cache"
 
 [tool.ruff.lint]
 # For rule classes and what each encompasses, see: https://docs.astral.sh/ruff/rules/
