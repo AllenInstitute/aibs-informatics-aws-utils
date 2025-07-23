@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 if TYPE_CHECKING:  # pragma: no cover
-    from mypy_boto3_stepfunctions.literals import ExecutionStatusType
+    from mypy_boto3_stepfunctions.literals import ExecutionStatusType, IncludedDataType
     from mypy_boto3_stepfunctions.type_defs import (
         DescribeExecutionOutputTypeDef,
         ExecutionListItemTypeDef,
@@ -36,6 +36,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TaskSucceededEventDetailsTypeDef,
     )
 else:
+    IncludedDataType = str
     ExecutionStatusType = str
     DescribeExecutionOutputTypeDef = dict
     HistoryEventTypeDef = dict
@@ -140,11 +141,13 @@ def get_execution_arn(
 
 
 def describe_execution(
-    execution_arn: str, region: Optional[str] = None
+    execution_arn: str, included_data: IncludedDataType = "ALL_DATA", region: Optional[str] = None
 ) -> DescribeExecutionOutputTypeDef:
     sfn = get_sfn_client(region=get_region(region=region))
 
-    execution_description = sfn.describe_execution(executionArn=execution_arn)
+    execution_description = sfn.describe_execution(
+        executionArn=execution_arn, includedData=included_data
+    )
     return execution_description
 
 
