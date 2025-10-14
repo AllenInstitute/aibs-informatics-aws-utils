@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Union
 
 from aibs_informatics_core.env import ENV_BASE_KEY_ALIAS, EnvBase, get_env_base
 from aibs_informatics_core.models.aws.batch import JobName, ResourceRequirements
 from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.hashing import sha256_hexdigest
 from aibs_informatics_core.utils.logging import get_logger
-from aibs_informatics_core.utils.tools.dicttools import convert_key_case, remove_null_values
+from aibs_informatics_core.utils.tools.dicttools import convert_key_case
 from aibs_informatics_core.utils.tools.strtools import pascalcase
 from botocore.exceptions import ClientError
 
@@ -24,8 +24,8 @@ if TYPE_CHECKING:  # pragma: no cover
         HostTypeDef,
         JobDefinitionTypeDef,
         KeyValuePairTypeDef,
+        LinuxParametersTypeDef,
         MountPointTypeDef,
-        RegisterJobDefinitionRequestRequestTypeDef,
         RegisterJobDefinitionResponseTypeDef,
         ResourceRequirementTypeDef,
         RetryStrategyTypeDef,
@@ -42,8 +42,8 @@ else:
     JobDefinitionTypeDef = dict
     DescribeJobsResponseTypeDef = dict
     KeyValuePairTypeDef = dict
+    LinuxParametersTypeDef = dict
     MountPointTypeDef = dict
-    RegisterJobDefinitionRequestRequestTypeDef = dict
     RegisterJobDefinitionResponseTypeDef = dict
     ResourceRequirementTypeDef = dict
     RetryStrategyTypeDef = dict
@@ -61,13 +61,14 @@ def to_volume(
     name: Optional[str],
     efs_volume_configuration: Optional[EFSVolumeConfigurationTypeDef],
 ) -> VolumeTypeDef:
-    return remove_null_values(
-        VolumeTypeDef(
-            host=HostTypeDef(sourcePath=source_path) if source_path else None,
-            name=name,
-            efsVolumeConfiguration=efs_volume_configuration,
-        )
-    )
+    volume_dict = VolumeTypeDef()
+    if source_path:
+        volume_dict["host"] = HostTypeDef(sourcePath=source_path)
+    if name:
+        volume_dict["name"] = name
+    if efs_volume_configuration:
+        volume_dict["efsVolumeConfiguration"] = efs_volume_configuration
+    return volume_dict
 
 
 def to_mount_point(
@@ -75,13 +76,12 @@ def to_mount_point(
     read_only: bool,
     source_volume: Optional[str],
 ) -> MountPointTypeDef:
-    return remove_null_values(
-        MountPointTypeDef(
-            containerPath=container_path,
-            readOnly=read_only,
-            sourceVolume=source_volume,
-        )
-    )
+    mount_point_dict = MountPointTypeDef(readOnly=read_only)
+    if container_path:
+        mount_point_dict["containerPath"] = container_path
+    if source_volume:
+        mount_point_dict["sourceVolume"] = source_volume
+    return mount_point_dict
 
 
 def to_key_value_pairs(
@@ -104,7 +104,7 @@ def to_key_value_pairs(
             for k, v in environment.items()
             if not remove_null_values or v is not None
         ],
-        key=lambda _: _.get("name"),
+        key=lambda _: _.get("name", ""),
     )
 
 
@@ -115,16 +115,23 @@ def to_resource_requirements(
 ) -> List[ResourceRequirementTypeDef]:
     """Converts Batch resource requirement parameters into a list of ResourceRequirement objects
 
+    The returned list only includes dictionary entries for resources that specify
+    an explicit value. Anything unset will be dropped.
+
     Args:
-        gpu (Optional[int], optional): number of . Defaults to None.
-        memory (Optional[int], optional): _description_. Defaults to None.
-        vcpus (Optional[int], optional): _description_. Defaults to None.
+        gpu (Optional[int], optional): number of GPUs to use. Defaults to None.
+        memory (Optional[int], optional): amount of memory in MiB. Defaults to None.
+        vcpus (Optional[int], optional): Number of VCPUs to use. Defaults to None.
 
     Returns:
         List[ResourceRequirementTypeDef]: list of resource requirements
     """
 
-    pairs = [("GPU", gpu), ("MEMORY", memory), ("VCPU", vcpus)]
+    pairs: list[tuple[Literal["GPU", "MEMORY", "VCPU"], Optional[int]]] = [
+        ("GPU", gpu),
+        ("MEMORY", memory),
+        ("VCPU", vcpus),
+    ]
     return [ResourceRequirementTypeDef(type=t, value=str(v)) for t, v in pairs if v is not None]
 
 
@@ -176,7 +183,7 @@ def register_job_definition(
     tags: Optional[Mapping[str, str]] = None,
     propagate_tags: bool = False,
     region: Optional[str] = None,
-) -> JobDefinitionTypeDef:
+) -> JobDefinitionTypeDef | RegisterJobDefinitionResponseTypeDef:
     batch = get_batch_client(region=region)
 
     # First we check to make sure that we aren't crearting unnecessary revisions
@@ -210,7 +217,7 @@ def register_job_definition(
     logger.info(
         f"Registering job definition with following properties: {register_job_definition_kwargs}"
     )
-    response = batch.register_job_definition(**register_job_definition_kwargs)
+    response = batch.register_job_definition(**register_job_definition_kwargs)  # type: ignore[arg-type]
     return response
 
 
@@ -263,7 +270,7 @@ class BatchJobBuilder:
     mount_points: List[MountPointTypeDef] = field(default_factory=list)
     volumes: List[VolumeTypeDef] = field(default_factory=list)
     privileged: bool = field(default=False)
-    linux_parameters: Optional[Dict[str, Any]] = field(default=None)
+    linux_parameters: Optional[LinuxParametersTypeDef] = field(default=None)
     env_base: EnvBase = field(default_factory=EnvBase.from_env)
 
     def __post_init__(self):
@@ -295,7 +302,7 @@ class BatchJobBuilder:
 
     @property
     def container_overrides__sfn(self) -> Dict[str, Any]:
-        return convert_key_case(self.container_overrides, pascalcase)
+        return convert_key_case(self.container_overrides, pascalcase)  # type: ignore[arg-type]
 
     def _normalized_resource_requirements(self) -> List[ResourceRequirementTypeDef]:
         if isinstance(self.resource_requirements, list):

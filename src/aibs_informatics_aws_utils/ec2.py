@@ -20,7 +20,6 @@ from collections import defaultdict
 from functools import reduce
 from typing import (
     TYPE_CHECKING,
-    Any,
     Dict,
     List,
     Literal,
@@ -33,26 +32,41 @@ from typing import (
     Union,
 )
 
-from aibs_informatics_core.utils.tools.dicttools import remove_null_values
-
 from aibs_informatics_aws_utils.core import AWSService, get_client
 from aibs_informatics_aws_utils.exceptions import AWSError
 
 if TYPE_CHECKING:  # pragma: no cover
+    from mypy_boto3_ec2.literals import (
+        InstanceTypeType,
+    )
     from mypy_boto3_ec2.type_defs import (
+        AvailabilityZoneTypeDef,
         DescribeAvailabilityZonesResultTypeDef,
-        DescribeInstanceTypeOfferingsRequestRequestTypeDef,
+        DescribeInstanceTypeOfferingsRequestPaginateTypeDef,
+        DescribeInstanceTypeOfferingsRequestTypeDef,
         DescribeInstanceTypeOfferingsResultTypeDef,
-        DescribeInstanceTypesRequestRequestTypeDef,
+        DescribeInstanceTypesRequestPaginateTypeDef,
+        DescribeInstanceTypesRequestTypeDef,
+        DescribeSpotPriceHistoryRequestPaginateTypeDef,
         InstanceTypeInfoTypeDef,
+        InstanceTypeOfferingTypeDef,
+        PaginatorConfigTypeDef,
+        SpotPriceTypeDef,
     )
 else:
+    SpotPriceTypeDef = dict
+    DescribeInstanceTypeOfferingsRequestPaginateTypeDef = dict
+    InstanceTypeType = str
+    AvailabilityZoneTypeDef = dict
     DescribeAvailabilityZonesResultTypeDef = dict
     DescribeInstanceTypeOfferingsResultTypeDef = dict
-    DescribeInstanceTypeOfferingsRequestRequestTypeDef = dict
-    DescribeInstanceTypesRequestRequestTypeDef = dict
+    DescribeInstanceTypeOfferingsRequestTypeDef = dict
+    DescribeInstanceTypesRequestPaginateTypeDef = dict
+    DescribeInstanceTypesRequestTypeDef = dict
+    DescribeSpotPriceHistoryRequestPaginateTypeDef = dict
+    InstanceTypeOfferingTypeDef = dict
     InstanceTypeInfoTypeDef = dict
-
+    PaginatorConfigTypeDef = dict
 
 get_ec2_client = AWSService.EC2.get_client
 get_ec2_resource = AWSService.EC2.get_resource
@@ -215,7 +229,7 @@ def get_regions() -> List[str]:
 
 def describe_availability_zones(
     regions: Optional[List[str]] = None, all_regions: bool = False
-) -> List[DescribeAvailabilityZonesResultTypeDef]:
+) -> List[AvailabilityZoneTypeDef]:
     """Describe availability zones
 
     Args:
@@ -274,11 +288,11 @@ def describe_instance_type_offerings(
     instance_types: Optional[List[str]] = None,
     regions: Optional[List[str]] = None,
     availability_zones: Optional[List[str]] = None,
-) -> List[DescribeInstanceTypeOfferingsResultTypeDef]:
+) -> List[InstanceTypeOfferingTypeDef]:
     """Describe instance type offerings
 
     Args:
-        instance_types (Optional[List[str]], optional): Optional subset of instance types.
+        instance_types (Optional[List[str]], optional): deprecated. Is not supported.
             Defaults to None.
         regions (Optional[List[str]], optional): Optional subset of regions. Defaults to None.
         availability_zones (Optional[List[str]], optional): Optional subset of availability zones.
@@ -287,9 +301,9 @@ def describe_instance_type_offerings(
     Returns:
         _type_: List of instance type offerings
     """
-    kwargs: DescribeInstanceTypeOfferingsRequestRequestTypeDef = {}
+    kwargs: DescribeInstanceTypeOfferingsRequestPaginateTypeDef = {}
     if instance_types is not None:
-        kwargs["InstanceTypes"] = instance_types
+        logger.warning("instance_types filter is not supported. Ignoring.")
     if regions is not None:
         kwargs["LocationType"] = "region"
         kwargs["Filters"] = [dict(Name="location", Values=regions)]
@@ -313,7 +327,7 @@ def describe_instance_type_offerings(
 
 
 def describe_instance_types(
-    instance_types: Optional[List[str]] = None,
+    instance_types: Optional[List[InstanceTypeType]] = None,
     filters: Optional[Union[Dict[str, List[str]], List[Tuple[str, List[str]]]]] = None,
 ) -> List[InstanceTypeInfoTypeDef]:
     """Describe instance types
@@ -328,7 +342,7 @@ def describe_instance_types(
     """
     ec2 = get_ec2_client()
 
-    kwargs: DescribeInstanceTypesRequestRequestTypeDef = {}
+    kwargs: DescribeInstanceTypesRequestPaginateTypeDef = {}
     if instance_types is not None:
         kwargs["InstanceTypes"] = instance_types
     if filters is not None:
@@ -396,7 +410,7 @@ def describe_instance_types_by_props(
     for instance in instance_type_details:
         vcpus = instance.get("VCpuInfo", {}).get("DefaultVCpus", None)
         memory = instance.get("MemoryInfo", {}).get("SizeInMiB", None)
-        gpus = instance.get("GpuInfo", {}).get("Gpus", [{}])[0].get("Count", 0)
+        gpus = instance.get("GpuInfo", {}).get("Gpus", [{}])[0].get("Count", 0)  # type: ignore[call-overload]
         if vcpus is None or memory is None:
             continue
         if vcpu_range[0] is not None and vcpus < vcpu_range[0]:
@@ -492,9 +506,9 @@ def get_common_instance_types(
 
 def get_instance_types_spot_price(
     region: str,
-    instance_types: Optional[List[str]] = None,
+    instance_types: Optional[List[InstanceTypeType]] = None,
     product_descriptions: Optional[Sequence[str]] = ("Linux/UNIX",),
-) -> Dict[str, float]:
+) -> Dict[InstanceTypeType, float]:
     """Get the current spot price for a list of instance types
 
     Args:
@@ -508,20 +522,19 @@ def get_instance_types_spot_price(
     """
     ec2 = get_ec2_client(region=region)
 
-    kwargs = {
-        "InstanceTypes": instance_types,
-        "ProductDescriptions": product_descriptions,
-    }
+    kwargs: DescribeSpotPriceHistoryRequestPaginateTypeDef = {}
+    if instance_types is not None:
+        kwargs["InstanceTypes"] = instance_types
+    if product_descriptions is not None:
+        kwargs["ProductDescriptions"] = list(product_descriptions)
 
     spot_history = [
         _
-        for response in ec2.get_paginator("describe_spot_price_history").paginate(
-            **remove_null_values(kwargs)
-        )
+        for response in ec2.get_paginator("describe_spot_price_history").paginate(**kwargs)
         for _ in response["SpotPriceHistory"]
     ]
 
-    spot_history_by_instance_type: Dict[str, Dict[str, Any]] = {}
+    spot_history_by_instance_type: Dict[InstanceTypeType, SpotPriceTypeDef] = {}
     for spot_price in spot_history:
         if (
             "InstanceType" not in spot_price
@@ -544,7 +557,7 @@ def get_instance_types_spot_price(
 
 def get_instance_type_spot_price(
     region: str,
-    instance_type: str,
+    instance_type: InstanceTypeType,
     product_description: str = "Linux/UNIX",
 ) -> float:
     """Get the latest spot price for an instance type

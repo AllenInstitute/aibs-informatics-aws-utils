@@ -14,18 +14,21 @@ from aibs_informatics_aws_utils.dynamodb.conditions import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_dynamodb.type_defs import (
-        BatchGetItemInputRequestTypeDef,
-        GetItemInputRequestTypeDef,
+        BatchGetItemInputTypeDef,
+        GetItemInputTypeDef,
         KeysAndAttributesTypeDef,
-        QueryInputRequestTypeDef,
-        ScanInputRequestTypeDef,
+        QueryInputTableQueryTypeDef,
+        QueryInputTypeDef,
+        ScanInputTypeDef,
     )
 else:
-    BatchGetItemInputRequestTypeDef = dict
+    BatchGetItemInputTypeDef = dict
     GetItemInputRequestTypeDef = dict
+    GetItemInputTypeDef = dict
     KeysAndAttributesTypeDef = dict
-    QueryInputRequestTypeDef = dict
-    ScanInputRequestTypeDef = dict
+    QueryInputTableQueryTypeDef = dict
+    QueryInputTypeDef = dict
+    ScanInputTypeDef = dict
 
 
 logger = get_logger(__name__)
@@ -105,7 +108,7 @@ def table_get_items(
                 "Keys": serialized_keys,
             }
         }
-        props: BatchGetItemInputRequestTypeDef = {
+        props: BatchGetItemInputTypeDef = {
             "RequestItems": request_items,
             "ReturnConsumedCapacity": "NONE",
         }
@@ -213,7 +216,7 @@ def table_query(
         key_expr_component.expression_attribute_values__serialized
     )
 
-    db_request: QueryInputRequestTypeDef = {
+    db_request: QueryInputTypeDef = {
         "TableName": table.name,
         "KeyConditionExpression": key_expr_component.condition_expression,
     }
@@ -287,7 +290,7 @@ def table_scan(
     db = get_dynamodb_client(region=region)
     table = table_as_resource(table_name)
 
-    db_request: ScanInputRequestTypeDef = {"TableName": table.name}
+    db_request: ScanInputTypeDef = {"TableName": table.name}
 
     # Handle when filter_expression is provided
     if filter_expression is not None:

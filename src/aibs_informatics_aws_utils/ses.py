@@ -20,9 +20,9 @@ if TYPE_CHECKING:
         DestinationTypeDef,
         MessageTagTypeDef,
         MessageTypeDef,
-        SendEmailRequestRequestTypeDef,
+        SendEmailRequestTypeDef,
         SendEmailResponseTypeDef,
-        SendRawEmailRequestRequestTypeDef,
+        SendRawEmailRequestTypeDef,
         SendRawEmailResponseTypeDef,
     )
 
@@ -30,9 +30,9 @@ if TYPE_CHECKING:
     # See: https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ses/type_defs/#sendrawemailrequestrequesttypedef
 else:
     (
-        SendEmailRequestRequestTypeDef,
+        SendEmailRequestTypeDef,
         SendEmailResponseTypeDef,
-        SendRawEmailRequestRequestTypeDef,
+        SendRawEmailRequestTypeDef,
         SendRawEmailResponseTypeDef,
         DestinationTypeDef,
         MessageTagTypeDef,
@@ -76,7 +76,7 @@ def is_verified(identity: str) -> bool:
         raise AWSError(f"Could not check verification status, error: {e}")
 
 
-def send_email(request: SendEmailRequestRequestTypeDef) -> SendEmailResponseTypeDef:
+def send_email(request: SendEmailRequestTypeDef) -> SendEmailResponseTypeDef:
     logger.info(f"Sending email request: {request}")
     ses = get_ses_client(region=get_region())
 
@@ -96,7 +96,7 @@ def send_simple_email(
     body: str = "",
 ) -> SendEmailResponseTypeDef:
     return send_email(
-        SendEmailRequestRequestTypeDef(
+        SendEmailRequestTypeDef(
             Source=source,
             Destination={"ToAddresses": to_addresses},
             Message={"Subject": {"Data": subject}, "Body": {"Text": {"Data": body}}},
@@ -104,7 +104,7 @@ def send_simple_email(
     )
 
 
-def send_raw_email(request: SendRawEmailRequestRequestTypeDef) -> SendRawEmailResponseTypeDef:
+def send_raw_email(request: SendRawEmailRequestTypeDef) -> SendRawEmailResponseTypeDef:
     logger.info(f"Sending email request: {request}")
     ses = get_ses_client(region=get_region())
 
@@ -151,7 +151,7 @@ def send_email_with_attachment(
             attachment_obj = _construct_mime_attachment_from_path(path=attachments_path)
             msg.attach(attachment_obj)
 
-    return send_raw_email(SendRawEmailRequestRequestTypeDef(RawMessage={"Data": msg.as_string()}))
+    return send_raw_email(SendRawEmailRequestTypeDef(RawMessage={"Data": msg.as_string()}))
 
 
 def _construct_mime_attachment_from_path(path: Path) -> MIMENonMultipart:

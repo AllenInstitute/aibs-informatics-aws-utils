@@ -217,7 +217,7 @@ class ECRImageReplicator(LoggingMixin):
                 layer_exists = self._check_layer_exists(
                     client=destination_repository.client,
                     repository_name=destination_repository.repository_name,
-                    layer_digest=layer.get("layerDigest"),
+                    layer_digest=layer.get("layerDigest", ""),
                 )
                 if layer_exists:
                     self.logger.info(

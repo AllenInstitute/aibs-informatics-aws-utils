@@ -21,7 +21,6 @@ from aibs_informatics_aws_utils.core import AWSService, client_error_code_check
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_efs.type_defs import (
         AccessPointDescriptionTypeDef,
-        DescribeAccessPointsRequestRequestTypeDef,
         DescribeAccessPointsResponseTypeDef,
         DescribeFileSystemsResponseTypeDef,
         FileSystemDescriptionTypeDef,
@@ -30,7 +29,6 @@ if TYPE_CHECKING:  # pragma: no cover
 else:
     AccessPointDescriptionTypeDef = dict
     DescribeFileSystemsResponseTypeDef = dict
-    DescribeAccessPointsRequestRequestTypeDef = dict
     DescribeAccessPointsResponseTypeDef = dict
     FileSystemDescriptionTypeDef = dict
     TagTypeDef = dict
@@ -171,10 +169,8 @@ def list_efs_access_points(
         for fs_id in file_system_ids:
             response = efs.describe_access_points(FileSystemId=fs_id)
             access_points.extend(response["AccessPoints"])
-            while response.get("NextToken"):
-                response = efs.describe_access_points(
-                    FileSystemId=fs_id, NextToken=response["NextToken"]
-                )
+            while next_token := response.get("NextToken"):
+                response = efs.describe_access_points(FileSystemId=fs_id, NextToken=next_token)
                 access_points.extend(response["AccessPoints"])
 
     filtered_access_points: List[AccessPointDescriptionTypeDef] = []

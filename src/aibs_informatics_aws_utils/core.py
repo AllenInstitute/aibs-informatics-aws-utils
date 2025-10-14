@@ -145,7 +145,7 @@ def get_region(region: Optional[str] = None) -> str:
 
 def get_account_id() -> str:
     """Will get the account id from the current credentials/identity"""
-    return get_caller_identity().get("Account")
+    return get_caller_identity()["Account"]
 
 
 def get_user_id() -> UserId:

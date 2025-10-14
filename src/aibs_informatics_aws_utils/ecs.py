@@ -8,11 +8,11 @@ from aibs_informatics_aws_utils.exceptions import AWSError
 
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_ecs.type_defs import (
-        DescribeContainerInstancesRequestRequestTypeDef,
+        DescribeContainerInstancesRequestTypeDef,
         DescribeContainerInstancesResponseTypeDef,
     )
 else:
-    DescribeContainerInstancesRequestRequestTypeDef = dict
+    DescribeContainerInstancesRequestTypeDef = dict
     DescribeContainerInstancesResponseTypeDef = dict
 
 

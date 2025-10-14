@@ -1,6 +1,15 @@
 import logging
+import sys
 import time
 from typing import TYPE_CHECKING, List, Literal, Optional, Tuple
+
+if sys.version_info >= (3, 11):
+    # For Python 3.11+
+    from typing import Unpack
+else:  # pragma: no cover
+    # For Python < 3.11
+    from typing_extensions import Unpack
+
 
 from botocore.exceptions import ClientError
 
@@ -9,19 +18,17 @@ from aibs_informatics_aws_utils.exceptions import AWSError
 
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_athena.type_defs import (
-        GetQueryExecutionInputRequestTypeDef,
         GetQueryExecutionOutputTypeDef,
         QueryExecutionStatusTypeDef,
         QueryExecutionTypeDef,
-        StartQueryExecutionInputRequestTypeDef,
+        StartQueryExecutionInputTypeDef,
         StartQueryExecutionOutputTypeDef,
     )
 else:
-    GetQueryExecutionInputRequestTypeDef = dict
     GetQueryExecutionOutputTypeDef = dict
     QueryExecutionStatusTypeDef = dict
     QueryExecutionTypeDef = dict
-    StartQueryExecutionInputRequestTypeDef = dict
+    StartQueryExecutionInputTypeDef = dict
     StartQueryExecutionOutputTypeDef = dict
 
 
@@ -36,11 +43,11 @@ def start_query_execution(
     query_string: str,
     work_group: Optional[str] = None,
     execution_parameters: Optional[List[str]] = None,
-    **kwargs,
+    **kwargs: Unpack[StartQueryExecutionInputTypeDef],
 ) -> StartQueryExecutionOutputTypeDef:
     athena = get_athena_client()
 
-    request = StartQueryExecutionInputRequestTypeDef(QueryString=query_string)
+    request = StartQueryExecutionInputTypeDef(QueryString=query_string)
     if work_group:
         request["WorkGroup"] = work_group
     if execution_parameters:
@@ -73,8 +80,8 @@ def query_waiter(
         logger.info(f"Query Execution Status: {stats}")
         status = stats["QueryExecution"].get("Status", {})
         state = status.get("State")
-        if state and state in ["SUCCEEDED", "FAILED", "CANCELLED"]:
-            return state, status
+        if state in ["SUCCEEDED", "FAILED", "CANCELLED", "TIMEOUT"]:
+            return state, status  # type: ignore[return-value]
         time.sleep(0.2)  # 200ms
         # Exit if the time waiting exceed the timeout seconds
         if time.time() > start + timeout:

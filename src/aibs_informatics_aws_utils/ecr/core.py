@@ -587,8 +587,9 @@ class ECRResource(ECRMixins, DataClassModel):
             List[ResourceTag]: list of tags
         """
         return [
-            ResourceTag(Key=tag.get("Key"), Value=tag.get("Value"))
+            ResourceTag(Key=tag["Key"], Value=tag["Value"])
             for tag in self.client.list_tags_for_resource(resourceArn=self.arn)["tags"]
+            if "Key" in tag and "Value" in tag
         ]
 
     def update_resource_tags(
