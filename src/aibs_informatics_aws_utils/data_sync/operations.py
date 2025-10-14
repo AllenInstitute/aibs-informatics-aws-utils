@@ -256,7 +256,7 @@ class DataSyncOperations(LoggingMixin):
         result = DataSyncResult()
         if self.config.include_detailed_response:
             path_stats = get_s3_path_stats(destination_path)
-            result.files_transferred = path_stats.object_count
+            result.files_transferred = path_stats.object_count or 0
             result.bytes_transferred = path_stats.size_bytes
         return result
 

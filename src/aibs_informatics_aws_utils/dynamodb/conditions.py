@@ -255,7 +255,7 @@ class ConditionBaseTranslator:
         def _deserialize_condition(ce: ConditionBaseExpression) -> ConditionBase:
             ce_key = (ce.format, ce.operator)
             condition_base_cls = cls._CONDITION_BASE_CLASS_LOOKUP[ce_key]
-            ce_values = []
+            ce_values: list[AttributeBase | ConditionBase] = []
             for ce_value in ce.values:
                 if isinstance(ce_value, ConditionBaseExpression):
                     ce_values.append(_deserialize_condition(ce_value))

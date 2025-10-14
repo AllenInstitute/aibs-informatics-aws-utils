@@ -13,7 +13,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 from aibs_informatics_core.models.aws.efs import AccessPointId, EFSPath, FileSystemId
 from aibs_informatics_core.utils.decorators import retry
@@ -29,6 +29,7 @@ from aibs_informatics_aws_utils.core import AWSService
 from aibs_informatics_aws_utils.efs.core import get_efs_access_point, get_efs_file_system
 
 if TYPE_CHECKING:  # pragma: no cover
+    from mypy_boto3_batch.type_defs import JobDetailTypeDef
     from mypy_boto3_efs.type_defs import (
         AccessPointDescriptionTypeDef,
         FileSystemDescriptionTypeDef,
@@ -36,6 +37,7 @@ if TYPE_CHECKING:  # pragma: no cover
 else:
     AccessPointDescriptionTypeDef = dict
     FileSystemDescriptionTypeDef = dict
+    JobDetailTypeDef = dict
 
 logger = logging.getLogger(__name__)
 
@@ -476,7 +478,7 @@ def _detect_mount_points_from_batch_job(batch_job_id: str) -> List[MountPointCon
     mount_points: List[MountPointConfiguration] = []
     batch = get_batch_client()
     response = batch.describe_jobs(jobs=[batch_job_id])
-    job_container = response.get("jobs", [{}])[0].get("container", {})
+    job_container = response.get("jobs", [cast(JobDetailTypeDef, {})])[0].get("container", {})
     batch_mount_points = job_container.get("mountPoints")
     batch_volumes = job_container.get("volumes")
     if batch_mount_points and batch_volumes:

@@ -1171,7 +1171,7 @@ def check_paths_in_sync(
                 f"destination path {dp} (relative={rdp})"
             )
             return False
-        if should_sync(source_path=sp, destination_path=dp, size_only=size_only, **kwargs):
+        if should_sync(source_path=sp, destination_path=dp, size_only=size_only, **kwargs):  # type: ignore[arg-type]  # mypy complains but sp/dp are Path|S3Path
             logger.info(f"Source path {sp} content does not match destination path {dp}")
             return False
     return True

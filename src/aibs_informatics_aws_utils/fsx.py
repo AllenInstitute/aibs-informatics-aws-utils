@@ -211,7 +211,7 @@ def list_data_repository_associations(
             if id_filter := next(
                 (filter for filter in filters if filter.get("Name") == "file-system-id"), None
             ):
-                id_filter["Values"] = list(id_filter.get("Values", [])) + [file_system_id]
+                id_filter["Values"] = list(id_filter.get("Values", [])) + [str(file_system_id)]
             else:
                 filters.append({"Name": "file-system-id", "Values": file_system_id})
         else:

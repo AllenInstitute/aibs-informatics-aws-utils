@@ -145,11 +145,15 @@ def get_region(region: Optional[str] = None) -> str:
 
 def get_account_id() -> str:
     """Will get the account id from the current credentials/identity"""
-    return get_caller_identity().get("Account")
+    account = get_caller_identity().get("Account")
+    assert account is not None  # mollify mypy
+    return account
 
 
 def get_user_id() -> UserId:
-    return UserId(get_caller_identity()["UserId"])
+    user_id = UserId(get_caller_identity()["UserId"])
+    assert user_id is not None  # mollify mypy
+    return user_id
 
 
 def get_iam_arn() -> IAMArn:

@@ -3,13 +3,11 @@ __all__ = [
     "get_sns_resource",
     "publish_to_topic",
     "publish",
-    "PublishInputRequestTypeDef",
 ]
 
 import logging
 from typing import TYPE_CHECKING, Mapping, Optional
 
-from aibs_informatics_core.utils.tools.dicttools import remove_null_values
 from botocore.exceptions import ClientError
 
 from aibs_informatics_aws_utils.core import AWSService
@@ -18,15 +16,13 @@ from aibs_informatics_aws_utils.exceptions import AWSError
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_sns.type_defs import (
         MessageAttributeValueTypeDef,
-        PublishInputRequestTypeDef,
+        PublishInputTypeDef,
         PublishResponseTypeDef,
     )
 else:
-    PublishInputRequestTypeDef, PublishResponseTypeDef, MessageAttributeValueTypeDef = (
-        dict,
-        dict,
-        dict,
-    )
+    PublishResponseTypeDef = dict
+    MessageAttributeValueTypeDef = dict
+    PublishInputTypeDef = dict
 
 
 logger = logging.getLogger(__name__)
@@ -55,19 +51,27 @@ def publish(
         f"Publishing message: {message} with subject: {subject}, "
         f"to topic: {topic_arn}, target: {target_arn}, phone_number: {phone_number}"
     )
-    request = dict(
-        TopicArn=topic_arn,
-        TargetArn=target_arn,
-        PhoneNumber=phone_number,
-        Message=message,
-        Subject=subject,
-        MessageStructure=message_structure,
-        MessageAttributes=message_attributes,
-        MessageDeduplicationId=message_deduplication_id,
-        MessageGroupId=message_group_id,
-    )
+    request: PublishInputTypeDef = PublishInputTypeDef(Message=message)
+    if topic_arn:
+        request["TopicArn"] = topic_arn
+    if target_arn:
+        request["TargetArn"] = target_arn
+    if phone_number:
+        request["PhoneNumber"] = phone_number
+    if message:
+        request["Message"] = message
+    if subject:
+        request["Subject"] = subject
+    if message_structure:
+        request["MessageStructure"] = message_structure
+    if message_attributes:
+        request["MessageAttributes"] = message_attributes
+    if message_deduplication_id:
+        request["MessageDeduplicationId"] = message_deduplication_id
+    if message_group_id:
+        request["MessageGroupId"] = message_group_id
     try:
-        publish_response = sns.publish(**remove_null_values(request))
+        publish_response = sns.publish(**request)
     except ClientError as e:
         logger.exception(e)
         raise AWSError(f"Could not publish message using request parameters: {request}")

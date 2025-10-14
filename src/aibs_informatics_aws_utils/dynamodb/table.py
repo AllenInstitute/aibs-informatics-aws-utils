@@ -204,12 +204,12 @@ def build_optimized_condition_expression_set(
                 new_condition = Key(k).eq(v)
                 if (
                     k in candidate_conditions
-                    and candidate_conditions[k]._values[1:] != new_condition._values[1:]  # type: ignore[union-attr]
+                    and candidate_conditions[k]._values[1:] != new_condition._values[1:]  # type: ignore[attr-defined,union-attr]
                 ):
                     raise DBQueryException(f"Multiple values provided for attribute {k}!")
                 candidate_conditions[k] = Key(k).eq(v)
-        elif len(_._values) and isinstance(_._values[0], (Key, Attr)):  # type: ignore[union-attr]
-            attr_name = cast(str, _._values[0].name)  # type: ignore[union-attr]
+        elif len(_._values) and isinstance(_._values[0], (Key, Attr)):  # type: ignore[attr-defined,union-attr]
+            attr_name = cast(str, _._values[0].name)  # type: ignore[attr-defined,union-attr]
             if attr_name not in index_all_key_names or not isinstance(
                 _, SupportedKeyComparisonTypes
             ):
@@ -728,7 +728,7 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         try:
             deleted_attributes = table_delete_item(
                 table_name=self.table_name,
-                key=key,
+                key=cast(DynamoDBKey, key),
                 return_values="ALL_OLD",  # type: ignore[arg-type] # expected type more general than specified here
             )
 

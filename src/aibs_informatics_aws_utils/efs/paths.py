@@ -15,7 +15,7 @@ from aibs_informatics_aws_utils.efs.mount_point import MountPointConfiguration, 
 if TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_efs.type_defs import (
         AccessPointDescriptionTypeDef,
-        DescribeAccessPointsRequestRequestTypeDef,
+        DescribeAccessPointsRequestPaginateTypeDef,
         DescribeAccessPointsResponseTypeDef,
         DescribeFileSystemsResponseTypeDef,
         FileSystemDescriptionTypeDef,
@@ -24,7 +24,7 @@ if TYPE_CHECKING:  # pragma: no cover
 else:
     AccessPointDescriptionTypeDef = dict
     DescribeFileSystemsResponseTypeDef = dict
-    DescribeAccessPointsRequestRequestTypeDef = dict
+    DescribeAccessPointsRequestPaginateTypeDef = dict
     DescribeAccessPointsResponseTypeDef = dict
     FileSystemDescriptionTypeDef = dict
     TagTypeDef = dict

@@ -48,7 +48,7 @@ def get_lambda_function_file_systems(
 
     fs_configs = response.get("FileSystemConfigs")
 
-    return fs_configs
+    return fs_configs or []
 
 
 def call_lambda_function_url(
