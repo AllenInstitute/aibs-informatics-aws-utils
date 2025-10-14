@@ -169,10 +169,8 @@ def list_efs_access_points(
         for fs_id in file_system_ids:
             response = efs.describe_access_points(FileSystemId=fs_id)
             access_points.extend(response["AccessPoints"])
-            while response.get("NextToken"):
-                response = efs.describe_access_points(
-                    FileSystemId=fs_id, NextToken=response["NextToken"]
-                )
+            while next_token := response.get("NextToken"):
+                response = efs.describe_access_points(FileSystemId=fs_id, NextToken=next_token)
                 access_points.extend(response["AccessPoints"])
 
     filtered_access_points: List[AccessPointDescriptionTypeDef] = []
