@@ -1,12 +1,20 @@
 from typing import TYPE_CHECKING, Dict, List
+from unittest import mock
+
+from aibs_informatics_core.env import ENV_BASE_KEY_ALIAS, EnvBase, EnvType
+from aibs_informatics_core.models.aws.batch import ResourceRequirements
 
 from aibs_informatics_aws_utils.batch import (
+    BatchJobBuilder,
     ContainerPropertiesTypeDef,
     JobDefinitionTypeDef,
     RetryStrategyTypeDef,
+    batch_log_stream_name_to_url,
     build_retry_strategy,
+    describe_jobs,
     get_batch_client,
     register_job_definition,
+    submit_job,
     to_key_value_pairs,
     to_mount_point,
     to_resource_requirements,
@@ -187,6 +195,83 @@ class BatchTests(AwsBaseTest):
             },
         )
 
+    @mock.patch("aibs_informatics_aws_utils.batch.sha256_hexdigest", return_value="hashvalue")
+    def test__submit_job__submits_with_minimal_args(self, mock_sha: mock.MagicMock):
+        with self.stub(self.batch_client) as batch_stubber:
+            mock_sha.return_value = (
+                "1ee55eb8c7f4cee6a644c1346db610ba2306547a695a7a76ff28b9a47b829fac"  # noqa
+            )
+            job_def_name = "test-job-def-name"
+            job_queue = "test-queue"
+            expected_job_name = (
+                "dev-marmotdev-1ee55eb8c7f4cee6a644c1346db610ba2306547a695a7a76ff28b9a47b829fac"  # noqa
+            )
+            batch_stubber.add_response(
+                "submit_job",
+                {
+                    "jobName": expected_job_name,
+                    "jobId": "01234567-89ab-cdef-0123-456789abcdef",
+                },
+                {
+                    "jobName": expected_job_name,
+                    "jobQueue": job_queue,
+                    "jobDefinition": job_def_name,
+                },
+            )
+            submit_response = submit_job(
+                job_definition=job_def_name,
+                job_queue=job_queue,
+                env_base=self.env_base,
+                region=self.DEFAULT_REGION,
+            )
+            self.assertEqual(
+                submit_response,
+                {
+                    "jobName": expected_job_name,
+                    "jobId": "01234567-89ab-cdef-0123-456789abcdef",
+                },
+            )
+
+            batch_stubber.assert_no_pending_responses()
+
+    @mock.patch("aibs_informatics_aws_utils.batch.sha256_hexdigest", return_value="hashvalue")
+    def test__submit_job__submits_with_all_args_specified(self, mock_sha: mock.MagicMock):
+        with self.stub(self.batch_client) as batch_stubber:
+            mock_sha.return_value = (
+                "1ee55eb8c7f4cee6a644c1346db610ba2306547a695a7a76ff28b9a47b829fac"  # noqa
+            )
+            job_def_name = "test-job-def-name"
+            job_queue = "test-queue"
+            expected_job_name = "test-job-name"
+            batch_stubber.add_response(
+                "submit_job",
+                {
+                    "jobName": expected_job_name,
+                    "jobId": "01234567-89ab-cdef-0123-456789abcdef",
+                },
+                {
+                    "jobName": expected_job_name,
+                    "jobQueue": job_queue,
+                    "jobDefinition": job_def_name,
+                },
+            )
+            submit_response = submit_job(
+                job_definition=job_def_name,
+                job_queue=job_queue,
+                job_name=expected_job_name,
+                env_base=self.env_base,
+                region=self.DEFAULT_REGION,
+            )
+            self.assertEqual(
+                submit_response,
+                {
+                    "jobName": expected_job_name,
+                    "jobId": "01234567-89ab-cdef-0123-456789abcdef",
+                },
+            )
+            batch_stubber.assert_no_pending_responses()
+            mock_sha.assert_not_called()
+
     def get_container_props(
         self,
         command: List[str] = [],
@@ -246,6 +331,101 @@ class BatchTests(AwsBaseTest):
         return f"arn:aws:batch:us-west-2:051791135335:job-definition/{job_def_name}:{revision}"
 
 
+@mock.patch("aibs_informatics_aws_utils.batch.get_region", return_value="us-east-1")
+def test__batch_job_builder__container_properties_include_optional_fields(_mock_get_region):
+    env_base = EnvBase.from_type_and_label(EnvType.DEV, "builder")
+    resource_requirements = [
+        {"type": "MEMORY", "value": "8192"},
+        {"type": "GPU", "value": "1"},
+        {"type": "VCPU", "value": "2"},
+    ]
+    builder = BatchJobBuilder(
+        image="example:latest",
+        job_definition_name="definition",
+        job_name="job",
+        command=["python", "script.py"],
+        environment={"EXTRA": "value"},
+        resource_requirements=resource_requirements,
+        mount_points=[{"containerPath": "/data", "readOnly": False, "sourceVolume": "data"}],
+        volumes=[{"name": "data", "host": {"sourcePath": "/mnt/data"}}],
+        job_role_arn="arn:aws:iam::123456789012:role/BatchRole",
+        privileged=True,
+        linux_parameters={"initProcessEnabled": True},
+        env_base=env_base,
+    )
+
+    assert builder.environment[ENV_BASE_KEY_ALIAS] == env_base
+    assert builder.environment["AWS_REGION"] == "us-east-1"
+    assert builder.environment["EXTRA"] == "value"
+
+    container_props = builder.container_properties
+    expected_environment = [
+        {"name": "AWS_REGION", "value": "us-east-1"},
+        {"name": ENV_BASE_KEY_ALIAS, "value": env_base},
+        {"name": "EXTRA", "value": "value"},
+    ]
+    expected_resource_requirements = [
+        {"type": "GPU", "value": "1"},
+        {"type": "MEMORY", "value": "8192"},
+        {"type": "VCPU", "value": "2"},
+    ]
+
+    assert container_props["image"] == "example:latest"
+    assert container_props["command"] == ["python", "script.py"]
+    assert container_props["privileged"] is True
+    assert container_props["mountPoints"] == [
+        {"containerPath": "/data", "readOnly": False, "sourceVolume": "data"}
+    ]
+    assert container_props["volumes"] == [{"name": "data", "host": {"sourcePath": "/mnt/data"}}]
+    assert container_props["environment"] == expected_environment
+    assert container_props["resourceRequirements"] == expected_resource_requirements
+    assert container_props["linuxParameters"] == {"initProcessEnabled": True}
+    assert container_props["jobRoleArn"] == "arn:aws:iam::123456789012:role/BatchRole"
+    assert builder._normalized_resource_requirements() == expected_resource_requirements
+
+
+@mock.patch("aibs_informatics_aws_utils.batch.get_region", return_value="us-west-2")
+def test__batch_job_builder__container_overrides_and_pascal_case(_mock_get_region):
+    env_base = EnvBase.from_type_and_label(EnvType.TEST, "builder")
+    builder = BatchJobBuilder(
+        image="example:latest",
+        job_definition_name="definition",
+        job_name="job",
+        environment={"EXTRA": "value", "NULL": None},
+        resource_requirements=ResourceRequirements(GPU=2, MEMORY=4096, VCPU=16),
+        env_base=env_base,
+    )
+
+    expected_resource_requirements = [
+        {"type": "GPU", "value": "2"},
+        {"type": "MEMORY", "value": "4096"},
+        {"type": "VCPU", "value": "16"},
+    ]
+    expected_environment = [
+        {"name": "AWS_REGION", "value": "us-west-2"},
+        {"name": ENV_BASE_KEY_ALIAS, "value": env_base},
+        {"name": "EXTRA", "value": "value"},
+    ]
+
+    container_overrides = builder.container_overrides
+    assert builder.environment["NULL"] is None
+    assert container_overrides["resourceRequirements"] == expected_resource_requirements
+    assert container_overrides["environment"] == expected_environment
+    assert builder.container_overrides__sfn == {
+        "Environment": [
+            {"Name": "AWS_REGION", "Value": "us-west-2"},
+            {"Name": ENV_BASE_KEY_ALIAS, "Value": env_base},
+            {"Name": "EXTRA", "Value": "value"},
+        ],
+        "ResourceRequirements": [
+            {"Type": "GPU", "Value": "2"},
+            {"Type": "MEMORY", "Value": "4096"},
+            {"Type": "VCPU", "Value": "16"},
+        ],
+    }
+    assert builder._normalized_resource_requirements() == expected_resource_requirements
+
+
 def test__to_volume__works():
     volume = to_volume("source", "name", None)
     expected = {
@@ -283,3 +463,24 @@ def test__to_key_value_pairs__works():
 
     expected = [{"name": "a", "value": "a"}, {"name": "b", "value": None}]
     assert key_value_pairs == expected
+
+
+@mock.patch("aibs_informatics_aws_utils.batch.get_batch_client")
+def test__describe_jobs__works(mock_get_batch_client):
+    mock_client = mock.MagicMock()
+    mock_get_batch_client.return_value = mock_client
+    mock_client.describe_jobs.return_value = {"jobs": []}
+
+    describe_jobs(job_ids=["job1", "job2"])
+    mock_client.describe_jobs.assert_called_once_with(jobs=["job1", "job2"])
+
+
+@mock.patch("aibs_informatics_aws_utils.batch.build_log_stream_url")
+def test__batch_log_stream_name_to_url__works(mock_build_log_stream_url):
+    mock_build_log_stream_url.return_value = "http://example.com"
+    batch_log_stream_name_to_url(log_stream_name="stream", region="us-west-2")
+    mock_build_log_stream_url.assert_called_once_with(
+        log_group_name="/aws/batch/job",
+        log_stream_name="stream",
+        region="us-west-2",
+    )
