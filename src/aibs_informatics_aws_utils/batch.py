@@ -26,14 +26,17 @@ if TYPE_CHECKING:  # pragma: no cover
         KeyValuePairTypeDef,
         LinuxParametersTypeDef,
         MountPointTypeDef,
+        RegisterJobDefinitionRequestTypeDef,
         RegisterJobDefinitionResponseTypeDef,
         ResourceRequirementTypeDef,
         RetryStrategyTypeDef,
+        SubmitJobRequestTypeDef,
+        SubmitJobResponseTypeDef,
         VolumeTypeDef,
     )
 else:
-    JobDefinitionTypeType = object
-
+    JobDefinitionTypeType = str
+    RegisterJobDefinitionRequestTypeDef = dict
     ContainerOverridesTypeDef = dict
     ContainerPropertiesTypeDef = dict
     EFSVolumeConfigurationTypeDef = dict
@@ -47,6 +50,8 @@ else:
     RegisterJobDefinitionResponseTypeDef = dict
     ResourceRequirementTypeDef = dict
     RetryStrategyTypeDef = dict
+    SubmitJobRequestTypeDef = dict
+    SubmitJobResponseTypeDef = dict
     VolumeTypeDef = dict
 
 
@@ -183,7 +188,7 @@ def register_job_definition(
     tags: Optional[Mapping[str, str]] = None,
     propagate_tags: bool = False,
     region: Optional[str] = None,
-) -> JobDefinitionTypeDef | RegisterJobDefinitionResponseTypeDef:
+) -> Union[JobDefinitionTypeDef, RegisterJobDefinitionResponseTypeDef]:
     batch = get_batch_client(region=region)
 
     # First we check to make sure that we aren't crearting unnecessary revisions
@@ -195,6 +200,8 @@ def register_job_definition(
         if (
             latest_container_properties.get("command") == container_properties.get("command")
             and latest_container_properties.get("image") == container_properties.get("image")
+            and latest_container_properties.get("jobRoleArn")
+            == container_properties.get("jobRoleArn")
             and latest.get("parameters") == parameters
             and latest.get("type") == job_definition_type
             and latest.get("tags") == tags
@@ -205,7 +212,7 @@ def register_job_definition(
                 "Skipping register new job definition call"
             )
             return latest
-    register_job_definition_kwargs = dict(
+    register_job_definition_kwargs = RegisterJobDefinitionRequestTypeDef(
         jobDefinitionName=job_definition_name,
         type=job_definition_type,
         parameters=parameters or {},
@@ -240,20 +247,23 @@ def get_latest_job_definition(
 def submit_job(
     job_definition: str,
     job_queue: str,
-    job_name: Optional[JobName] = None,
+    job_name: Optional[Union[JobName, str]] = None,
     env_base: Optional[EnvBase] = None,
     region: Optional[str] = None,
-):
+) -> SubmitJobResponseTypeDef:
     batch_client = get_batch_client(region=region)
     env_base = env_base or get_env_base()
     if job_name is None:
         job_name = JobName(f"{env_base}-{sha256_hexdigest()}")
-
-    batch_client.submit_job(
+    else:
+        job_name = JobName(job_name)
+    submit_job_kwargs = SubmitJobRequestTypeDef(
         jobName=job_name,
         jobQueue=job_queue,
         jobDefinition=job_definition,
     )
+    response = batch_client.submit_job(**submit_job_kwargs)
+    return response
 
 
 @dataclass
@@ -269,6 +279,7 @@ class BatchJobBuilder:
     )
     mount_points: List[MountPointTypeDef] = field(default_factory=list)
     volumes: List[VolumeTypeDef] = field(default_factory=list)
+    job_role_arn: Optional[str] = field(default=None)
     privileged: bool = field(default=False)
     linux_parameters: Optional[LinuxParametersTypeDef] = field(default=None)
     env_base: EnvBase = field(default_factory=EnvBase.from_env)
@@ -291,6 +302,8 @@ class BatchJobBuilder:
         )
         if self.linux_parameters:
             container_props["linuxParameters"] = self.linux_parameters
+        if self.job_role_arn:
+            container_props["jobRoleArn"] = self.job_role_arn
         return container_props
 
     @property
