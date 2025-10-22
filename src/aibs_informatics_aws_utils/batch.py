@@ -1,14 +1,5 @@
-import sys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Union
-
-if sys.version_info >= (3, 11):
-    # For Python 3.11+
-    pass
-else:  # pragma: no cover
-    # For Python < 3.11
-    pass
-
 
 from aibs_informatics_core.env import ENV_BASE_KEY_ALIAS, EnvBase, get_env_base
 from aibs_informatics_core.models.aws.batch import JobName, ResourceRequirements
@@ -197,7 +188,7 @@ def register_job_definition(
     tags: Optional[Mapping[str, str]] = None,
     propagate_tags: bool = False,
     region: Optional[str] = None,
-) -> JobDefinitionTypeDef | RegisterJobDefinitionResponseTypeDef:
+) -> Union[JobDefinitionTypeDef, RegisterJobDefinitionResponseTypeDef]:
     batch = get_batch_client(region=region)
 
     # First we check to make sure that we aren't crearting unnecessary revisions
@@ -256,7 +247,7 @@ def get_latest_job_definition(
 def submit_job(
     job_definition: str,
     job_queue: str,
-    job_name: Optional[JobName | str] = None,
+    job_name: Optional[Union[JobName, str]] = None,
     env_base: Optional[EnvBase] = None,
     region: Optional[str] = None,
 ) -> SubmitJobResponseTypeDef:
