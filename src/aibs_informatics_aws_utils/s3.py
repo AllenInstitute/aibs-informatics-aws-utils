@@ -23,6 +23,7 @@ from typing import (
     Set,
     Tuple,
     Union,
+    cast,
 )
 from urllib import parse
 
@@ -1200,7 +1201,13 @@ def check_paths_in_sync(
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_pair = {
             executor.submit(
-                _paths_in_sync_single, sp, dp, source_root, dest_root, size_only, kwargs
+                _paths_in_sync_single,
+                cast(Union[Path, S3URI], sp),
+                cast(Union[Path, S3URI], dp),
+                source_root,
+                dest_root,
+                size_only,
+                kwargs,
             ): (sp, dp)
             for sp, dp in zip(source_paths, destination_paths)
         }
