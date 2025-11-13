@@ -4,6 +4,7 @@ import logging
 import math
 import os
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from enum import Enum
 from functools import lru_cache
@@ -1105,10 +1106,38 @@ def should_sync(
     return False
 
 
+# Helper for parallel path sync checking
+def _paths_in_sync_single(
+    sp: Union[Path, S3URI],
+    dp: Union[Path, S3URI],
+    source_root: str,
+    dest_root: str,
+    size_only: bool,
+    kwargs: dict,
+) -> bool:
+    """Check a single source/dest pair for sync (used in parallel)."""
+    rsp = strip_path_root(str(sp).removeprefix("s3:"), source_root)
+    rdp = strip_path_root(str(dp).removeprefix("s3:"), dest_root)
+
+    if rsp != rdp:
+        logger.info(
+            f"Source path {sp} (relative={rsp}) does not match "
+            f"destination path {dp} (relative={rdp})"
+        )
+        return False
+
+    if should_sync(source_path=sp, destination_path=dp, size_only=size_only, **kwargs):
+        logger.info(f"Source path {sp} content does not match destination path {dp}")
+        return False
+
+    return True
+
+
 def check_paths_in_sync(
     source_path: Union[Path, S3URI],
     destination_path: Union[Path, S3URI],
     size_only: bool = False,
+    max_workers: Optional[int] = None,
     **kwargs,
 ) -> bool:
     """Checks whether source and destination paths are in sync.
@@ -1118,6 +1147,8 @@ def check_paths_in_sync(
         destination_path (Union[Path, S3URI]): destination path
         size_only (bool, optional): Limits content comparison to just size and date
             (no checksum/ETag). Defaults to False.
+        max_workers (Optional[int], optional): Number of worker threads to use for
+            parallel comparison. Defaults to None (ThreadPoolExecutor default).
 
     Raises:
         ValueError: if the source path does not exist.
@@ -1160,20 +1191,28 @@ def check_paths_in_sync(
             f"destination path {destination_path} has {len(destination_paths)} paths"
         )
         return False
-    for sp, dp in zip(source_paths, destination_paths):
-        rsp = strip_path_root(str(sp).removeprefix("s3:"), str(source_path).removeprefix("s3:"))
-        rdp = strip_path_root(
-            str(dp).removeprefix("s3:"), str(destination_path).removeprefix("s3:")
-        )
-        if rsp != rdp:
-            logger.info(
-                f"Source path {sp} (relative={rsp}) does not match "
-                f"destination path {dp} (relative={rdp})"
-            )
-            return False
-        if should_sync(source_path=sp, destination_path=dp, size_only=size_only, **kwargs):  # type: ignore[arg-type]  # mypy complains but sp/dp are Path|S3Path
-            logger.info(f"Source path {sp} content does not match destination path {dp}")
-            return False
+
+    # Roots used for relative path comparison inside workers
+    source_root = str(source_path).removeprefix("s3:")
+    dest_root = str(destination_path).removeprefix("s3:")
+
+    # Run comparisons in parallel
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_pair = {
+            executor.submit(
+                _paths_in_sync_single, sp, dp, source_root, dest_root, size_only, kwargs
+            ): (sp, dp)
+            for sp, dp in zip(source_paths, destination_paths)
+        }
+
+        for future in as_completed(future_to_pair):
+            ok = future.result()
+            if not ok:
+                # Cancel any still-pending futures; we already know it's not in sync.
+                for f in future_to_pair:
+                    f.cancel()
+                return False
+
     return True
 
 
