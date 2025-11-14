@@ -490,6 +490,33 @@ def is_folder(s3_path: S3URI, **kwargs) -> bool:
     )
 
 
+def is_folder_placeholder_object(s3_path: S3URI, **kwargs) -> bool:
+    """Check if S3 Path is a "folder placeholder" object
+
+    A "folder placeholder" object is defined as an S3 object that:
+    - Has a key that ends with a '/' character.
+    - Has a content length of zero bytes.
+
+    These objects are often used to represent folders in S3, which is a flat storage system.
+    For these purposes, we want to ignore such objects when considering the contents of a folder.
+
+    Args:
+        s3_path (S3URI): S3 URI to check.
+
+    Returns:
+        bool: True if the S3 path is a folder placeholder object, False otherwise.
+    """
+    if not s3_path.has_folder_suffix():
+        return False
+
+    s3 = get_s3_client(**kwargs)
+    try:
+        obj = s3.head_object(Bucket=s3_path.bucket, Key=s3_path.key)
+        return obj["ContentLength"] == 0
+    except ClientError:
+        return False
+
+
 def get_s3_path_collection_stats(*s3_paths: S3URI, **kwargs) -> Mapping[S3URI, S3PathStats]:
     return dict(
         zip(
@@ -1049,7 +1076,7 @@ def should_sync(
         )
         if not size_only:
 
-            def dest_hash():
+            def dest_hash() -> str:
                 return dest_s3_object.e_tag
     elif isinstance(destination_path, Path) and destination_path.exists():
         dest_local_path = destination_path
@@ -1058,7 +1085,7 @@ def should_sync(
         dest_size_bytes = local_stats.st_size
         if not size_only:
 
-            def dest_hash():
+            def dest_hash() -> str:
                 return get_local_etag(
                     dest_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
                 )
@@ -1074,7 +1101,7 @@ def should_sync(
         )
         if not size_only:
 
-            def source_hash():
+            def source_hash() -> str:
                 return src_s3_object.e_tag
     elif isinstance(source_path, Path) and source_path.exists():
         src_local_path = source_path
@@ -1083,7 +1110,7 @@ def should_sync(
         source_size_bytes = local_stats.st_size
         if not size_only:
 
-            def source_hash():
+            def source_hash() -> str:
                 return get_local_etag(
                     src_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
                 )
@@ -1138,6 +1165,7 @@ def check_paths_in_sync(
     source_path: Union[Path, S3URI],
     destination_path: Union[Path, S3URI],
     size_only: bool = False,
+    ignore_folder_placeholder_objects: bool = True,
     max_workers: Optional[int] = None,
     **kwargs,
 ) -> bool:
@@ -1157,32 +1185,50 @@ def check_paths_in_sync(
     Returns:
         bool: True if paths are in sync, False, otherwise
     """
-    source_paths: Union[List[Path], List[S3URI]] = (
-        (
-            [Path(p) for p in sorted(find_paths(source_path, include_dirs=False))]
-            if source_path.is_dir()
-            else [source_path]
-        )
-        if isinstance(source_path, Path)
-        else (
-            sorted(list_s3_paths(source_path, **kwargs))  # type: ignore[arg-type]
-            if not is_object(source_path)
-            else [source_path]  # type: ignore
-        )
-    )
-    destination_paths: Union[List[Path], List[S3URI]] = (
-        (
-            list(map(Path, sorted(find_paths(destination_path, include_dirs=False))))
-            if destination_path.is_dir()
-            else [destination_path]
-        )
-        if isinstance(destination_path, Path)
-        else (
-            sorted(list_s3_paths(destination_path, **kwargs))  # type: ignore[arg-type]
-            if not is_object(destination_path)
-            else [destination_path]  # type: ignore
-        )
-    )
+    source_paths: Union[List[Path], List[S3URI]]
+
+    if isinstance(source_path, Path):
+        if source_path.is_dir():
+            source_paths = list(map(Path, sorted(find_paths(source_path, include_dirs=False))))
+        else:
+            source_paths = [source_path]
+    else:
+        if is_object(source_path, **kwargs) and not is_folder_placeholder_object(
+            source_path, **kwargs
+        ):
+            source_paths = [source_path]
+        else:
+            source_paths = [
+                _
+                for _ in sorted(list_s3_paths(source_path, **kwargs))
+                if (
+                    not ignore_folder_placeholder_objects
+                    or not is_folder_placeholder_object(_, **kwargs)
+                )
+            ]
+
+    destination_paths: Union[List[Path], List[S3URI]]
+    if isinstance(destination_path, Path):
+        if destination_path.is_dir():
+            destination_paths = list(
+                map(Path, sorted(find_paths(destination_path, include_dirs=False)))
+            )
+        else:
+            destination_paths = [destination_path]
+    else:
+        if is_object(destination_path, **kwargs) and not is_folder_placeholder_object(
+            destination_path, **kwargs
+        ):
+            destination_paths = [destination_path]
+        else:
+            destination_paths = [
+                _
+                for _ in sorted(list_s3_paths(destination_path, **kwargs))
+                if (
+                    not ignore_folder_placeholder_objects
+                    or not is_folder_placeholder_object(_, **kwargs)
+                )
+            ]
     if len(source_paths) == 0:
         raise ValueError(f"Source path {source_path} does not exist")
     if len(source_paths) != len(destination_paths):
