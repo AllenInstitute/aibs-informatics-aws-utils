@@ -1097,7 +1097,6 @@ class S3Tests(AwsBaseTest):
         assert check_paths_in_sync(source_s3_path, dest_path, allow_subset=False) is False
         assert check_paths_in_sync(source_s3_path, dest_s3_path, allow_subset=False) is False
 
-
     def test__check_paths_in_sync__handles_sorting_issues__folders_same(self):
         source_path = self.tmp_path()
         (source_path / "a.txt").write_text("hello")

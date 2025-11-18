@@ -433,8 +433,12 @@ def is_object(s3_path: S3URI, **kwargs) -> bool:
     s3 = get_s3_client(**kwargs)
     try:
         s3.head_object(Bucket=s3_path.bucket, Key=s3_path.key)
-    except ClientError:
-        return False
+    except ClientError as e:
+        if client_error_code_check(e, "404", "NoSuchKey", "NotFound"):
+            return False
+        raise AWSError(
+            f"Error checking existence of {s3_path}: {get_client_error_message(e)}"
+        ) from e
     return True
 
 
@@ -512,8 +516,12 @@ def is_folder_placeholder_object(s3_path: S3URI, **kwargs) -> bool:
     try:
         obj = s3.head_object(Bucket=s3_path.bucket, Key=s3_path.key)
         return obj["ContentLength"] == 0
-    except ClientError:
-        return False
+    except ClientError as e:
+        if client_error_code_check(e, "404", "NoSuchKey", "NotFound"):
+            return False
+        raise AWSError(
+            f"Error checking existence of {s3_path}: {get_client_error_message(e)}"
+        ) from e
 
 
 def get_s3_path_collection_stats(*s3_paths: S3URI, **kwargs) -> Mapping[S3URI, S3PathStats]:
