@@ -1125,7 +1125,7 @@ def should_sync(
         return True
     if source_last_modified.replace(microsecond=0) > dest_last_modified.replace(microsecond=0):
         return True
-    if not size_only and source_hash and dest_hash and source_hash() != dest_hash():
+    if not size_only and source_hash() != dest_hash():
         return True
     return False
 
