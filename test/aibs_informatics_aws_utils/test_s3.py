@@ -1051,7 +1051,22 @@ class S3Tests(AwsBaseTest):
             is True
         )
 
-    def test__check_paths_in_sync__simple__folders_different(self):
+    def test__check_paths_in_sync__prefix_with_folder_and_objects_behavior(self):
+        source_path = self.tmp_path()
+        (source_path / "a").write_text("hello")
+
+        destination_path = self.tmp_path()
+        (destination_path / "a").write_text("hello")
+
+        destination_s3_path = self.get_s3_path("destination")
+        self.put_object(key="destination/a", content="hello")
+        self.put_object(key="destinationA/a", content="hello")
+
+        assert check_paths_in_sync(source_path, destination_path) is True
+        assert check_paths_in_sync(source_path, destination_s3_path) is False
+        assert check_paths_in_sync(source_path, destination_s3_path + "A") is True
+
+    def test__check_paths_in_sync__allows_subset_when_specified(self):
         source_path = self.tmp_path()
         (source_path / "a").write_text("hello")
         (source_path / "b").write_text("again")
@@ -1060,33 +1075,28 @@ class S3Tests(AwsBaseTest):
         self.put_object(key="source/a", content="hello")
         self.put_object(key="source/b", content="again")
 
-        destination_path = self.tmp_path()
-        (destination_path / "A").write_text("hello")
-        (destination_path / "B").write_text("again")
+        dest_path = self.tmp_path()
+        (dest_path / "a").write_text("hello")
+        (dest_path / "b").write_text("again")
+        (dest_path / "c").write_text("extra")
 
-        destination_s3_path = self.get_s3_path("destination")
-        self.put_object(key="destination/A", content="hello")
-        self.put_object(key="destination/B", content="again")
+        dest_s3_path = self.get_s3_path("destination")
+        self.put_object(key="destination/a", content="hello")
+        self.put_object(key="destination/b", content="again")
+        self.put_object(key="destination/c", content="extra")
 
-        destination_path2 = self.tmp_path()
-        (destination_path2 / "a").write_text("helloo")
-        (destination_path2 / "b").write_text("againn")
+        # Should succeed
+        assert check_paths_in_sync(source_path, dest_path, allow_subset=True) is True
+        assert check_paths_in_sync(source_path, dest_s3_path, allow_subset=True) is True
+        assert check_paths_in_sync(source_s3_path, dest_path, allow_subset=True) is True
+        assert check_paths_in_sync(source_s3_path, dest_s3_path, allow_subset=True) is True
 
-        destination_s3_path2 = self.get_s3_path("destination2")
-        self.put_object(key="destination2/a", content="helloo")
-        self.put_object(key="destination2/b", content="againn")
+        # Should fail
+        assert check_paths_in_sync(source_path, dest_path, allow_subset=False) is False
+        assert check_paths_in_sync(source_path, dest_s3_path, allow_subset=False) is False
+        assert check_paths_in_sync(source_s3_path, dest_path, allow_subset=False) is False
+        assert check_paths_in_sync(source_s3_path, dest_s3_path, allow_subset=False) is False
 
-        # Should fail for filename mismatch
-        assert check_paths_in_sync(source_path, destination_path) is False
-        assert check_paths_in_sync(source_path, destination_s3_path) is False
-        assert check_paths_in_sync(source_s3_path, destination_path) is False
-        assert check_paths_in_sync(source_s3_path, destination_s3_path) is False
-
-        # Should fail for content mismatch
-        assert check_paths_in_sync(source_path, destination_path2) is False
-        assert check_paths_in_sync(source_path, destination_s3_path2) is False
-        assert check_paths_in_sync(source_s3_path, destination_path2) is False
-        assert check_paths_in_sync(source_s3_path, destination_s3_path2) is False
 
     def test__check_paths_in_sync__handles_sorting_issues__folders_same(self):
         source_path = self.tmp_path()

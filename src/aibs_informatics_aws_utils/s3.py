@@ -23,7 +23,6 @@ from typing import (
     Set,
     Tuple,
     Union,
-    cast,
 )
 from urllib import parse
 
@@ -1049,21 +1048,14 @@ def should_sync(
     Args:
         source_path (Union[Path, S3URI]): source path
         destination_path (Union[Path, S3URI]): destination to transfer to
-        size_only (bool, optional): Limits content comparison to just size and date (no ETag).
-            Defaults to False.
-
-    Raises:
-        ValueError: if the source path does not exist.
-
-    Returns:
-        bool: True if a transfer is necessary, False, otherwise
+        size_only (bool, optional): Limits content comparison to False, otherwise
     """
     source_last_modified: datetime
     source_size_bytes: int
-    source_hash: Optional[Callable[[], str]] = None
+    source_hash: Callable[[], Optional[str]]
     dest_last_modified: Optional[datetime] = None
     dest_size_bytes: Optional[int] = None
-    dest_hash: Optional[Callable[[], str]] = None
+    dest_hash: Callable[[], Optional[str]]
     multipart_chunk_size_bytes: Optional[int] = None
     multipart_threshold_bytes: Optional[int] = None
 
@@ -1074,21 +1066,23 @@ def should_sync(
         multipart_chunk_size_bytes, multipart_threshold_bytes = determine_multipart_attributes(
             destination_path, **kwargs
         )
-        if not size_only:
 
-            def dest_hash() -> str:
-                return dest_s3_object.e_tag
+        def dest_hash() -> Optional[str]:
+            return dest_s3_object.e_tag if not size_only else None
     elif isinstance(destination_path, Path) and destination_path.exists():
         dest_local_path = destination_path
         local_stats = dest_local_path.stat()
         dest_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         dest_size_bytes = local_stats.st_size
-        if not size_only:
 
-            def dest_hash() -> str:
-                return get_local_etag(
+        def dest_hash() -> Optional[str]:
+            return (
+                get_local_etag(
                     dest_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
                 )
+                if not size_only
+                else None
+            )
     else:
         return True
 
@@ -1099,21 +1093,23 @@ def should_sync(
         multipart_chunk_size_bytes, multipart_threshold_bytes = determine_multipart_attributes(
             source_path, **kwargs
         )
-        if not size_only:
 
-            def source_hash() -> str:
-                return src_s3_object.e_tag
+        def source_hash() -> Optional[str]:
+            return src_s3_object.e_tag if not size_only else None
     elif isinstance(source_path, Path) and source_path.exists():
         src_local_path = source_path
         local_stats = src_local_path.stat()
         source_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         source_size_bytes = local_stats.st_size
-        if not size_only:
 
-            def source_hash() -> str:
-                return get_local_etag(
+        def source_hash() -> Optional[str]:
+            return (
+                get_local_etag(
                     src_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
                 )
+                if not size_only
+                else None
+            )
     else:
         raise ValueError(
             f"Cannot transfer, source path {source_path} does not exist! "
@@ -1134,38 +1130,12 @@ def should_sync(
     return False
 
 
-# Helper for parallel path sync checking
-def _paths_in_sync_single(
-    sp: Union[Path, S3URI],
-    dp: Union[Path, S3URI],
-    source_root: str,
-    dest_root: str,
-    size_only: bool,
-    kwargs: dict,
-) -> bool:
-    """Check a single source/dest pair for sync (used in parallel)."""
-    rsp = strip_path_root(str(sp).removeprefix("s3:"), source_root)
-    rdp = strip_path_root(str(dp).removeprefix("s3:"), dest_root)
-
-    if rsp != rdp:
-        logger.info(
-            f"Source path {sp} (relative={rsp}) does not match "
-            f"destination path {dp} (relative={rdp})"
-        )
-        return False
-
-    if should_sync(source_path=sp, destination_path=dp, size_only=size_only, **kwargs):
-        logger.info(f"Source path {sp} content does not match destination path {dp}")
-        return False
-
-    return True
-
-
 def check_paths_in_sync(
     source_path: Union[Path, S3URI],
     destination_path: Union[Path, S3URI],
     size_only: bool = False,
     ignore_folder_placeholder_objects: bool = True,
+    allow_subset: bool = False,
     max_workers: Optional[int] = None,
     **kwargs,
 ) -> bool:
@@ -1176,6 +1146,10 @@ def check_paths_in_sync(
         destination_path (Union[Path, S3URI]): destination path
         size_only (bool, optional): Limits content comparison to just size and date
             (no checksum/ETag). Defaults to False.
+        ignore_folder_placeholder_objects (bool, optional): Whether to ignore S3 folder
+            placeholder objects (zero-byte objects with keys ending in '/'). Defaults to True.
+        allow_subset (bool, optional): Whether to allow source path to be a subset of
+            destination path. Defaults to False.
         max_workers (Optional[int], optional): Number of worker threads to use for
             parallel comparison. Defaults to None (ThreadPoolExecutor default).
 
@@ -1185,82 +1159,99 @@ def check_paths_in_sync(
     Returns:
         bool: True if paths are in sync, False, otherwise
     """
-    source_paths: Union[List[Path], List[S3URI]]
 
-    if isinstance(source_path, Path):
-        if source_path.is_dir():
-            source_paths = list(map(Path, sorted(find_paths(source_path, include_dirs=False))))
+    def _resolve_paths(path: Union[Path, S3URI]) -> List[Union[Path, S3URI]]:
+        if isinstance(path, Path):
+            if path.is_dir():
+                return list(map(Path, sorted(find_paths(path, include_dirs=False))))
+            else:
+                return [path]
         else:
-            source_paths = [source_path]
-    else:
-        if is_object(source_path, **kwargs) and not is_folder_placeholder_object(
-            source_path, **kwargs
-        ):
-            source_paths = [source_path]
-        else:
-            source_paths = [
-                _
-                for _ in sorted(list_s3_paths(source_path, **kwargs))
-                if (
-                    not ignore_folder_placeholder_objects
-                    or not is_folder_placeholder_object(_, **kwargs)
-                )
-            ]
+            if is_object(path, **kwargs) and not is_folder_placeholder_object(path, **kwargs):
+                return [path]
+            else:
+                return [
+                    _
+                    for _ in sorted(list_s3_paths(path, **kwargs))
+                    if (
+                        not ignore_folder_placeholder_objects
+                        or not is_folder_placeholder_object(_, **kwargs)
+                    )
+                ]
 
-    destination_paths: Union[List[Path], List[S3URI]]
-    if isinstance(destination_path, Path):
-        if destination_path.is_dir():
-            destination_paths = list(
-                map(Path, sorted(find_paths(destination_path, include_dirs=False)))
-            )
+    def _find_relative_path(full_path: Union[Path, S3URI], root_path: Union[Path, S3URI]) -> str:
+        if isinstance(full_path, Path) and isinstance(root_path, Path):
+            if full_path == root_path:
+                return ""
+            # Adding the leading "/" to ensure we return the leading "/" in the relative path for
+            # files under a folder. This is to be consistent with S3URI behavior.
+            relative_path = "/" + strip_path_root(full_path, root_path)
+            return relative_path
+        elif isinstance(full_path, S3URI) and isinstance(root_path, S3URI):
+            if full_path == root_path:
+                return ""
+            # Stripping the "/" to ensure we return the leading "/" in the relative path for
+            # objects under a folder. This means that if we have:
+            # root_path = `s3://bucket/folder/`
+            # or root_path = `s3://bucket/folder`,
+            # full_path = `s3://bucket/folder/subfolder/object.txt`
+            # The relative path returned will be: `/subfolder/object.txt`
+
+            relative_path = full_path.removeprefix(root_path.rstrip("/"))
+            return relative_path
         else:
-            destination_paths = [destination_path]
-    else:
-        if is_object(destination_path, **kwargs) and not is_folder_placeholder_object(
-            destination_path, **kwargs
-        ):
-            destination_paths = [destination_path]
-        else:
-            destination_paths = [
-                _
-                for _ in sorted(list_s3_paths(destination_path, **kwargs))
-                if (
-                    not ignore_folder_placeholder_objects
-                    or not is_folder_placeholder_object(_, **kwargs)
-                )
-            ]
+            raise ValueError("Mismatched path types between full_path and root_path")
+
+    source_paths = _resolve_paths(source_path)
+    destination_paths = _resolve_paths(destination_path)
+
     if len(source_paths) == 0:
         raise ValueError(f"Source path {source_path} does not exist")
-    if len(source_paths) != len(destination_paths):
+
+    stripped_source_path_to_path_map: Dict[str, Union[Path, S3URI]] = {
+        _find_relative_path(sp, source_path): sp for sp in source_paths
+    }
+
+    stripped_destination_path_to_path_map: Dict[str, Union[Path, S3URI]] = {
+        _find_relative_path(dp, destination_path): dp for dp in destination_paths
+    }
+
+    missing_destination_paths = set(stripped_source_path_to_path_map.keys()).difference(
+        stripped_destination_path_to_path_map.keys()
+    )
+    if missing_destination_paths:
         logger.info(
-            "Source and destination paths have different number of paths. "
-            f"Source path {source_path} has {len(source_paths)} paths, "
-            f"destination path {destination_path} has {len(destination_paths)} paths"
+            "The following source paths are missing in the destination path: "
+            f"{missing_destination_paths}"
         )
         return False
-
-    # Roots used for relative path comparison inside workers
-    source_root = str(source_path).removeprefix("s3:")
-    dest_root = str(destination_path).removeprefix("s3:")
+    if not allow_subset:
+        extra_destination_paths = set(stripped_destination_path_to_path_map.keys()).difference(
+            stripped_source_path_to_path_map.keys()
+        )
+        if extra_destination_paths:
+            logger.info(
+                "The following destination paths are extra compared to the source path: "
+                f"{extra_destination_paths}"
+            )
+            return False
 
     # Run comparisons in parallel
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_pair = {
             executor.submit(
-                _paths_in_sync_single,
-                cast(Union[Path, S3URI], sp),
-                cast(Union[Path, S3URI], dp),
-                source_root,
-                dest_root,
+                should_sync,
+                (sp := stripped_source_path_to_path_map[relative_path]),
+                (dp := stripped_destination_path_to_path_map[relative_path]),
                 size_only,
-                kwargs,
+                **kwargs,
             ): (sp, dp)
-            for sp, dp in zip(source_paths, destination_paths)
+            for relative_path in stripped_source_path_to_path_map
         }
 
         for future in as_completed(future_to_pair):
-            ok = future.result()
-            if not ok:
+            not_ok = future.result()
+            if not_ok:
                 # Cancel any still-pending futures; we already know it's not in sync.
                 for f in future_to_pair:
                     f.cancel()
