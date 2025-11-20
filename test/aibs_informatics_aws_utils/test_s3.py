@@ -36,6 +36,7 @@ from aibs_informatics_aws_utils.s3 import (
     get_s3_path_stats,
     get_s3_resource,
     is_folder,
+    is_folder_placeholder_object,
     is_object,
     is_object_prefix,
     list_s3_paths,
@@ -246,7 +247,7 @@ class S3Tests(AwsBaseTest):
         )
         self.assertListEqual(sorted(s3_paths_all_filters_4), sorted([s3_path_b, s3_path_c]))
 
-    def test__is_folder__is_object__is_object_prefix__work_as_intended(self):
+    def test__is_folder__is_object__is_object_prefix__is_folder_placeholder_object__work(self):
         ## Setup
 
         content = "Hello, it's me"
@@ -264,25 +265,33 @@ class S3Tests(AwsBaseTest):
         s3_path_to_folder_slash_a = self.put_object("path/to/folder/a", content)
         s3_path_to_folder_slash_b = self.put_object("path/to/folder/b", content)
 
+        s3_path_to_folder_object = self.put_object("path/to/folderA/", content)
+        s3_path_to_folder_object_a = self.put_object("path/to/folderA/a", content)
+        s3_path_to_folder_placeholder_object = self.put_object("path/to/folderB/", "")
+
         s3_path_to_non_existent = self.get_s3_path("path/to/objectX")
 
         # fmt: off
-        #                                 |--------------------- is_object
-        #                                 |       |------------- is_object_prefix
-        #                                 |       |       |----- is_folder
-        #                                 |       |       |
+        # Expected values:
+        #  is_folder_placeholder_object --------------------------------------|
+        #  is_folder -------------------------------------------------|       |
+        #  is_object_prefix ----------------------------------|       |       |
+        #  is_object ---------------------------------|       |       |       |
         assertions = [
-            (s3_path_to_object,         (True,   True,   True)),
-            (s3_path_to_object_dash,    (False,  True,   False)),
-            (s3_path_to_object_dash_a,  (True,   False,  False)),
-            (s3_path_to_object_dash_b,  (True,   False,  False)),
-            (s3_path_to_object_slash,   (False,   True,  True)),
-            (s3_path_to_object_slash_a, (True,   False,  False)),
-            (s3_path_to_object_slash_b, (True,   False,  False)),
-            (s3_path_to_folder,         (False,  True,   True)),
-            (s3_path_to_folder_slash_a, (True,   False,  False)),
-            (s3_path_to_folder_slash_b, (True,   False,  False)),
-            (s3_path_to_non_existent,   (False,  False,  False)),
+            (s3_path_to_object,                     (True,   True,   True,  False)),
+            (s3_path_to_object_dash,                (False,  True,   False, False)),
+            (s3_path_to_object_dash_a,              (True,   False,  False, False)),
+            (s3_path_to_object_dash_b,              (True,   False,  False, False)),
+            (s3_path_to_object_slash,               (False,   True,  True,  False)),
+            (s3_path_to_object_slash_a,             (True,   False,  False, False)),
+            (s3_path_to_object_slash_b,             (True,   False,  False, False)),
+            (s3_path_to_folder,                     (False,  True,   True,  False)),
+            (s3_path_to_folder_slash_a,             (True,   False,  False, False)),
+            (s3_path_to_folder_slash_b,             (True,   False,  False, False)),
+            (s3_path_to_non_existent,               (False,  False,  False, False)),
+            (s3_path_to_folder_object,              (True,   True,   True,  False)),
+            (s3_path_to_folder_object_a,            (True,   False,  False, False)),
+            (s3_path_to_folder_placeholder_object,  (True,   False,  False, True)),
         ]
         # fmt: on
 
@@ -290,7 +299,13 @@ class S3Tests(AwsBaseTest):
             actual_is_object = is_object(p)
             actual_is_object_prefix = is_object_prefix(p)
             actual_is_folder = is_folder(p)
-            actual = (actual_is_object, actual_is_object_prefix, actual_is_folder)
+            actual_is_folder_placeholder_object = is_folder_placeholder_object(p)
+            actual = (
+                actual_is_object,
+                actual_is_object_prefix,
+                actual_is_folder,
+                actual_is_folder_placeholder_object,
+            )
 
             self.assertEqual(
                 expected,
@@ -1036,7 +1051,22 @@ class S3Tests(AwsBaseTest):
             is True
         )
 
-    def test__check_paths_in_sync__simple__folders_different(self):
+    def test__check_paths_in_sync__prefix_with_folder_and_objects_behavior(self):
+        source_path = self.tmp_path()
+        (source_path / "a").write_text("hello")
+
+        destination_path = self.tmp_path()
+        (destination_path / "a").write_text("hello")
+
+        destination_s3_path = self.get_s3_path("destination")
+        self.put_object(key="destination/a", content="hello")
+        self.put_object(key="destinationA/a", content="hello")
+
+        assert check_paths_in_sync(source_path, destination_path) is True
+        assert check_paths_in_sync(source_path, destination_s3_path) is False
+        assert check_paths_in_sync(source_path, destination_s3_path + "A") is True
+
+    def test__check_paths_in_sync__allows_subset_when_specified(self):
         source_path = self.tmp_path()
         (source_path / "a").write_text("hello")
         (source_path / "b").write_text("again")
@@ -1045,33 +1075,27 @@ class S3Tests(AwsBaseTest):
         self.put_object(key="source/a", content="hello")
         self.put_object(key="source/b", content="again")
 
-        destination_path = self.tmp_path()
-        (destination_path / "A").write_text("hello")
-        (destination_path / "B").write_text("again")
+        dest_path = self.tmp_path()
+        (dest_path / "a").write_text("hello")
+        (dest_path / "b").write_text("again")
+        (dest_path / "c").write_text("extra")
 
-        destination_s3_path = self.get_s3_path("destination")
-        self.put_object(key="destination/A", content="hello")
-        self.put_object(key="destination/B", content="again")
+        dest_s3_path = self.get_s3_path("destination")
+        self.put_object(key="destination/a", content="hello")
+        self.put_object(key="destination/b", content="again")
+        self.put_object(key="destination/c", content="extra")
 
-        destination_path2 = self.tmp_path()
-        (destination_path2 / "a").write_text("helloo")
-        (destination_path2 / "b").write_text("againn")
+        # Should succeed
+        assert check_paths_in_sync(source_path, dest_path, allow_subset=True) is True
+        assert check_paths_in_sync(source_path, dest_s3_path, allow_subset=True) is True
+        assert check_paths_in_sync(source_s3_path, dest_path, allow_subset=True) is True
+        assert check_paths_in_sync(source_s3_path, dest_s3_path, allow_subset=True) is True
 
-        destination_s3_path2 = self.get_s3_path("destination2")
-        self.put_object(key="destination2/a", content="helloo")
-        self.put_object(key="destination2/b", content="againn")
-
-        # Should fail for filename mismatch
-        assert check_paths_in_sync(source_path, destination_path) is False
-        assert check_paths_in_sync(source_path, destination_s3_path) is False
-        assert check_paths_in_sync(source_s3_path, destination_path) is False
-        assert check_paths_in_sync(source_s3_path, destination_s3_path) is False
-
-        # Should fail for content mismatch
-        assert check_paths_in_sync(source_path, destination_path2) is False
-        assert check_paths_in_sync(source_path, destination_s3_path2) is False
-        assert check_paths_in_sync(source_s3_path, destination_path2) is False
-        assert check_paths_in_sync(source_s3_path, destination_s3_path2) is False
+        # Should fail
+        assert check_paths_in_sync(source_path, dest_path, allow_subset=False) is False
+        assert check_paths_in_sync(source_path, dest_s3_path, allow_subset=False) is False
+        assert check_paths_in_sync(source_s3_path, dest_path, allow_subset=False) is False
+        assert check_paths_in_sync(source_s3_path, dest_s3_path, allow_subset=False) is False
 
     def test__check_paths_in_sync__handles_sorting_issues__folders_same(self):
         source_path = self.tmp_path()
@@ -1097,6 +1121,31 @@ class S3Tests(AwsBaseTest):
         assert check_paths_in_sync(source_path, destination_s3_path) is True
         assert check_paths_in_sync(source_s3_path, destination_path) is True
         assert check_paths_in_sync(source_s3_path, destination_s3_path) is True
+
+    def test__check_paths_in_sync__handles_folder_placeholders(self):
+        source_s3_path = self.get_s3_path("source")
+        self.put_object(key="source/", content="")
+        self.put_object(key="source/dirA/", content="")
+        self.put_object(key="source/dirA/a.txt", content="hello")
+
+        destination_s3_path = self.get_s3_path("destination/")
+        self.put_object(key="destination/dirA/a.txt", content="hello")
+
+        # Should succeed
+        assert (
+            check_paths_in_sync(
+                source_s3_path, destination_s3_path, ignore_folder_placeholder_objects=True
+            )
+            is True
+        )
+
+        # Should fail if not ignoring folder placeholder objects
+        assert (
+            check_paths_in_sync(
+                source_s3_path, destination_s3_path, ignore_folder_placeholder_objects=False
+            )
+            is False
+        )
 
 
 @fixture(scope="function")
