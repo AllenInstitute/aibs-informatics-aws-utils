@@ -95,6 +95,7 @@ SCRATCH_EXTRA_ARGS = {
 KB = 1024
 MB = KB * KB
 AWS_S3_DEFAULT_CHUNK_SIZE_BYTES = 8 * MB
+LOCAL_ETAG_READ_BUFFER_BYTES = 8 * MB
 
 # https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
 AWS_S3_MULTIPART_LIMIT = 10000
@@ -1488,22 +1489,38 @@ def get_local_etag(
 
     size_bytes = path.stat().st_size
 
-    md5s = []
+    chunk_digests: List[bytes] = []
+    buffer_size = min(chunk_size_bytes, LOCAL_ETAG_READ_BUFFER_BYTES)
 
     with open(path, "rb") as fp:
+        chunk_hasher = hashlib.md5()
+        chunk_bytes_read = 0
+
         while True:
-            data = fp.read(chunk_size_bytes)
+            if chunk_bytes_read == chunk_size_bytes:
+                chunk_digests.append(chunk_hasher.digest())
+                chunk_hasher = hashlib.md5()
+                chunk_bytes_read = 0
+
+            bytes_remaining_in_chunk = chunk_size_bytes - chunk_bytes_read
+            read_size = min(buffer_size, bytes_remaining_in_chunk)
+            data = fp.read(read_size)
             if not data:
                 break
-            md5s.append(hashlib.md5(data))
 
-    if len(md5s) == 0:  # Empty file (can never be multipart upload)
+            chunk_hasher.update(data)
+            chunk_bytes_read += len(data)
+
+        if chunk_bytes_read:
+            chunk_digests.append(chunk_hasher.digest())
+
+    if len(chunk_digests) == 0:  # Empty file (can never be multipart upload)
         expected_etag = f'"{hashlib.md5().hexdigest()}"'
-    elif len(md5s) == 1 and size_bytes < threshold_bytes:  # File smaller than threshold
-        expected_etag = f'"{md5s[0].hexdigest()}"'
+    elif len(chunk_digests) == 1 and size_bytes < threshold_bytes:  # File smaller than threshold
+        expected_etag = f'"{chunk_digests[0].hex()}"'
     else:  # We are dealing with a multipart upload
-        digests = b"".join(m.digest() for m in md5s)
+        digests = b"".join(chunk_digests)
         multipart_md5 = hashlib.md5(digests)
-        expected_etag = f'"{multipart_md5.hexdigest()}-{len(md5s)}"'
+        expected_etag = f'"{multipart_md5.hexdigest()}-{len(chunk_digests)}"'
 
     return expected_etag

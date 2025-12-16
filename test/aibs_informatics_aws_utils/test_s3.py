@@ -1,6 +1,9 @@
+import builtins
+import hashlib
 import re
 from pathlib import Path
 from time import sleep
+from typing import Optional
 
 import moto
 import requests
@@ -19,6 +22,7 @@ from pytest import fixture, mark, param, raises
 from aibs_informatics_aws_utils.exceptions import AWSError
 from aibs_informatics_aws_utils.s3 import (
     AWS_S3_DEFAULT_CHUNK_SIZE_BYTES,
+    LOCAL_ETAG_READ_BUFFER_BYTES,
     MB,
     PresignedUrlAction,
     check_paths_in_sync,
@@ -30,6 +34,7 @@ from aibs_informatics_aws_utils.s3 import (
     download_to_json_object,
     generate_presigned_urls,
     generate_transfer_request,
+    get_local_etag,
     get_object,
     get_s3_client,
     get_s3_path_collection_stats,
@@ -65,7 +70,7 @@ class S3Tests(AwsBaseTest):
         self.DEFAULT_BUCKET_NAME = "a-random-bucket"
         self.setUpBucket(self.DEFAULT_BUCKET_NAME)
 
-    def setUpBucket(self, bucket_name: str = None):
+    def setUpBucket(self, bucket_name: Optional[str] = None):
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
         self.s3_client.create_bucket(
             Bucket=bucket_name,
@@ -1245,6 +1250,91 @@ def test__determine_multipart_attributes__works(
     chunksize, threshold = determine_multipart_attributes(s3_path)
     assert threshold == expected_threshold
     assert chunksize == expected_chunksize
+
+
+def _compute_expected_multipart_etag(payload: bytes, chunk_size: int) -> str:
+    chunk_digests = [
+        hashlib.md5(payload[i : i + chunk_size]).digest()
+        for i in range(0, len(payload), chunk_size)
+    ]
+    combined = hashlib.md5(b"".join(chunk_digests)).hexdigest()
+    return f'"{combined}-{len(chunk_digests)}"'
+
+
+def test__get_local_etag__single_part_file(tmp_path):
+    payload = b"hello-world"
+    file_path = tmp_path / "single.bin"
+    file_path.write_bytes(payload)
+
+    chunk_size = len(payload) + 10
+    etag = get_local_etag(file_path, chunk_size_bytes=chunk_size, threshold_bytes=chunk_size)
+
+    assert etag == f'"{hashlib.md5(payload).hexdigest()}"'
+
+
+def test__get_local_etag__multipart_file(tmp_path):
+    payload = b"0123456789abcdef"
+    file_path = tmp_path / "multi.bin"
+    file_path.write_bytes(payload)
+
+    chunk_size = 5
+    expected = _compute_expected_multipart_etag(payload, chunk_size)
+
+    etag = get_local_etag(file_path, chunk_size_bytes=chunk_size, threshold_bytes=chunk_size)
+
+    assert etag == expected
+
+
+def test__get_local_etag__uses_bounded_buffer(monkeypatch, tmp_path):
+    payload = b"abcdefghijklmnopqrstuvwxyz"
+    file_path = tmp_path / "buffered.bin"
+    file_path.write_bytes(payload)
+
+    chunk_size = 7
+    buffer_size = max(1, LOCAL_ETAG_READ_BUFFER_BYTES // 4)
+    monkeypatch.setattr("aibs_informatics_aws_utils.s3.LOCAL_ETAG_READ_BUFFER_BYTES", buffer_size)
+
+    read_sizes = []
+    target_path = file_path.resolve()
+    original_open = builtins.open
+
+    class _MonitoringWrapper:
+        def __init__(self, wrapped):
+            self._wrapped = wrapped
+
+        def read(self, size=-1):
+            read_sizes.append(size)
+            return self._wrapped.read(size)
+
+        def __getattr__(self, name):
+            return getattr(self._wrapped, name)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self._wrapped.close()
+
+        def close(self):
+            self._wrapped.close()
+
+    def monitoring_open(file, mode="r", *args, **kwargs):
+        handle = original_open(file, mode, *args, **kwargs)
+        candidate_path = None
+        try:
+            candidate_path = Path(file).resolve()
+        except (TypeError, OSError):
+            pass
+        is_target = candidate_path == target_path and "b" in mode
+        return _MonitoringWrapper(handle) if is_target else handle
+
+    monkeypatch.setattr("builtins.open", monitoring_open)
+
+    expected = _compute_expected_multipart_etag(payload, chunk_size)
+    etag = get_local_etag(file_path, chunk_size_bytes=chunk_size, threshold_bytes=chunk_size)
+
+    assert etag == expected
+    assert read_sizes and max(read_sizes) <= buffer_size
 
 
 @mark.parametrize(
