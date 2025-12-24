@@ -3,7 +3,7 @@ import hashlib
 import re
 from pathlib import Path
 from time import sleep
-from typing import Optional
+from typing import Dict, Optional
 
 import moto
 import requests
@@ -49,6 +49,7 @@ from aibs_informatics_aws_utils.s3 import (
     process_transfer_requests,
     should_sync,
     sync_paths,
+    update_path_tags,
     update_s3_storage_class,
     upload_file,
     upload_json,
@@ -104,6 +105,17 @@ class S3Tests(AwsBaseTest):
         if "Bucket" not in kwargs:
             kwargs["Bucket"] = self.DEFAULT_BUCKET_NAME
         return self.s3_client.list_objects_v2(**kwargs)
+
+    def _get_tag_dict(self, s3_path: S3URI) -> Dict[str, str]:
+        response = self.s3_client.get_object_tagging(Bucket=s3_path.bucket, Key=s3_path.key)
+        return {tag["Key"]: tag["Value"] for tag in response.get("TagSet", [])}
+
+    def _put_tags(self, s3_path: S3URI, tags: Dict[str, str]):
+        self.s3_client.put_object_tagging(
+            Bucket=s3_path.bucket,
+            Key=s3_path.key,
+            Tagging={"TagSet": [{"Key": key, "Value": value} for key, value in tags.items()]},
+        )
 
     def test__get_presigned_urls__default_generates_READ_ONLY_urls(self):
         ## Setup
@@ -737,6 +749,72 @@ class S3Tests(AwsBaseTest):
         delete_s3_path(s3_path=s3_path)
         self.assertEqual(0, len(list_s3_paths(s3_path)))
 
+    def test__update_path_tags__replace_mode_overwrites_existing_tags(self):
+        s3_path = self.put_object("path/to/tagged.txt", "content")
+        self._put_tags(s3_path, {"old": "tag"})
+
+        update_path_tags(
+            s3_path,
+            {"new": "value"},
+            mode="replace",
+            region=self.DEFAULT_REGION,
+        )
+
+        self.assertDictEqual(self._get_tag_dict(s3_path), {"new": "value"})
+
+    def test__update_path_tags__append_mode_merges_and_overrides(self):
+        s3_path = self.put_object("path/to/append.txt", "content")
+        self._put_tags(s3_path, {"keep": "1", "override": "old"})
+
+        update_path_tags(
+            s3_path,
+            {"override": "new", "fresh": "2"},
+            mode="append",
+            region=self.DEFAULT_REGION,
+        )
+
+        self.assertDictEqual(
+            self._get_tag_dict(s3_path),
+            {"keep": "1", "override": "new", "fresh": "2"},
+        )
+
+    def test__update_path_tags__delete_mode_removes_requested_keys(self):
+        s3_path = self.put_object("path/to/delete.txt", "content")
+        self._put_tags(s3_path, {"keep": "1", "drop": "2"})
+
+        update_path_tags(
+            s3_path,
+            {"drop": "ignored", "missing": "value"},
+            mode="delete",
+            region=self.DEFAULT_REGION,
+        )
+
+        self.assertDictEqual(self._get_tag_dict(s3_path), {"keep": "1"})
+
+    def test__update_path_tags__recursive_prefix_updates_all_children(self):
+        prefix_path = self.get_s3_path("path/to/prefix")
+        child_one = self.put_object("path/to/prefix/a.txt", "first")
+        child_two = self.put_object("path/to/prefix/nested/b.txt", "second")
+        outside = self.put_object("path/to/other.txt", "outside")
+
+        self._put_tags(child_one, {"existing": "one"})
+        self._put_tags(child_two, {"existing": "two"})
+        self._put_tags(outside, {"existing": "outside"})
+
+        update_path_tags(
+            prefix_path,
+            {"batch": "true"},
+            mode="append",
+            region=self.DEFAULT_REGION,
+        )
+
+        for s3_path, label in ((child_one, "one"), (child_two, "two")):
+            tags = self._get_tag_dict(s3_path)
+            self.assertEqual(tags["existing"], label)
+            self.assertEqual(tags["batch"], "true")
+
+        self.assertNotIn("batch", self._get_tag_dict(outside))
+
     def test__update_s3_storage_class__handles_shallow_to_GLACIER(self):
         s3_root = self.get_s3_path("source/path/")
 
@@ -880,7 +958,7 @@ class S3Tests(AwsBaseTest):
 
         s3.upload_file(
             Filename=str(orig_file),
-            **source_path.as_dict(),
+            **source_path.as_dict(),  # type: ignore
             Config=TransferConfig(multipart_threshold=1024, multipart_chunksize=1024),
         )
         destination_path.write_text(orig_file.read_text())
@@ -897,7 +975,7 @@ class S3Tests(AwsBaseTest):
         # This does not upload as multipart for custom chunk size
         self.s3_client.upload_file(
             Filename=str(orig_file),
-            **source_path1.as_dict(),
+            **source_path1.as_dict(),  # type: ignore
             Config=TransferConfig(
                 multipart_threshold=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES * 2,
                 multipart_chunksize=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES * 2,
@@ -906,7 +984,7 @@ class S3Tests(AwsBaseTest):
         # This one uploads as multipart even though there is only one part
         self.s3_client.upload_file(
             Filename=str(orig_file),
-            **source_path2.as_dict(),
+            **source_path2.as_dict(),  # type: ignore
             Config=TransferConfig(
                 multipart_threshold=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES,
                 multipart_chunksize=AWS_S3_DEFAULT_CHUNK_SIZE_BYTES * 2,
@@ -928,7 +1006,7 @@ class S3Tests(AwsBaseTest):
         # This does not upload as multipart for custom chunk size
         self.s3_client.upload_file(
             Filename=str(orig_file),
-            **source_path.as_dict(),
+            **source_path.as_dict(),  # type: ignore
             Config=TransferConfig(multipart_threshold=MB, multipart_chunksize=MB),
         )
 
@@ -945,7 +1023,7 @@ class S3Tests(AwsBaseTest):
         # This does not upload as multipart for custom chunk size
         self.s3_client.upload_file(
             Filename=str(orig_file),
-            **source_path.as_dict(),
+            **source_path.as_dict(),  # type: ignore
             Config=TransferConfig(multipart_threshold=MB, multipart_chunksize=2 * MB),
         )
 
@@ -962,7 +1040,7 @@ class S3Tests(AwsBaseTest):
         # This does not upload as multipart for custom chunk size
         self.s3_client.upload_file(
             Filename=str(orig_file),
-            **source_path.as_dict(),
+            **source_path.as_dict(),  # type: ignore
             Config=TransferConfig(multipart_threshold=3 * MB, multipart_chunksize=MB),
         )
 
@@ -979,7 +1057,7 @@ class S3Tests(AwsBaseTest):
         # This does not upload as multipart for custom chunk size
         self.s3_client.upload_file(
             Filename=str(orig_file),
-            **source_path.as_dict(),
+            **source_path.as_dict(),  # type: ignore
             Config=TransferConfig(multipart_threshold=2 * MB, multipart_chunksize=MB),
         )
         destination_path.write_text(orig_file.read_text())
