@@ -588,7 +588,7 @@ def update_path_tags(
     There are three modes for updating tags:
     - replace: Replace all existing tags with new tags
     - append: Merge new tags with existing tags
-    - delete: Delete specified tags from existing tags
+    - delete: Delete specified tags from existing tags (values do not matter)
 
     If recursive is True and s3_path is an object prefix, all objects under the prefix
     will have their tags updated. If there is an object at s3_path, it will also have
@@ -601,7 +601,7 @@ def update_path_tags(
             Options:
                 - replace: Replace all existing tags with new tags
                 - append: Merge new tags with existing tags
-                - delete: Delete specified tags from existing tags
+                - delete: Delete specified tags from existing tags (values do not matter)
             Defaults to "append".
         recursive (bool): Whether to update tags recursively for all objects under prefix.
             Defaults to True.
