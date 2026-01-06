@@ -17,6 +17,7 @@ from typing import (
     Callable,
     Dict,
     List,
+    Literal,
     Mapping,
     Optional,
     Pattern,
@@ -575,9 +576,72 @@ def get_s3_path_stats(s3_path: S3URI, **kwargs) -> S3PathStats:
     )
 
 
-# TODO: Two things
-# 1. allow for a way to specify `size_only` for this fn when transfering large number of files
-# 2. add flag for failing if no source data exists.
+def update_path_tags(
+    s3_path: S3URI,
+    tags: Dict[str, str],
+    mode: Literal["replace", "append", "delete"] = "append",
+    recursive: bool = True,
+    **kwargs,
+):
+    """Update tags for all objects at or prefixed by the specified path
+
+    There are three modes for updating tags:
+    - replace: Replace all existing tags with new tags
+    - append: Merge new tags with existing tags
+    - delete: Delete specified tags from existing tags (values do not matter)
+
+    If recursive is True and s3_path is an object prefix, all objects under the prefix
+    will have their tags updated. If there is an object at s3_path, it will also have
+    its tags updated.
+
+    Args:
+        s3_path (S3URI): S3 path or prefix to update tags for
+        tags (Dict[str, str]): Tags to update
+        mode (Literal["replace", "append", "delete"]): Tag update mode.
+            Options:
+                - replace: Replace all existing tags with new tags
+                - append: Merge new tags with existing tags
+                - delete: Delete specified tags from existing tags (values do not matter)
+            Defaults to "append".
+        recursive (bool): Whether to update tags recursively for all objects under prefix.
+            Defaults to True.
+    """
+    if recursive and is_object_prefix(s3_path, **kwargs):
+        s3_paths = list_s3_paths(s3_path=s3_path, **kwargs)
+        logger.info(f"Updating tags for {len(s3_paths)} objects under prefix {s3_path}")
+        for nested_s3_path in s3_paths:
+            update_path_tags(nested_s3_path, tags, mode, recursive=False, **kwargs)
+    if is_object(s3_path, **kwargs):
+        s3 = get_s3_client(**kwargs)
+
+        current_tags = {
+            tag["Key"]: tag["Value"]
+            for tag in s3.get_object_tagging(
+                Bucket=s3_path.bucket,
+                Key=s3_path.key,
+            ).get("TagSet", [])
+        }
+
+        if mode == "replace":
+            new_tags = tags
+        elif mode in ["append", "delete"]:
+            new_tags = current_tags.copy()
+            if mode == "append":
+                new_tags.update(tags)
+            else:
+                for tag_key in tags.keys():
+                    if tag_key in new_tags:
+                        del new_tags[tag_key]
+        else:
+            raise ValueError(f"Unknown tag update mode: {mode}")  # pragma: no cover
+
+        s3.put_object_tagging(
+            Bucket=s3_path.bucket,
+            Key=s3_path.key,
+            Tagging={"TagSet": [{"Key": k, "Value": v} for k, v in new_tags.items()]},
+        )
+
+
 def sync_paths(
     source_path: Union[Path, S3URI],
     destination_path: Union[Path, S3URI],
