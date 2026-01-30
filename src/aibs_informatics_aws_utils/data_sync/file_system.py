@@ -40,16 +40,15 @@ class PathStats(SchemaModel):
 class Node:
     """Represents an object or folder in an file system path.
 
-    Args:
-        path_part (str): specifies the key part of the fs path (an edge) to this node
-        parent (Optional[Node]): Optionally specify the parent node to which
+    Attributes:
+        path_part: Specifies the key part of the fs path (an edge) to this node.
+        parent: Optionally specify the parent node to which
             this node is connected. By default, this is None.
-        children (Dict[str, Node]): Child nodes that exist under this path prefix.
-        size_bytes (int): The size (in bytes) of all objects under this path prefix.
-        object_count (int): The number of objects under this path prefix.
-        last_modified (datetime): The most recent date any objects under this prefix were
+        children: Child nodes that exist under this path prefix.
+        size_bytes: The size (in bytes) of all objects under this path prefix.
+        object_count: The number of objects under this path prefix.
+        last_modified: The most recent date any objects under this prefix were
             last modified.
-
     """
 
     path_part: str
@@ -175,24 +174,23 @@ class BaseFileSystem:
         object_count_limit: Optional[int] = None,
         raise_error_if_criteria_not_met: bool = False,
     ) -> List[Node]:
-        """Partitions the root tree folder structure into a list of nodes
+        """Partitions the root tree folder structure into a list of nodes.
 
         Partitioning is guided by constraints by size and object count.
 
         Args:
-            size_bytes_limit (Optional[int], optional): If specified, partitions must be
-                less than the specified value.
-            object_count_limit (Optional[int], optional): If specified, partitions
-                must contain fewer objects than the specified valude
-            raise_error_if_criteria_not_met (bool, optional): If True, raises error if nodes
-                cannot meet criteria. In actuality, this is more relevant for size limitations
-                where an object size is greater than the size limit
+            size_bytes_limit: If specified, partitions must be less than the specified value.
+            object_count_limit: If specified, partitions must contain fewer objects than
+                the specified value.
+            raise_error_if_criteria_not_met: If True, raises error if nodes cannot meet
+                criteria. In actuality, this is more relevant for size limitations where
+                an object size is greater than the size limit.
 
         Raises:
-            ValueError: Thrown if raise_error_if_criteria_not_met is true and criteria not met
+            ValueError: Thrown if raise_error_if_criteria_not_met is true and criteria not met.
 
         Returns:
-            List[Node]: List of nodes partitioning
+            List of nodes representing the partition.
         """
         unchecked_nodes = {self.node}
         size_bytes_exceeding_obj_nodes = []
@@ -298,11 +296,11 @@ class EFSFileSystem(LocalFileSystem):
 
 @dataclass
 class S3FileSystem(BaseFileSystem):
-    """Generates a FS tree structure of an S3 path with size and object count stats
+    """Generates a FS tree structure of an S3 path with size and object count stats.
 
-    Args:
-        bucket (str): The S3 bucket to describe
-        key (str): The S3 key to describe
+    Attributes:
+        bucket: The S3 bucket to describe.
+        key: The S3 key to describe.
     """
 
     bucket: str

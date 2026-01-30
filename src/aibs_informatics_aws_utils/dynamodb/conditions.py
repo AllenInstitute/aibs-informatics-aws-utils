@@ -107,17 +107,17 @@ class ConditionExpressionComponents(ExpressionComponentsBase):
     def from_condition(
         cls, condition: ConditionBase, is_key_condition: bool
     ) -> "ConditionExpressionComponents":
-        """Create ConditionExpressionComponents from a ConditionBase
+        """Create ConditionExpressionComponents from a ConditionBase.
 
         Args:
-            condition (ConditionBase): The ConditionBase to create expression components from
-            is_key_condition (bool): If the provided condition is for a query()
+            condition: The ConditionBase to create expression components from.
+            is_key_condition: If the provided condition is for a `query()`
                 KeyConditionExpression then this should be True. Otherwise if the condition is for
-                a query() FilterExpression or for a put_item() ConditionExpression then this
-                should be set to false.
+                a `query()` FilterExpression or for a `put_item()` ConditionExpression then this
+                should be set to False.
 
         Returns:
-            ConditionExpressionComponents
+            The created ConditionExpressionComponents.
         """
         builder = ConditionExpressionBuilder()
         bce = builder.build_expression(condition, is_key_condition=is_key_condition)
@@ -131,21 +131,34 @@ class ConditionExpressionComponents(ExpressionComponentsBase):
     def fix_collisions(
         self, other: "ConditionExpressionComponents"
     ) -> "ConditionExpressionComponents":
-        """Modify other expression components such that no attribute name/values collide
+        """Modify other expression components such that no attribute name/values collide.
 
-        For example, given the following Expression components
-            this:   ConditionExpressionComponents("#n0 = :v0", {"#n0": "key1"}, {":v0": {"S": "str_value"}})
-            other:  ConditionExpressionComponents("#n0 = :v1", {"#n0": "key2"}, {":v1": {"S": "str_value"}})
+        Example:
+            Given the following Expression components:
 
-        There is a collision of the attribute name '#n0' which would get converted to '#n1'
-            output: ConditionExpressionComponents("#n1 = :v1", {"#n1": "key2"}, {":v1": {"S": "str_value"}})
+            ```python
+            this = ConditionExpressionComponents(
+                "#n0 = :v0", {"#n0": "key1"}, {":v0": {"S": "str_value"}}
+            )
+            other = ConditionExpressionComponents(
+                "#n0 = :v1", {"#n0": "key2"}, {":v1": {"S": "str_value"}}
+            )
+            ```
+
+            There is a collision of the attribute name `#n0` which would get converted to `#n1`:
+
+            ```python
+            output = ConditionExpressionComponents(
+                "#n1 = :v1", {"#n1": "key2"}, {":v1": {"S": "str_value"}}
+            )
+            ```
 
         Args:
-            other (ConditionExpressionComponents): the other Expression Condition to modify
+            other: The other Expression Condition to modify.
 
         Returns:
-            ConditionExpressionComponents: The other, as a modified non-overlapping Expression Condition
-        """  # noqa: E501
+            The other, as a modified non-overlapping Expression Condition.
+        """
 
         this_placeholder_names = AttrPlaceholder.sorted(self.expression_attribute_names.keys())
         this_placeholder_values = AttrPlaceholder.sorted(self.expression_attribute_values.keys())
@@ -241,15 +254,15 @@ class ConditionBaseTranslator:
     def deserialize_condition(
         cls, condition_expression: Union[str, ConditionBaseExpression], is_key: bool = True
     ) -> ConditionBase:
-        """Convert ConditionBase Expression into ConditionBase
+        """Convert ConditionBase Expression into ConditionBase.
 
         Args:
-            condition_expression (str|ConditionBaseExpression): The expression to convert.
-            is_key (bool, optional): Used to infer attribute name if expression is string.
+            condition_expression: The expression to convert.
+            is_key: Used to infer attribute name if expression is string.
                 Defaults to True.
 
         Returns:
-            ConditionBase
+            The deserialized ConditionBase.
         """
 
         def _deserialize_condition(ce: ConditionBaseExpression) -> ConditionBase:

@@ -146,19 +146,13 @@ def build_optimized_condition_expression_set(
         *args (Union[DynamoDBKey, ConditionBase]): varargs of DynamoDBKey or ConditionBase
         **kwargs (Any): kwargs of DynamoDBKey or ConditionBase
 
-    Raises:
-
     Returns:
-        Tuple[
-            Optional[DB_INDEX],
-            Optional[ConditionBase],
-            Optional[ConditionBase],
-            List[ConditionBase]
-        ]
-            * target_index
-            * partition_key
-            * sort_key_condition_expression
-            * filter_expressions
+        A tuple containing:
+            the target index,
+            partition key condition,
+            sort key condition,
+            and filter expressions.
+
     """
     target_index: Optional[DB_INDEX] = None
     partition_key: Optional[ConditionBase] = None
@@ -328,20 +322,19 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         key: Union[DynamoDBKey, DynamoDBItemValue, Tuple[DynamoDBItemValue, DynamoDBItemValue]],
         partial: bool = False,
     ) -> DB_MODEL:
-        """Get a single item from a DynamoDB table by providing a key,
+        """Get a single item from a DynamoDB table by providing a key.
 
         Args:
-            key (DynamoDBKey|DynamoDBItemValue|Tuple[DynamoDBItemValue,DynamoDBItemValue]]):
-                The partition key value that should be used to search the table.
+            key: The partition key value that should be used to search the table.
                 Can be a single partition key value, a tuple of partition and sort key value,
                 or a dictionary of attribute:value.
-            partial (bool, optional): Whether partial values are allowed. Defaults to False.
+            partial: Whether partial values are allowed. Defaults to False.
 
         Raises:
             DBReadException: If the item could not be found.
 
         Returns:
-            DB_MODEL: The database entry that was found.
+            The database entry that was found.
         """
         item_key = self.build_key(key)
 
@@ -360,25 +353,26 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         partial: bool = False,
         ignore_missing: bool = False,
     ) -> List[DB_MODEL]:
-        """Batch get items from a DynamoDB table by providing a list of keys
+        """Batch get items from a DynamoDB table by providing a list of keys.
 
         Args:
-            keys (Union[ List[DynamoDBKey], List[DynamoDBItemValue], List[Tuple[DynamoDBItemValue, DynamoDBItemValue]], ]):
-                The partition key values that should be used to search the table.
+            keys: The partition key values that should be used to search the table.
                 Each key can be one of:
-                    single partition key value,
-                    a tuple of partition and sort key value,
-                    or a dictionary of attribute:value.
-            partial (bool, optional): Whether partial values are allowed. Defaults to False.
-            ignore_missing (bool, optional): If true, suppress errors for keys that are not found.
+
+                - **single partition key value**
+                - **a tuple of partition and sort key value**
+                - **a dictionary of attribute:value**
+
+            partial: Whether partial values are allowed. Defaults to False.
+            ignore_missing: If true, suppress errors for keys that are not found.
                 Defaults to False.
 
         Raises:
             DBReadException: If any of the items could not be found.
 
         Returns:
-            List[DB_MODEL]: List of database entries that were found.
-        """  # noqa: E501
+            List of database entries that were found.
+        """
         if not keys:
             return []
 
@@ -406,39 +400,35 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         expect_unique: bool = False,
         allow_partial: bool = False,
     ) -> List[DB_MODEL]:
-        """Query a DynamoDB table by providing a DBIndex, partition_key,
-        optional sort_key, and optional filter conditions that non-partition-key attributes
-        should satisfy.
+        """Query a DynamoDB table by providing a DBIndex, partition_key, optional sort_key, and optional filter conditions.
 
         Args:
-            partition_key (Union[str, ConditionBase]): The partition key value that should be
-                used to search the table.
-            sort_key_condition_expression (Optional[ConditionBase], optional): The sort key
-                condition expression to be used to query the table.
+            index: Specifies the specific table index (e.g. main table, global secondary
+                index, or local secondary index) that should be queried.
+            partition_key: The partition key value that should be used to search the table.
+            sort_key_condition_expression: The sort key condition expression to be used
+                to query the table. Example:
 
-                Example sort_key_condition_expression that specifies a sort key
-                ('my_sort_key_name') whose values begin with 'prefix_':
-
+                ```python
                 from boto3.dynamodb.conditions import Key
-                Key('my_sort_key_name).begins_with('prefix_')
+                Key('my_sort_key_name').begins_with('prefix_')
+                ```
 
-            index (DBIndex): Specifies the specific table index (e.g. main table, global secondary
-                index, or local secondary index) that should be queried. Also 'knows' about the
-                appropriate 'table_name' and 'partition_key' name to use for query.
-            filters (Optional[Mapping], optional): A dictionary of attribute:value pairs
-                where query results must satisfy attribute == value.
-            consistent_read (bool, optional): Whether a strongly consistent read should be used
-                for the query. By default False which returns **eventually** consistent reads.
-            expect_non_empty (bool, optional): Whether the resulting query should return at least
+            filters: A list of ConditionBase expressions where query results must satisfy.
+            consistent_read: Whether a strongly consistent read should be used
+                for the query. By default False which returns eventually consistent reads.
+            expect_non_empty: Whether the resulting query should return at least
                 one result. An error will be raised if expect_non_empty=True and 0 results were
                 returned by the query.
-            expect_unique (bool, option): Whether the result of the query is expected to
+            expect_unique: Whether the result of the query is expected to
                 return AT MOST one result. An error will be raised if expect_unique=True and MORE
                 than 1 result was returned for the query.
+            allow_partial: Whether to allow partial entries. Defaults to False.
+
         Returns:
-            Sequence[Dict[str, Any]]: A sequence of dictionaries representing database rows
-                where partition_key/sort_key and filter conditions are satisfied.
-        """
+            A list of database model entries where partition_key/sort_key and
+                filter conditions are satisfied.
+        """  # noqa: E501
 
         if consistent_read:
             check_index_supports_strongly_consistent_read(index=index)
@@ -493,27 +483,24 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         expect_unique: bool = False,
         allow_partial: bool = False,
     ) -> List[DB_MODEL]:
-        """Scan a DynamoDB table by providing a table_name, a DBIndex,
-        and optional filter conditions that attributes should satisfy.
+        """Scan a DynamoDB table by providing a DBIndex and optional filter conditions.
 
         Args:
-            index (DBIndex): Specifies the specific table index (e.g. main table, global secondary
-                index, or local secondary index) that should be queried. Also 'knows' about the
-                appropriate 'table_name' and 'partition_key' name to use for query.
-            filters (Optional[Mapping], optional): A dictionary of attribute:value pairs
-                where query results must satisfy attribute == value.
-            consistent_read (bool, optional): Whether a strongly consistent read should be used
-                for the query. By default False which returns **eventually** consistent reads.
-            expect_non_empty (bool, optional): Whether the resulting query should return at least
+            index: Specifies the specific table index (e.g. main table, global secondary
+                index, or local secondary index) that should be scanned.
+            filters: A list of ConditionBase expressions where scan results must satisfy.
+            consistent_read: Whether a strongly consistent read should be used
+                for the scan. By default False which returns eventually consistent reads.
+            expect_non_empty: Whether the resulting scan should return at least
                 one result. An error will be raised if expect_non_empty=True and 0 results were
-                returned by the query.
-            expect_unique (bool, option): Whether the result of the query is expected to
+                returned by the scan.
+            expect_unique: Whether the result of the scan is expected to
                 return AT MOST one result. An error will be raised if expect_unique=True and MORE
-                than 1 result was returned for the query.
+                than 1 result was returned for the scan.
+            allow_partial: Whether to allow partial entries. Defaults to False.
 
         Returns:
-            Sequence[Dict[str, Any]]: A sequence of dictionaries representing database rows
-                where filter conditions are satisfied.
+            A list of database model entries where filter conditions are satisfied.
         """
         index = self.index_or_default(index)
         if consistent_read:
@@ -561,10 +548,35 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         **kw_filters: Any,
     ) -> List[DB_MODEL]:
         """
-        Constructs a query or scan as necessary from arguments
-        (see _query and _scan for arg details). Filters are joined with
-        AND into one filter
-        """
+        Perform a smart query on the DynamoDB table by automatically determining whether to
+        use a query or scan operation based on the provided filters.
+
+        Args:
+            *filters (Union[DynamoDBKey, ConditionBase]):
+                Varargs of DynamoDBKey or ConditionBase to filter the query/scan
+            consistent_read (bool):
+                Whether a strongly consistent read should be used for the query/scan.
+                Defaults to False which returns eventually consistent reads.
+            expect_non_empty (bool):
+                Whether the resulting query/scan should return at least one result.
+                An error will be raised if expect_non_empty=True and 0 results were returned.
+            expect_unique (bool):
+                Whether the result of the query/scan is expected to return AT MOST one result.
+                An error will be raised if expect_unique=True and MORE than 1 result was returned.
+            allow_partial (bool):
+                Whether to allow partial entries. Defaults to False.
+            allow_scan (bool):
+                Whether to allow a scan operation if no partition key is found in the filters.
+                Defaults to True.
+
+        Raises:
+            DBQueryException:
+                If no partition key is found and allow_scan is False.
+
+        Returns:
+            A list of database model entries where partition_key/sort_key and filter
+                conditions are satisfied.
+        """  # noqa: E501
         (
             index,
             partition_key,
@@ -612,6 +624,23 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         condition_expression: Optional[ConditionBase] = None,
         **table_put_item_kwargs,
     ) -> DB_MODEL:
+        """Put a new item into the DynamoDB table.
+
+        Args:
+            entry (DB_MODEL): The database model entry to be put into the table.
+            condition_expression (Optional[ConditionBase], optional): An optional condition
+                expression that must be satisfied for the put operation to succeed.
+                Defaults to None.
+            **table_put_item_kwargs: Additional keyword arguments to be passed to the
+                table_put_item function.
+
+        Raises:
+            DBWriteException: If there was an error putting the entry.
+            DBWriteException: If the HTTP response code indicates a failure.
+
+        Returns:
+            The database model entry that was put into the table.
+        """
         put_summary = (
             f"(entry: {entry}, condition_expression: {condition_to_str(condition_expression)})"
         )
@@ -643,6 +672,25 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         old_entry: Optional[DB_MODEL] = None,
         **table_update_item_kwargs,
     ) -> DB_MODEL:
+        """Update an existing item in the DynamoDB table.
+
+        Args:
+            key (DynamoDBKey): The primary key of the item to be updated.
+            new_entry (Union[Mapping[str, Any], DB_MODEL]): The new values for the item.
+                Can be a dictionary of attribute:value pairs or a DB_MODEL instance.
+            old_entry (Optional[DB_MODEL], optional): The existing entry before the update.
+                If provided, only attributes that differ from the old_entry will be updated.
+                Defaults to None.
+            **table_update_item_kwargs: Additional keyword arguments to be passed to the
+                table_update_item function.
+
+        Raises:
+            DBWriteException: If there was an error updating the entry.
+            DBWriteException: If no attributes need to be updated.
+
+        Returns:
+            The updated database model entry.
+        """
         new_attributes: Dict[str, Any] = {}
         if isinstance(new_entry, self.get_db_model_cls()):
             new_attributes = self.build_item(new_entry, partial=True)
@@ -720,6 +768,22 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         key: Union[DynamoDBKey, DB_MODEL],
         error_on_nonexistent: bool = False,
     ) -> Optional[DB_MODEL]:
+        """Delete an item from the DynamoDB table.
+
+        Args:
+            key (Union[DynamoDBKey, DB_MODEL]): The primary key of the item to be deleted,
+                or a DB_MODEL instance representing the item to be deleted.
+            error_on_nonexistent (bool, optional): Whether to raise an error if the item
+                does not exist. Defaults to False.
+
+        Raises:
+            DBWriteException: If there was an error deleting the entry.
+            DBWriteException: If error_on_nonexistent is True and the item does not exist.
+
+        Returns:
+            The deleted database model entry, or None if the item did not exist and
+                error_on_nonexistent is False.
+        """
         if isinstance(key, self.get_db_model_cls()):
             key = self.build_key_from_entry(key)
         delete_summary = f"(db_primary_key: {key})"

@@ -17,6 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
         BatchGetItemInputTypeDef,
         GetItemInputTypeDef,
         KeysAndAttributesTypeDef,
+        PutItemOutputTableTypeDef,
         QueryInputTableQueryTypeDef,
         QueryInputTypeDef,
         ScanInputTypeDef,
@@ -26,6 +27,7 @@ else:
     GetItemInputRequestTypeDef = dict
     GetItemInputTypeDef = dict
     KeysAndAttributesTypeDef = dict
+    PutItemOutputTableTypeDef = dict
     QueryInputTableQueryTypeDef = dict
     QueryInputTypeDef = dict
     ScanInputTypeDef = dict
@@ -46,7 +48,18 @@ def table_put_item(
     item: Dict[str, Any],
     condition_expression: Optional[ConditionBase] = None,
     **kwargs,
-):
+) -> PutItemOutputTableTypeDef:
+    """Put an item into a DynamoDB table.
+
+    Args:
+        table_name: Name of the table.
+        item: Dictionary representing the item to put.
+        condition_expression: Optional condition that must be satisfied for the put to succeed.
+        **kwargs: Additional arguments passed to `table.put_item()`.
+
+    Returns:
+        Response from the put_item operation.
+    """
     if condition_expression:
         parsed_expression = ConditionExpressionComponents.from_condition(
             condition_expression, False
@@ -66,6 +79,16 @@ def table_put_item(
 def table_get_item(
     table_name: str, key: Mapping[str, Any], attrs: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
+    """Get a single item from a DynamoDB table.
+
+    Args:
+        table_name: Name of the table.
+        key: Dictionary of key attribute(s) identifying the item to get.
+        attrs: Optional projection expression specifying which attributes to retrieve.
+
+    Returns:
+        The item if found, None otherwise.
+    """
     table = table_as_resource(table_name)
     props: GetItemInputRequestTypeDef = {"Key": key, "ReturnConsumedCapacity": "NONE"}  # type: ignore  # we modify use of this type (no table name is needed here)
 
@@ -85,6 +108,19 @@ def table_get_items(
     attrs: Optional[str] = None,
     region: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
+    """Batch get multiple items from a DynamoDB table.
+
+    Handles pagination automatically when more than 100 keys are provided.
+
+    Args:
+        table_name: Name of the table.
+        keys: List of key dictionaries identifying the items to get.
+        attrs: Optional projection expression specifying which attributes to retrieve.
+        region: AWS region. Defaults to None (uses default region).
+
+    Returns:
+        List of items found.
+    """
     db = get_dynamodb_client(region=region)
     serializer = TypeSerializer()
 
@@ -140,6 +176,25 @@ def table_update_item(
     return_values: Literal["NONE", "ALL_OLD", "UPDATED_OLD", "ALL_NEW", "UPDATED_NEW"] = "NONE",
     **kwargs,
 ) -> Optional[Dict[str, Any]]:
+    """Update an item in a DynamoDB table.
+
+    Args:
+        table_name: Name of the table.
+        key: Dictionary of key attribute(s) identifying the item to update.
+        attributes: Dictionary of attributes to update.
+        return_values: What to return after the update. Options:
+
+            - **NONE** - Nothing is returned.
+            - **ALL_OLD** - Returns all attributes as they were before the update.
+            - **UPDATED_OLD** - Returns only the updated attributes as they were before.
+            - **ALL_NEW** - Returns all attributes as they are after the update.
+            - **UPDATED_NEW** - Returns only the updated attributes as they are after.
+
+        **kwargs: Additional arguments passed to `table.update_item()`.
+
+    Returns:
+        The attributes based on `return_values`, or None if `return_values` is "NONE".
+    """
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/table/update_item.html
     table = table_as_resource(table_name)
 
@@ -166,6 +221,22 @@ def table_delete_item(
     return_values: Literal["NONE", "ALL_OLD"] = "NONE",
     **kwargs,
 ) -> Optional[Dict[str, Any]]:
+    """Delete an item from a DynamoDB table.
+
+    Args:
+        table_name: Name of the table.
+        key: Dictionary of key attribute(s) identifying the item to delete.
+        condition_expression: Optional condition that must be satisfied for the delete to succeed.
+        return_values: What to return after the delete. Options:
+
+            - **NONE** - Nothing is returned.
+            - **ALL_OLD** - Returns all attributes of the deleted item.
+
+        **kwargs: Additional arguments passed to `table.delete_item()`.
+
+    Returns:
+        The deleted item's attributes if `return_values` is "ALL_OLD", None otherwise.
+    """
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/table/delete_item.html
 
     if condition_expression:
@@ -189,20 +260,22 @@ def table_query(
     region: Optional[str] = None,
     consistent_read: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Query a table
+    """Query a DynamoDB table.
 
     Args:
-        table_name (str): Name of the table (prefixed with EnvBase)
-        key_condition_expression (ConditionBase): Key condition expression.
-        index_name (str, optional): Index name. Defaults to None.
-        filter_expression (ConditionBase, optional): Filter expression. Defaults to None.
-        region (str, optional): Region. Defaults to None.
-        consistent_read (bool, optional): Whether a strongly consistent read should be used for the
-            query. Defaults to False.
-            NOTE: Strongly consistent reads are not supported for global secondary indexes
+        table_name: Name of the table.
+        key_condition_expression: Key condition expression for the query.
+        index_name: Index name. Defaults to None (query the main table).
+        filter_expression: Filter expression to apply after the query. Defaults to None.
+        region: AWS region. Defaults to None (uses default region).
+        consistent_read: Whether a strongly consistent read should be used.
+            Defaults to False.
+
+            Note:
+                Strongly consistent reads are not supported for global secondary indexes.
 
     Returns:
-        List[Dict[str, Any]]: Items queried
+        List of items matching the query.
     """
     db = get_dynamodb_client(region=region)
     table = table_as_resource(table_name)
@@ -271,19 +344,21 @@ def table_scan(
     region: Optional[str] = None,
     consistent_read: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Scan a table
+    """Scan a DynamoDB table.
 
     Args:
-        table_name (str): Name of the table (prefixed with EnvBase)
-        index_name (str, optional): Index name. Defaults to None.
-        filter_expression (ConditionBase, optional): Filter expression. Defaults to None.
-        region (str, optional): Region. Defaults to None.
-        consistent_read (bool, optional): Whether a strongly consistent read should be used for the
-            query. Defaults to False.
-            NOTE: Strongly consistent reads are not supported for secondary indexes
+        table_name: Name of the table.
+        index_name: Index name. Defaults to None (scan the main table).
+        filter_expression: Filter expression to apply. Defaults to None.
+        region: AWS region. Defaults to None (uses default region).
+        consistent_read: Whether a strongly consistent read should be used.
+            Defaults to False.
+
+            Note:
+                Strongly consistent reads are not supported for secondary indexes.
 
     Returns:
-        List[Dict[str, Any]]: Items queried
+        List of items from the scan.
     """
 
     db = get_dynamodb_client(region=region)
@@ -334,8 +409,14 @@ def table_scan(
 
 
 def table_get_key_schema(table_name: str) -> Dict[str, str]:
-    """Helper function to return mapping of key type to attribute name for a table
-    e.g. {"HASH": PartitionKeyAttributeName, "RANGE": SortKeyAttributeName}
+    """Get the key schema for a DynamoDB table.
+
+    Args:
+        table_name: Name of the table.
+
+    Returns:
+        Mapping of key type to attribute name.
+        Example: `{"HASH": "partition_key_name", "RANGE": "sort_key_name"}`
     """
     table = table_as_resource(table_name)
     return {k["KeyType"]: k["AttributeName"] for k in table.key_schema}
@@ -344,6 +425,17 @@ def table_get_key_schema(table_name: str) -> Dict[str, str]:
 def execute_partiql_statement(
     statement: str, region: Optional[str] = None
 ) -> List[Dict[str, Any]]:
+    """Execute a PartiQL statement against DynamoDB.
+
+    Handles pagination automatically to retrieve all results.
+
+    Args:
+        statement: The PartiQL statement to execute.
+        region: AWS region. Defaults to None (uses default region).
+
+    Returns:
+        List of items returned by the statement.
+    """
     db = get_dynamodb_client(region=region)
 
     response = db.execute_statement(Statement=statement)
@@ -356,14 +448,34 @@ def execute_partiql_statement(
 
 
 def table_as_resource(table: str, region: Optional[str] = None):
-    """Helper method to get the table as a resource for given env_label
-    if provided.
+    """Get a DynamoDB Table resource.
+
+    Args:
+        table: Name of the table.
+        region: AWS region. Defaults to None (uses default region).
+
+    Returns:
+        A boto3 DynamoDB Table resource.
     """
     db = get_dynamodb_resource(region=region)
     return db.Table(table)
 
 
 def convert_decimals_to_floats(item: Dict[str, Any], in_place: bool = True) -> Dict[str, Any]:
+    """Convert all Decimal values in a dictionary to floats.
+
+    DynamoDB returns numeric values as Decimal objects. This function recursively
+    converts them to standard Python floats.
+
+    Args:
+        item: Dictionary potentially containing Decimal values.
+        in_place: If True, modify the dictionary in place. If False, create a copy first.
+            Defaults to True.
+
+    Returns:
+        The dictionary with all Decimals converted to floats.
+    """
+
     def _convert_decimals_to_floats(obj: Union[Dict[str, Any], List[Any]]):
         if isinstance(obj, list):
             for i in range(len(obj)):
@@ -385,6 +497,20 @@ def convert_decimals_to_floats(item: Dict[str, Any], in_place: bool = True) -> D
 
 
 def convert_floats_to_decimals(item: Dict[str, Any], in_place: bool = True) -> Dict[str, Any]:
+    """Convert all float values in a dictionary to Decimals.
+
+    DynamoDB requires numeric values to be Decimal objects. This function recursively
+    converts Python floats to Decimals for storage.
+
+    Args:
+        item: Dictionary potentially containing float values.
+        in_place: If True, modify the dictionary in place. If False, create a copy first.
+            Defaults to True.
+
+    Returns:
+        The dictionary with all floats converted to Decimals.
+    """
+
     def _convert_floats_to_decimals(obj: Union[Dict[str, Any], List[Any]]):
         if isinstance(obj, list):
             for i in range(len(obj)):

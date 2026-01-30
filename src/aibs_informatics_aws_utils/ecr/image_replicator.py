@@ -53,20 +53,23 @@ class ECRImageReplicator(LoggingMixin):
         """Copies the source image into the destination repository.
 
         This allows the user to facilitate replication:
-            * between AWS accounts,
-            * to a new repository,
-            * with new tags.
 
-        Note:   This has exactly the same effect as
-                `docker pull; docker tag; docker push`,
-                but is done with the AWS ECR SDK so we can run
-                this in a lambda when our stack updates
+        - **between AWS accounts**
+        - **to a new repository**
+        - **with new tags**
+
+        Note:
+            This has exactly the same effect as `docker pull; docker tag; docker push`,
+            but is done with the AWS ECR SDK so we can run this in a lambda when our
+            stack updates.
 
         Args:
-            source_image (ECRImage): configuration of image to pull
-            destination_repository (ECRRepository): repository to push to.
+            source_image: Configuration of image to pull.
+            destination_repository: Repository to push to.
+            destination_image_tags: Optional list of tags to apply to the destination image.
+
         Returns:
-            (ECRImage) configuration of destination image pushed.
+            Configuration of destination image pushed.
         """
         self.log.info(
             f"Starting Image Replication "
@@ -96,11 +99,11 @@ class ECRImageReplicator(LoggingMixin):
         )
 
     def upload_layers(self, source_image: ECRImage, destination_repository: ECRRepository):
-        """Upload image layers of the source image to the destination repository
+        """Upload image layers of the source image to the destination repository.
 
         Args:
-            source_image (ECRImage): source image that has been copied
-            destination_repository (ECRRepository): destination repo
+            source_image: Source image that has been copied.
+            destination_repository: Destination repository.
         """
         self.logger.info(
             f"Uploading layers from {source_image.uri} to {destination_repository.uri}."
@@ -129,7 +132,7 @@ class ECRImageReplicator(LoggingMixin):
         destination_repository: ECRRepository,
         destination_image_tags: Optional[List[str]] = None,
     ) -> ECRImage:
-        """Put image manifest and tags for an image
+        """Put image manifest and tags for an image.
 
         This is the final step in copying an ECR image. It must be done
         once all the layers of the image have been uploaded.
@@ -139,14 +142,13 @@ class ECRImageReplicator(LoggingMixin):
         the put_image request.
 
         Args:
-            source_image (ECRImage): source image that has been copied
-            destination_repository (ECRRepository): destination repo
-            destination_image_tags (List[str]): destination image tags. Optional.
+            source_image: Source image that has been copied.
+            destination_repository: Destination repository.
+            destination_image_tags: Destination image tags. Optional.
                 If not provided, source image's tags are added.
 
         Returns:
-            ECRImage: destination ECR Image
-
+            Destination ECR Image.
         """
         tags = (
             source_image.image_tags if destination_image_tags is None else destination_image_tags
@@ -203,13 +205,14 @@ class ECRImageReplicator(LoggingMixin):
         layers: List[LayerTypeDef],
         check_if_exists: bool = True,
     ):
-        """(internal) Upload image layers of the source image to the destination repository
+        """Upload image layers of the source image to the destination repository.
 
         Args:
-            source_repository (ECRRepository): source repository of layers
-            destination_repository (ECRRepository): destination repo
-            layers (List[LayerTypeDef]): layers from source repository
-            check_if_exists (bool, optional): _description_. Defaults to True.
+            source_repository: Source repository of layers.
+            destination_repository: Destination repository.
+            layers: Layers from source repository.
+            check_if_exists: Whether to check if layer already exists before uploading.
+                Defaults to True.
         """
         for i, layer in enumerate(layers):
             self.logger.info(f"Starting upload of layer {i + 1} / {len(layers)}")
@@ -341,19 +344,19 @@ class ECRImageReplicator(LoggingMixin):
         part_first_byte: int,
         part_last_byte: int,
     ) -> int:
-        """Uploads the range of bytes from the provided download url to destination repository
+        """Uploads the range of bytes from the provided download url to destination repository.
 
         Args:
-            client (ECRClient): ECR client
-            repository_name (str): destination repository to which layer part uploaded
-            download_url: s3 url for the layer from '_get_download_url_for_layer'
-            upload_id: upload id from 'initiate_layer_upload'
-            part_first_byte: first byte to upload
-            part_last_byte: last byte to upload
+            client: ECR client.
+            repository_name: Destination repository to which layer part uploaded.
+            download_url: S3 url for the layer from `_get_download_url_for_layer`.
+            upload_id: Upload id from `initiate_layer_upload`.
+            part_first_byte: First byte to upload.
+            part_last_byte: Last byte to upload.
 
         Returns:
-            int: the last byte received from the 'upload_layer_part' request
-                 (not necessarily the part_last_byte)
+            The last byte received from the `upload_layer_part` request
+            (not necessarily the part_last_byte).
         """
 
         http_response = requests.request(
@@ -380,18 +383,16 @@ class ECRImageReplicator(LoggingMixin):
     def _complete_layer_upload(
         self, client: ECRClient, repository_name: str, upload_id: str, layer_digest: str
     ):
-        """
-        Tells ECR that layer upload has completed
+        """Tells ECR that layer upload has completed.
 
         If the layer already exists in the AWS account / repository
-        will return with success
+        will return with success.
 
         Args:
-            client (ECRClient): ECR client
-            repository_name (str): destination repository to which layer part uploaded
-            upload_id: upload id for the layer from 'initiate_layer_upload'
-            layer_digest: sha of the layer
-
+            client: ECR client.
+            repository_name: Destination repository to which layer part uploaded.
+            upload_id: Upload id for the layer from `initiate_layer_upload`.
+            layer_digest: SHA of the layer.
         """
 
         try:
@@ -419,16 +420,15 @@ class ECRImageReplicator(LoggingMixin):
     def _get_missing_layers(
         self, client: ECRClient, repository_name: str, put_image_error: ClientError
     ) -> List[LayerTypeDef]:
-        """Gets missing layers from a ClientError while putting image
+        """Gets missing layers from a ClientError while putting image.
 
         Args:
-            client (ECRClient): ECR client
-            repository_name (str): source repository containing layer of layer digest
-            source_image (ECRImage): source image wih missing layers
-            put_image_error (ClientError): error thrown after putting image
+            client: ECR client.
+            repository_name: Source repository containing layer of layer digest.
+            put_image_error: Error thrown after putting image.
 
         Returns:
-            List[LayerTypeDef]: list of missing layers
+            List of missing layers.
         """
 
         error_message = put_image_error.response.get("Error", {}).get("Message", "Unknown")
@@ -449,15 +449,15 @@ class ECRImageReplicator(LoggingMixin):
     def _get_layer_from_digest(
         self, client: ECRClient, repository_name: str, layer_digest: str
     ) -> LayerTypeDef:
-        """Get the layer info of an image's layer
+        """Get the layer info of an image's layer.
 
         Args:
-            client (ECRClient): ECR client
-            repository_name (str): source repository containing layer of layer digest
-            layer_digest (str): layer sha256 identifier
+            client: ECR client.
+            repository_name: Source repository containing layer of layer digest.
+            layer_digest: Layer sha256 identifier.
 
         Returns:
-            LayerTypeDef: image layer digest and size in bytes
+            Image layer digest and size in bytes.
         """
         response = client.batch_check_layer_availability(
             repositoryName=repository_name, layerDigests=[layer_digest]

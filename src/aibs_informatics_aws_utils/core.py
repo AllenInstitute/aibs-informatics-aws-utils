@@ -267,7 +267,7 @@ def get_resource(
     session: Optional[boto3.Session] = None,
     region: Optional[str] = None,
     **kwargs,
-):
+) -> ServiceResource:
     """Get a boto3 resource object
     Notes:
 
