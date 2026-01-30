@@ -1,0 +1,99 @@
+site_name: AIBS Informatics AWS Utils
+site_description: "Utilities and tools for working with AWS services at the Allen Institute for Brain Science."
+repo_url: https://github.com/AllenInstitute/aibs-informatics-aws-utils
+repo_name: AllenInstitute/aibs-informatics-aws-utils
+docs_dir: docs
+site_dir: build/documentation/site
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - content.code.annotate
+plugins:
+  - search
+  - autorefs:
+      link_titles: auto
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths:
+            - src
+          options:
+            docstring_style: google
+            show_source: true
+            separate_signature: true
+            heading_level: 2
+            filters:
+              - "!^_"
+            merge_init_into_class: true
+nav:
+  - Home: index.md
+  - User Guide:
+      - Getting Started: user-guide/getting-started.md
+      - Configuration: user-guide/configuration.md
+  - Developer Guide:
+      - Overview: developer/index.md
+  - API Reference:
+      - Overview: api/index.md
+      - Core: api/core.md
+      - Exceptions: api/exceptions.md
+      - AWS Services:
+          - API Gateway: api/services/apigateway.md
+          - Athena: api/services/athena.md
+          - Auth: api/services/auth.md
+          - Batch: api/services/batch.md
+          - DynamoDB:
+              - Overview: api/services/dynamodb/index.md
+              - Conditions: api/services/dynamodb/conditions.md
+              - Functions: api/services/dynamodb/functions.md
+              - Table: api/services/dynamodb/table.md
+          - ECR:
+              - Overview: api/services/ecr/index.md
+              - Core: api/services/ecr/core.md
+              - Image Replicator: api/services/ecr/image-replicator.md
+          - EC2: api/services/ec2.md
+          - ECS: api/services/ecs.md
+          - EFS:
+              - Overview: api/services/efs/index.md
+              - Core: api/services/efs/core.md
+              - Mount Point: api/services/efs/mount-point.md
+              - Paths: api/services/efs/paths.md
+          - FSx: api/services/fsx.md
+          - Lambda: api/services/lambda.md
+          - Logs: api/services/logs.md
+          - S3: api/services/s3.md
+          - Secrets Manager: api/services/secretsmanager.md
+          - SES: api/services/ses.md
+          - SNS: api/services/sns.md
+          - SQS: api/services/sqs.md
+          - SSM: api/services/ssm.md
+          - Step Functions: api/services/stepfn.md
+      - Constants:
+          - Overview: api/constants/index.md
+          - EFS: api/constants/efs.md
+          - Lambda: api/constants/lambda.md
+          - S3: api/constants/s3.md
+      - Data Sync:
+          - Overview: api/data-sync/index.md
+          - File System: api/data-sync/file-system.md
+          - Operations: api/data-sync/operations.md
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+extra:
+  version:
+    provider: mkdocs
