@@ -28,7 +28,7 @@ def put_ssm_parameter(
         exists_ok (bool, optional): Allow overwrite if value exists. Defaults to True.
 
     Returns:
-        int: The version of the parameter
+        The version of the parameter
     """
     ssm = get_ssm_client()
     return ssm.put_parameter(
@@ -59,7 +59,7 @@ def get_ssm_parameter(param_name: str, as_dict: bool = False) -> Union[str, Dict
         ValueError: If there is no such key
 
     Returns:
-        str|dict: The parameter value stored at the key name
+        The parameter value stored at the key name
     """
     ssm = get_ssm_client()
 

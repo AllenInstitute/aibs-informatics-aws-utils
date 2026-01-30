@@ -186,7 +186,7 @@ def network_performance_sort_key(network_performance: str) -> float:
             e.g. "Low", "Moderate", "High", "Up to 10 Gigabit", "25 Gigabit", etc.
 
     Returns:
-        float: The upper limit network performance value in Gbps
+        The upper limit network performance value in Gbps
     """
     # If it matches a pattern like "10 Gigabit", "25 Gigabit", etc.
     pattern = re.compile(r"(\d+(?:.\d*)?)\s*Gigabit")
@@ -218,7 +218,7 @@ def get_regions() -> List[str]:
     """Gets all available regions
 
     Returns:
-        List[str]: List of regions
+        List of regions
     """
     return [
         region_info["RegionName"]
@@ -275,7 +275,7 @@ def get_availability_zones(
             Defaults to False.
 
     Returns:
-        List[str]: List of availability zones
+        List of availability zones
     """
     return [
         zone_info["ZoneName"]
@@ -299,7 +299,7 @@ def describe_instance_type_offerings(
             Defaults to None.
 
     Returns:
-        _type_: List of instance type offerings
+        List of instance type offerings
     """
     kwargs: DescribeInstanceTypeOfferingsRequestPaginateTypeDef = {}
     if instance_types is not None:
@@ -338,7 +338,7 @@ def describe_instance_types(
         filters (Optional[Dict[str, List[str]]], optional): Filters to apply. Defaults to None.
 
     Returns:
-        List[InstanceTypeInfoTypeDef]: List of instance type details
+        List of instance type details
     """
     ec2 = get_ec2_client()
 
@@ -387,7 +387,7 @@ def describe_instance_types_by_props(
             availability in availability zones. Defaults to None.
 
     Returns:
-        List[InstanceTypeInfoTypeDef]: List of instance type details matching
+        List of instance type details matching
             the specified filters
     """
 
@@ -488,7 +488,7 @@ def get_common_instance_types(
                 specified regions are used.
 
     Returns:
-        List[str]: List of instance types common across the specified
+        List of instance types common across the specified
             regions or availability zones
     """
 
@@ -568,7 +568,7 @@ def get_instance_type_spot_price(
         product_description (str, optional): Defaults to "Linux/UNIX".
 
     Returns:
-        float: price in USD per hour for Linux spot instance
+        price in USD per hour for Linux spot instance
     """
     return get_instance_types_spot_price(
         region, instance_types=[instance_type], product_descriptions=[product_description]
@@ -585,7 +585,7 @@ def get_instance_type_on_demand_price(
         instance_type (str): The instance type to get the price for
 
     Returns:
-        float: price in USD per hour for Linux on demand instance
+        price in USD per hour for Linux on demand instance
     """
 
     # Pricing API endpoint is currently available only in 'us-east-1'

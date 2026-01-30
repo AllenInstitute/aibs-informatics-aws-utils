@@ -123,7 +123,7 @@ def get_region(region: Optional[str] = None) -> str:
             - If region is not correct format
 
     Returns:
-        str: AWS Region
+        AWS Region
     """
 
     # If not provided, check session

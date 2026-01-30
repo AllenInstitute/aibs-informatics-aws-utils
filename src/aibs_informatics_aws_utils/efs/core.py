@@ -62,7 +62,7 @@ def list_efs_file_systems(
             They should be a dict of key-value pairs.
 
     Returns:
-        List[FileSystemDescriptionTypeDef]: List of matching file systems
+        List of matching file systems
     """
     efs = get_efs_client()
     paginator = efs.get_paginator("describe_file_systems")
@@ -101,7 +101,7 @@ def get_efs_file_system(
         ValueError: If more than one file system is found based on the filters.
 
     Returns:
-        FileSystemDescriptionTypeDef: The file system description.
+        The file system description.
     """
     file_systems = list_efs_file_systems(file_system_id=file_system_id, name=name, tags=tags)
     if len(file_systems) > 1:
@@ -140,7 +140,7 @@ def list_efs_access_points(
             tags. They should be a dict of key-value pairs.
 
     Returns:
-        List[AccessPointDescriptionTypeDef]: List of matching access points
+        List of matching access points
     """
     efs = get_efs_client()
 
@@ -214,7 +214,7 @@ def get_efs_access_point(
         ValueError: If more than one access point is found based on the filters.
 
     Returns:
-        AccessPointDescriptionTypeDef: The access point description.
+        The access point description.
     """
     access_points = list_efs_access_points(
         access_point_id=access_point_id,

@@ -100,7 +100,7 @@ def to_key_value_pairs(
         remove_null_values (bool): Whether to withhold pairs where value is None. Defaults to True
 
     Returns:
-        List[KeyValuePairTypeDef]: List of name,value json blobs representing env variables
+        List of name,value json blobs representing env variables
     """
 
     return sorted(
@@ -129,7 +129,7 @@ def to_resource_requirements(
         vcpus (Optional[int], optional): Number of VCPUs to use. Defaults to None.
 
     Returns:
-        List[ResourceRequirementTypeDef]: list of resource requirements
+        list of resource requirements
     """
 
     pairs: list[tuple[Literal["GPU", "MEMORY", "VCPU"], Optional[int]]] = [
@@ -159,7 +159,7 @@ def build_retry_strategy(
             evaluate on exit configurations. Defaults to True.
 
     Returns:
-        RetryStrategyTypeDef: The retry strategy configuration.
+        The retry strategy configuration.
     """
     all_evaluate_on_exit_configs: List[EvaluateOnExitTypeDef] = []
     if evaluate_on_exit_configs:

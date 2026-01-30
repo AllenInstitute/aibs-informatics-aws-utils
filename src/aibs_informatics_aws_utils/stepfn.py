@@ -271,7 +271,7 @@ def start_execution(
         region (str, optional): ergion. Defaults to None.
 
     Returns:
-        ExecutionArn: the execution arn
+        the execution arn
     """
     region = get_region(region=region)
     sfn = get_sfn_client()

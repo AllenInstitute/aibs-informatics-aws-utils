@@ -102,7 +102,7 @@ def resolve_file_system_ids(*name_or_ids: FileSystemNameOrId) -> List[FSxFileSys
         name_or_ids (Tuple[FileSystemNameOrId]): File system names or ids.
 
     Returns:
-        str: File system id.
+        File system id.
     """
     file_system_ids: List[FSxFileSystemId] = []
     for name_or_id in name_or_ids:
@@ -128,7 +128,7 @@ def get_file_system(
         tags (Optional[Dict[str, str]], optional): File system tags.
 
     Returns:
-        FileSystemTypeDef: File system description.
+        File system description.
     """
     if not name_or_id and not tags:
         raise ValueError("At least one of file_system_id, name or tags must be provided.")
@@ -159,7 +159,7 @@ def list_file_systems(
         **kwargs: Additional arguments passed to the FSx client.
 
     Returns:
-        List[FileSystemTypeDef]: List of file systems.
+        List of file systems.
     """
     client = get_fsx_client(**kwargs)
     paginator = client.get_paginator("describe_file_systems")
@@ -205,7 +205,7 @@ def list_data_repository_associations(
         **kwargs: Additional arguments passed to the FSx client.
 
     Returns:
-        List[DataRepositoryAssociationTypeDef]: List of data repository associations.
+        List of data repository associations.
     """
     client = get_fsx_client(**kwargs)
     if name_or_id:
@@ -252,7 +252,7 @@ def calculate_size_required(bytes_required: int) -> int:
         bytes_required (int): Bytes required.
 
     Returns:
-        int: Size required.
+        Size required.
     """
     BYTES_IN_TB = 1024 * 1024 * 1024 * 1024
     if bytes_required <= 1.2 * BYTES_IN_TB:

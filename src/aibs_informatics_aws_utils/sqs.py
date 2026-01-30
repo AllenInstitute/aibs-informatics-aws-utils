@@ -96,7 +96,7 @@ def send_sqs_message(
             be provided.
 
     Returns:
-        str: Returns an MD5 digest of the send message body.
+        Returns an MD5 digest of the send message body.
     """
     sqs = get_sqs_client(region=get_region())
     try:

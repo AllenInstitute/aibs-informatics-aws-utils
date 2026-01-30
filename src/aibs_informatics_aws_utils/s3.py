@@ -116,7 +116,7 @@ def download_to_json(s3_path: S3URI, **kwargs) -> JSON:
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
-        JSON: The parsed JSON content.
+        The parsed JSON content.
 
     Raises:
         AWSError: If there is an error reading the JSON data.
@@ -519,7 +519,7 @@ def is_folder(s3_path: S3URI, **kwargs) -> bool:
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
-        bool: True if s3 path is a folder.
+        True if s3 path is a folder.
     """
     return is_object_prefix(
         s3_path=S3URI.build(bucket_name=s3_path.bucket, key=s3_path.key_with_folder_suffix),
@@ -543,7 +543,7 @@ def is_folder_placeholder_object(s3_path: S3URI, **kwargs) -> bool:
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
-        bool: True if the S3 path is a folder placeholder object, False otherwise.
+        True if the S3 path is a folder placeholder object, False otherwise.
     """
     if not s3_path.has_folder_suffix():
         return False
@@ -577,7 +577,7 @@ def get_s3_path_stats(s3_path: S3URI, **kwargs) -> S3PathStats:
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
-        S3PathStats: Statistics object containing last_modified, size_bytes, and object_count.
+        Statistics object containing last_modified, size_bytes, and object_count.
     """
     s3 = get_s3_client(**kwargs)
     last_modified = get_current_time()
@@ -774,7 +774,7 @@ def generate_transfer_request(
         extra_args (Optional[Dict[str, Any]]): Extra arguments for the transfer.
 
     Returns:
-        S3TransferRequest: The appropriate transfer request (S3CopyRequest, S3UploadRequest,
+        The appropriate transfer request (S3CopyRequest, S3UploadRequest,
             or S3DownloadRequest) based on source and destination types.
 
     Raises:
@@ -829,7 +829,7 @@ def process_transfer_requests(
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
-        List[S3TransferResponse]: List of transfer responses.
+        List of transfer responses.
     """
     transfer_responses = []
 
@@ -1066,7 +1066,7 @@ def list_s3_paths(
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
-        List[S3URI]: List of S3 paths under root that satisfy filters.
+        List of S3 paths under root that satisfy filters.
     """
 
     empty_include = (include is None) or (not any(include))
@@ -1111,7 +1111,7 @@ def generate_presigned_urls(
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
-        List[str]: List of pre-signed URLs.
+        List of pre-signed URLs.
     """
     return [generate_presigned_url(s3_path, action, expires_in, **kwargs) for s3_path in s3_paths]
 
@@ -1132,7 +1132,7 @@ def generate_presigned_url(
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
-        str: A pre-signed URL.
+        A pre-signed URL.
     """
     s3 = get_s3_client(config=Config(signature_version="s3v4"), **kwargs)
     presigned_url = s3.generate_presigned_url(
@@ -1169,7 +1169,7 @@ def should_sync(
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
-        bool: True if sync is needed, False otherwise.
+        True if sync is needed, False otherwise.
     """
     source_last_modified: datetime
     source_size_bytes: int
@@ -1279,7 +1279,7 @@ def check_paths_in_sync(
         ValueError: If the source path does not exist.
 
     Returns:
-        bool: True if paths are in sync, False otherwise.
+        True if paths are in sync, False otherwise.
     """
 
     def _resolve_paths(path: Union[Path, S3URI]) -> List[Union[Path, S3URI]]:
@@ -1403,7 +1403,7 @@ def update_s3_storage_class(
             `S3StorageClass.REDUCED_REDUNDANCY`).
 
     Returns:
-        bool: True if the s3_path successfully had its storage class updated.
+        True if the s3_path successfully had its storage class updated.
             False if s3_path did not fully update its storage class, specifically:
 
             - A constituent object or objects under S3 archive storage class are still restoring
@@ -1581,7 +1581,7 @@ def determine_chunk_size(
             Defaults to AWS_S3_DEFAULT_CHUNK_SIZE_BYTES.
 
     Returns:
-        int: The appropriate chunk size in bytes.
+        The appropriate chunk size in bytes.
     """
     file_size = path.stat().st_size
     correct_chunk_size_bytes = default_chunk_size_bytes
@@ -1606,7 +1606,7 @@ def get_local_etag(
             If None, we determine the threshold based on file size.
 
     Returns:
-        str: The expected etag
+        The expected etag
     """
     if chunk_size_bytes is None:
         chunk_size_bytes = determine_chunk_size(path)
