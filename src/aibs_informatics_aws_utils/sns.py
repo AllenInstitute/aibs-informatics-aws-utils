@@ -44,6 +44,29 @@ def publish(
     message_group_id: Optional[str] = None,
     region: Optional[str] = None,
 ) -> PublishResponseTypeDef:
+    """Publish a message to an SNS topic, endpoint, or phone number.
+
+    At least one of topic_arn, target_arn, or phone_number must be provided.
+
+    Args:
+        message (str): The message to publish.
+        topic_arn (Optional[str]): Optional SNS topic ARN to publish to.
+        target_arn (Optional[str]): Optional endpoint ARN (e.g., mobile push).
+        phone_number (Optional[str]): Optional phone number to send SMS to.
+        subject (Optional[str]): Optional subject for email endpoints.
+        message_structure (Optional[str]): Message structure for multi-format messages.
+        message_attributes (Optional[Mapping]): Optional message attributes.
+        message_deduplication_id (Optional[str]): Deduplication ID for FIFO topics.
+        message_group_id (Optional[str]): Message group ID for FIFO topics.
+        region (Optional[str]): AWS region. Defaults to None.
+
+    Raises:
+        AWSError: If none of topic_arn, target_arn, or phone_number is provided,
+            or if publishing fails.
+
+    Returns:
+        The publish response containing the message ID.
+    """
     if topic_arn is None and target_arn is None and phone_number is None:
         raise AWSError("Must provide either a topic_arn, target_arn, or phone_number")
     sns = get_sns_client(region=region)
@@ -88,6 +111,23 @@ def publish_to_topic(
     message_group_id: Optional[str] = None,
     region: Optional[str] = None,
 ) -> PublishResponseTypeDef:
+    """Publish a message to an SNS topic.
+
+    This is a convenience wrapper around publish() for topic-based publishing.
+
+    Args:
+        message (str): The message to publish.
+        topic_arn (str): The SNS topic ARN to publish to.
+        subject (Optional[str]): Optional subject for email endpoints.
+        message_structure (Optional[str]): Message structure for multi-format messages.
+        message_attributes (Optional[Mapping]): Optional message attributes.
+        message_deduplication_id (Optional[str]): Deduplication ID for FIFO topics.
+        message_group_id (Optional[str]): Message group ID for FIFO topics.
+        region (Optional[str]): AWS region. Defaults to None.
+
+    Returns:
+        The publish response containing the message ID.
+    """
     return publish(
         message=message,
         topic_arn=topic_arn,

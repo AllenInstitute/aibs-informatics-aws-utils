@@ -23,6 +23,15 @@ get_lambda_client = AWSService.LAMBDA.get_client
 def get_lambda_function_url(
     function_name: Union[LambdaFunctionName, str], region: Optional[AWSRegion] = None
 ) -> Optional[LambdaFunctionUrl]:
+    """Get the function URL for a Lambda function.
+
+    Args:
+        function_name (Union[LambdaFunctionName, str]): The name or ARN of the Lambda function.
+        region (Optional[AWSRegion]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        The function URL if configured, otherwise None.
+    """
     function_name = LambdaFunctionName(function_name)
 
     lambda_client = get_lambda_client(region=region)
@@ -40,6 +49,15 @@ def get_lambda_function_url(
 def get_lambda_function_file_systems(
     function_name: Union[LambdaFunctionName, str], region: Optional[AWSRegion] = None
 ) -> List[FileSystemConfigTypeDef]:
+    """Get the file system configurations for a Lambda function.
+
+    Args:
+        function_name (Union[LambdaFunctionName, str]): The name or ARN of the function.
+        region (Optional[AWSRegion]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        List of file system configurations (EFS mount points).
+    """
     function_name = LambdaFunctionName(function_name)
 
     lambda_client = get_lambda_client(region=region)
@@ -59,6 +77,23 @@ def call_lambda_function_url(
     auth: Optional[AuthBase] = None,
     **request_kwargs,
 ) -> Union[dict, str, None]:
+    """Call a Lambda function via its function URL.
+
+    Args:
+        function_name (Union[LambdaFunctionName, LambdaFunctionUrl, str]): The function
+            name, ARN, or URL to call.
+        payload (Optional[Union[ModelProtocol, dict, str, bytes]]): Request payload.
+        region (Optional[AWSRegion]): AWS region. Defaults to None.
+        headers (Optional[dict]): Optional HTTP headers.
+        auth (Optional[AuthBase]): Authentication handler. Defaults to IAM auth.
+        **request_kwargs: Additional arguments passed to the requests library.
+
+    Raises:
+        ValueError: If the function name/URL is invalid or function not found.
+
+    Returns:
+        The response as dict (if JSON) or str, or None on error.
+    """
     if LambdaFunctionName.is_valid(function_name):
         function_url = get_lambda_function_url(LambdaFunctionName(function_name), region=region)
         if function_url is None:

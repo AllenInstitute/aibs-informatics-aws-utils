@@ -205,10 +205,10 @@ def network_performance_sort_key(network_performance: str) -> float:
 
 
 def describe_regions():
-    """Describe regions
+    """Describe all enabled AWS regions.
 
     Returns:
-        List[dict]: List of region info dictionaries
+        List of region information dictionaries.
     """
     ec2 = get_ec2_client()
     return ec2.describe_regions(AllRegions=False)["Regions"]

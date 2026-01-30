@@ -10,16 +10,23 @@ from aibs_informatics_aws_utils.core import get_session
 
 
 class IamAWSRequestsAuth(AuthBase):
-    """
-    IAM authorizer.
+    """IAM authorizer for signing HTTP requests with AWS SigV4.
 
-    :param boto3.Session session: Optional boto3 Session object
-    :param str service_name: Optional AWS service name
+    This class can be used with the `requests` library to automatically sign
+    HTTP requests using AWS IAM credentials.
 
-    :Example:
+    Args:
+        session (Optional[Session]): Optional botocore Session object for credentials.
+        service_name (str): The AWS service name for signing. Defaults to "execute-api".
 
-    >>> IAMAuth()
-    >>> IAMAuth(boto3.Session(), 'execute-api')
+    Example:
+        ```python
+        auth = IamAWSRequestsAuth()
+        response = requests.get(url, auth=auth)
+
+        # With custom session and service
+        auth = IamAWSRequestsAuth(boto3.Session(), 'execute-api')
+        ```
     """
 
     def __init__(self, session: Optional[Session] = None, service_name: str = "execute-api"):

@@ -12,6 +12,18 @@ get_apigateway_client = AWSService.API_GATEWAY.get_client
 
 
 def get_rest_api(api_name: str, region: Optional[str] = None) -> RestApiTypeDef:
+    """Get a REST API by name.
+
+    Args:
+        api_name (str): The name of the REST API to find.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Raises:
+        ResourceNotFoundError: If no REST API with the given name is found.
+
+    Returns:
+        The REST API configuration.
+    """
     apigw = get_apigateway_client(region=region)
 
     paginator = apigw.get_paginator("get_rest_apis")
@@ -30,6 +42,16 @@ def get_rest_api(api_name: str, region: Optional[str] = None) -> RestApiTypeDef:
 def get_rest_api_endpoint(
     rest_api: RestApiTypeDef, stage: str = "prod", region: Optional[str] = None
 ) -> str:
+    """Get the endpoint URL for a REST API.
+
+    Args:
+        rest_api (RestApiTypeDef): The REST API configuration from get_rest_api().
+        stage (str): The API Gateway stage name. Defaults to "prod".
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        The fully qualified endpoint URL for the REST API.
+    """
     api_id = rest_api["id"]  # type: ignore  # mypy_boto3 TypeDict makes optional, but actually is required
     region = get_region(region)
     return f"https://{api_id}.execute-api.{region}.amazonaws.com/{stage}"

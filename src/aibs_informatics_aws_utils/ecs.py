@@ -24,6 +24,19 @@ get_ecs_client = AWSService.ECS.get_client
 def ecs_describe_container_instances(
     container_instances: List[str], cluster: str, **kwargs
 ) -> DescribeContainerInstancesResponseTypeDef:
+    """Describe ECS container instances.
+
+    Args:
+        container_instances (List[str]): List of container instance IDs or ARNs.
+        cluster (str): The short name or full ARN of the cluster.
+        **kwargs: Additional arguments passed to the ECS API.
+
+    Raises:
+        AWSError: If the container instances cannot be described.
+
+    Returns:
+        The describe container instances response.
+    """
     ecs = get_ecs_client()
     try:
         return ecs.describe_container_instances(

@@ -191,6 +191,25 @@ def register_job_definition(
     propagate_tags: bool = False,
     region: Optional[str] = None,
 ) -> Union[JobDefinitionTypeDef, RegisterJobDefinitionResponseTypeDef]:
+    """Register a job definition with Batch.
+
+    If a matching job definition already exists (same command, image, jobRoleArn,
+    parameters, type, tags, and retry strategy), the existing definition is returned
+    instead of creating a new revision.
+
+    Args:
+        job_definition_name (str): The name of the job definition.
+        container_properties (ContainerPropertiesTypeDef): Container configuration.
+        parameters (Optional[Mapping[str, str]]): Default parameter substitution values.
+        job_definition_type (JobDefinitionTypeType): Type of job. Defaults to "container".
+        retry_strategy (Optional[RetryStrategyTypeDef]): Retry strategy configuration.
+        tags (Optional[Mapping[str, str]]): Tags to apply to the job definition.
+        propagate_tags (bool): Whether to propagate tags to jobs. Defaults to False.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        The existing job definition if matching, otherwise the new registration response.
+    """
     batch = get_batch_client(region=region)
 
     # First we check to make sure that we aren't crearting unnecessary revisions

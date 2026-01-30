@@ -78,6 +78,14 @@ def get_ssm_parameter(param_name: str, as_dict: bool = False) -> Union[str, Dict
 
 
 def has_ssm_parameter(param_name: str) -> bool:
+    """Check if an SSM parameter exists.
+
+    Args:
+        param_name (str): The SSM parameter key name to check.
+
+    Returns:
+        True if the parameter exists, False otherwise.
+    """
     try:
         get_ssm_parameter(param_name)
     except (ValueError, ClientError):

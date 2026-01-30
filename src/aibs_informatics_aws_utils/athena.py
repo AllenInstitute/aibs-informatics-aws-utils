@@ -45,6 +45,20 @@ def start_query_execution(
     execution_parameters: Optional[List[str]] = None,
     **kwargs: Unpack[StartQueryExecutionInputTypeDef],
 ) -> StartQueryExecutionOutputTypeDef:
+    """Start an Athena query execution.
+
+    Args:
+        query_string (str): The SQL query string to execute.
+        work_group (Optional[str]): The name of the workgroup to execute the query in.
+        execution_parameters (Optional[List[str]]): Optional list of query execution parameters.
+        **kwargs: Additional arguments passed to the Athena start_query_execution API.
+
+    Raises:
+        AWSError: If the query execution fails to start.
+
+    Returns:
+        The start query execution response containing the QueryExecutionId.
+    """
     athena = get_athena_client()
 
     request = StartQueryExecutionInputTypeDef(QueryString=query_string)
@@ -62,6 +76,17 @@ def start_query_execution(
 
 
 def get_query_execution(query_execution_id: str) -> GetQueryExecutionOutputTypeDef:
+    """Get the status and details of an Athena query execution.
+
+    Args:
+        query_execution_id (str): The unique identifier of the query execution.
+
+    Raises:
+        AWSError: If the query execution cannot be retrieved.
+
+    Returns:
+        The query execution details including status and results location.
+    """
     athena = get_athena_client()
     try:
         return athena.get_query_execution(QueryExecutionId=query_execution_id)
@@ -73,6 +98,19 @@ def get_query_execution(query_execution_id: str) -> GetQueryExecutionOutputTypeD
 def query_waiter(
     query_execution_id: str, timeout: int = 60
 ) -> Tuple[ATHENA_QUERY_WAITER_STATUS, QueryExecutionStatusTypeDef]:
+    """Wait for an Athena query to complete.
+
+    Polls the query execution status until it reaches a terminal state
+    (SUCCEEDED, FAILED, CANCELLED) or times out.
+
+    Args:
+        query_execution_id (str): The unique identifier of the query execution.
+        timeout (int): Maximum time to wait in seconds. Defaults to 60.
+
+    Returns:
+        A tuple of (status, status_details) where status is one of
+            SUCCEEDED, FAILED, CANCELLED, or TIMEOUT.
+    """
     start = time.time()
     logger.info(f"Polling for status of query execution: {query_execution_id}")
     while True:
