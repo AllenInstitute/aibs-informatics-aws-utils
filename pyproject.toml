@@ -45,9 +45,9 @@ release = [
 ]
 docs = [
     "griffe-pydantic~=1.1",
-    "mkdocs>=1.6,<2.0",
-    "mkdocs-material>=9.5,<10.0",
-    "mkdocstrings[python]>=0.25,<0.26",
+    "mkdocs~=1.6",
+    "mkdocs-material~=9.5",
+    "mkdocstrings[python]~=0.25",
 ]
 interactive = [
     "ipython~=8.18",
