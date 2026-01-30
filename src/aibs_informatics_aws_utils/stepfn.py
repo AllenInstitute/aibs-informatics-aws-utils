@@ -146,7 +146,7 @@ def build_execution_name(payload: str, date: Optional[datetime] = None) -> str:
         A SHA256 hex digest suitable for use as an execution name.
     """
     try:
-        str_to_encode = payload + date.isoformat() if date else ""
+        str_to_encode = payload + date.isoformat() if date else payload
         return hashlib.sha256(str_to_encode.encode()).hexdigest()
     except TypeError as e:
         raise ValueError(f"JSON serialization failed for {payload}: {e}")
