@@ -26,6 +26,7 @@ def build_log_stream_url(
     Returns:
         The CloudWatch console URL for viewing the log stream.
     """
+
     def _special_escape(string: str) -> str:
         return urllib.parse.quote(string, safe="").replace("%", "$25")
 
