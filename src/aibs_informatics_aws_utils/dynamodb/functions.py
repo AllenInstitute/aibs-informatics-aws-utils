@@ -193,10 +193,9 @@ def table_query(
 
     Args:
         table_name (str): Name of the table (prefixed with EnvBase)
-        index_name (str, optional): Index name. Defaults to None.
         key_condition_expression (ConditionBase): Key condition expression.
+        index_name (str, optional): Index name. Defaults to None.
         filter_expression (ConditionBase, optional): Filter expression. Defaults to None.
-        env_base (EnvBase, optional): EnvBase. Defaults to None.
         region (str, optional): Region. Defaults to None.
         consistent_read (bool, optional): Whether a strongly consistent read should be used for the
             query. Defaults to False.

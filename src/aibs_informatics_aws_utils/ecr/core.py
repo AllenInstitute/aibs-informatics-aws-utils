@@ -857,8 +857,9 @@ class ECRRegistry(ECRResource):
         """Filter repositories based on resource tags specified
 
         Args:
-            repositories (List[ECRRepository]): list of resources to filter
-            filter_tags (List[ResourceTag]): list of resource tags
+            repository_name (Optional[Union[str, re.Pattern]]): Repository name or pattern to
+                filter by.
+            repository_tags (Optional[List[ResourceTag]]): List of resource tags to filter by.
 
         Returns:
             List[ECRRepository]: filtered list with resource tags

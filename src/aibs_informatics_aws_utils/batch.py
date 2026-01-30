@@ -153,11 +153,13 @@ def build_retry_strategy(
 
     Args:
         num_retries (int, optional): number of times to retry. Defaults to 5.
-        evaluate_on_exit_list (list, optional): list of EvaluateOnExit configs.
+        evaluate_on_exit_configs (Optional[List[EvaluateOnExitTypeDef]], optional):
+            list of EvaluateOnExit configs.
         include_default_evaluate_on_exit_configs (bool, optional): Whether to exclude default
-            evaluate on exit configuraitons
+            evaluate on exit configurations. Defaults to True.
+
     Returns:
-        RetryStrategy
+        RetryStrategyTypeDef: The retry strategy configuration.
     """
     all_evaluate_on_exit_configs: List[EvaluateOnExitTypeDef] = []
     if evaluate_on_exit_configs:

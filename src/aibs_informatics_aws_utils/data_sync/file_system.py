@@ -303,7 +303,6 @@ class S3FileSystem(BaseFileSystem):
     Args:
         bucket (str): The S3 bucket to describe
         key (str): The S3 key to describe
-        node (Node): The underlying root node of FS tree
     """
 
     bucket: str

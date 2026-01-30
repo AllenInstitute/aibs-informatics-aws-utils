@@ -466,14 +466,14 @@ def is_folder(s3_path: S3URI, **kwargs) -> bool:
 
     Example:
 
-        For a bucket="s3://bucket" with the following keys:
-            /path/to/one/object1
-            /path/to/one/object2
-            /path/to/one_object1
-            /path/to/one_object2
-            /path/to/another
-            /path/to/another/object1
-            /path/to/another/object2
+        # For a bucket="s3://bucket" with the following keys:
+        #   /path/to/one/object1
+        #   /path/to/one/object2
+        #   /path/to/one_object1
+        #   /path/to/one_object2
+        #   /path/to/another
+        #   /path/to/another/object1
+        #   /path/to/another/object2
 
         is_folder("s3://bucket/path/to/one") >> TRUE
         is_folder("s3://bucket/path/to/another") >> TRUE
@@ -583,26 +583,22 @@ def update_path_tags(
     recursive: bool = True,
     **kwargs,
 ):
-    """Update tags for all objects at or prefixed by the specified path
+    """Update tags for all objects at or prefixed by the specified path.
 
     There are three modes for updating tags:
-    - replace: Replace all existing tags with new tags
-    - append: Merge new tags with existing tags
-    - delete: Delete specified tags from existing tags (values do not matter)
+
+    - **replace**: Replace all existing tags with new tags
+    - **append**: Merge new tags with existing tags
+    - **delete**: Delete specified tags from existing tags (values do not matter)
 
     If recursive is True and s3_path is an object prefix, all objects under the prefix
     will have their tags updated. If there is an object at s3_path, it will also have
     its tags updated.
 
     Args:
-        s3_path (S3URI): S3 path or prefix to update tags for
-        tags (Dict[str, str]): Tags to update
-        mode (Literal["replace", "append", "delete"]): Tag update mode.
-            Options:
-                - replace: Replace all existing tags with new tags
-                - append: Merge new tags with existing tags
-                - delete: Delete specified tags from existing tags (values do not matter)
-            Defaults to "append".
+        s3_path (S3URI): S3 path or prefix to update tags for.
+        tags (Dict[str, str]): Tags to update.
+        mode (Literal["replace", "append", "delete"]): Tag update mode. Defaults to "append".
         recursive (bool): Whether to update tags recursively for all objects under prefix.
             Defaults to True.
     """
@@ -1004,6 +1000,7 @@ def list_s3_paths(
     - include/exclude: pattern provided? Y/N
     - I/E Match: If pattern provided, does s3 relative Key match? Y/N
 
+    ```markdown
     |  include | I Match | exclude | E Match | Append? |
     | ------------- No patterns provided ------------- |
     |     N    |    -    |    N    |    -    |    Y    |
@@ -1017,6 +1014,7 @@ def list_s3_paths(
     |     Y    |    N    |    Y    |    Y    |    N    |
     |     Y    |    Y    |    Y    |    N    |    Y    |
     |     Y    |    N    |    Y    |    N    |    N    |
+    ```
 
     Args:
         s3_path (S3URI): The Root key path under which to find objects
@@ -1477,6 +1475,12 @@ def determine_multipart_attributes(
 ) -> Tuple[Optional[int], Optional[int]]:
     """Determines multipart upload chunk size and approximate threshold, if applicable
 
+    Args:
+        s3_path (S3URI): S3 object to check
+
+    Returns:
+        Tuple[Optional[int], Optional[int]]: (chunk_size, threshold)
+
     Multipart attributes are the following:
         - chunk size: The size of each part in bytes
         - threshold: The size in bytes at which a multipart upload is created
@@ -1489,11 +1493,7 @@ def determine_multipart_attributes(
         - The chunksize for a multipart upload has the following constraints:
             https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
             - Most importantly, must be between 5MB and 5GB
-    Args:
-        s3_path (S3URI): S3 object to check
 
-    Returns:
-        Tuple[Optional[int], Optional[int]]: (chunk_size, threshold)
     """
     s3_client = get_s3_client(**kwargs)
     head_object_part = s3_client.head_object(Bucket=s3_path.bucket, Key=s3_path.key, PartNumber=1)
@@ -1539,8 +1539,10 @@ def get_local_etag(
 
     Args:
         path (Path): The path of the file that will be uploaded to s3
-        chunk_size (int): The default multipart upload chunksize in bytes.
-            If None, we determine the chunk size based on file size
+        chunk_size_bytes (Optional[int]): The default multipart upload chunksize in bytes.
+            If None, we determine the chunk size based on file size.
+        threshold_bytes (Optional[int]): The threshold in bytes for multipart uploads.
+            If None, we determine the threshold based on file size.
 
     Returns:
         str: The expected etag

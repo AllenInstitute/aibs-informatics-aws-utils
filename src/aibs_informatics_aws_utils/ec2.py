@@ -208,7 +208,7 @@ def describe_regions():
     """Describe regions
 
     Returns:
-        List of region info
+        List[dict]: List of region info dictionaries
     """
     ec2 = get_ec2_client()
     return ec2.describe_regions(AllRegions=False)["Regions"]

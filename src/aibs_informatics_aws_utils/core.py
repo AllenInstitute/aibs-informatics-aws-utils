@@ -238,7 +238,7 @@ def get_client(
         region (Optional[str], optional): An explicit region. Defaults to None.
 
     Returns:
-        A boto3 Client object
+        botocore.client.BaseClient: A boto3 Client object
     """
     region_name = get_region(region=region or kwargs.get("region_name"))
     if region_name:
@@ -283,7 +283,7 @@ def get_resource(
         region (Optional[str], optional): An explicit region. Defaults to None.
 
     Returns:
-        A ServiceResource object
+        boto3.resources.base.ServiceResource: A ServiceResource object
     """
     region_name = get_region(region=region or kwargs.get("region_name"))
     if region_name:

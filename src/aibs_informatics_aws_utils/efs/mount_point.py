@@ -344,7 +344,8 @@ class MountPointConfiguration:
 
         Args:
             mount_point (StrPath): The mount point.
-            access_point (Optional[str]): The access point. Defaults to None.
+            mount_point_id (Union[str, AccessPointId, FileSystemId]): The mount point identifier.
+            name (Optional[str]): Optional name for the mount point. Defaults to None.
 
         Returns:
             Dict[str, str]: The environment variables.
