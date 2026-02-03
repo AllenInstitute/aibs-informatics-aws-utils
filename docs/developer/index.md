@@ -6,10 +6,10 @@ This guide provides information for developers who want to contribute to the AIB
 
 ### Prerequisites
 
-- Python 3.9 or higher
+- Python 3.10 or higher
 - Git
+- uv (for managing dependencies)
 - Make (optional, but recommended)
-- AWS credentials (for running integration tests)
 
 ### Clone the Repository
 
@@ -20,56 +20,15 @@ cd aibs-informatics-aws-utils
 
 ### Install Dependencies
 
-Using uv (recommended):
+Using uv:
 
 ```bash
 uv sync --group dev --group lint
 ```
 
-Using pip:
-
-```bash
-pip install -e ".[dev]"
-```
-
-## Project Structure
-
-```
-aibs-informatics-aws-utils/
-├── src/
-│   └── aibs_informatics_aws_utils/
-│       ├── apigateway.py       # API Gateway utilities
-│       ├── athena.py           # Athena query utilities
-│       ├── auth.py             # Authentication utilities
-│       ├── batch.py            # AWS Batch utilities
-│       ├── core.py             # Core AWS utilities
-│       ├── ec2.py              # EC2 utilities
-│       ├── ecs.py              # ECS utilities
-│       ├── exceptions.py       # Custom exceptions
-│       ├── fsx.py              # FSx utilities
-│       ├── lambda_.py          # Lambda utilities
-│       ├── logs.py             # CloudWatch Logs utilities
-│       ├── s3.py               # S3 utilities
-│       ├── secretsmanager.py   # Secrets Manager utilities
-│       ├── ses.py              # SES utilities
-│       ├── sns.py              # SNS utilities
-│       ├── sqs.py              # SQS utilities
-│       ├── ssm.py              # SSM utilities
-│       ├── stepfn.py           # Step Functions utilities
-│       ├── constants/          # Service constants
-│       ├── data_sync/          # Data sync utilities
-│       ├── dynamodb/           # DynamoDB utilities
-│       ├── ecr/                # ECR utilities
-│       └── efs/                # EFS utilities
-├── test/                       # Test files
-├── docs/                       # Documentation
-├── pyproject.toml              # Project configuration
-└── Makefile                    # Build automation
-```
-
 ## Running Tests
 
-Tests use `moto` to mock AWS services:
+Tests rely heavily on `moto` to mock AWS services:
 
 ```bash
 # Run all tests
@@ -91,27 +50,24 @@ pytest test/aibs_informatics_aws_utils/test_s3.py
 make lint
 
 # Auto-fix linting issues
-make lint-fix
+make format
 ```
 
 ### Type Checking
 
 ```bash
 # Run mypy type checker
-make type-check
+make lint-mypy
 ```
 
 ## Building Documentation
 
 ```bash
-# Install documentation dependencies
-pip install mkdocs mkdocs-material mkdocstrings[python]
-
 # Serve documentation locally
-mkdocs serve
+make docs-serve
 
 # Build documentation
-mkdocs build
+make docs-build
 ```
 
 ## Contributing
