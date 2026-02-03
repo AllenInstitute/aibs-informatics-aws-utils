@@ -32,7 +32,7 @@ pip install aibs-informatics-aws-utils
 from aibs_informatics_aws_utils.s3 import get_s3_client, upload_file
 
 # Upload a file to S3
-upload_file("local/path/file.txt", "my-bucket", "remote/path/file.txt")
+upload_file("local/path/file.txt", "s3://bucket/remote/path/file.txt")
 ```
 
 ## Supported AWS Services
