@@ -54,18 +54,6 @@ for bucket in response['Buckets']:
     print(bucket['Name'])
 ```
 
-### Working with DynamoDB
-
-```python
-from aibs_informatics_aws_utils.dynamodb import DynamoDBTable
-
-# Create a table wrapper
-table = DynamoDBTable("my-table")
-
-# Query items
-items = table.query(key_condition="pk = :pk", expression_values={":pk": "my-key"})
-```
-
 ### Working with ECR
 
 ```python
@@ -81,10 +69,10 @@ repos = ecr_client.describe_repositories()
 ### Working with Lambda
 
 ```python
-from aibs_informatics_aws_utils.lambda_ import invoke_lambda
+from aibs_informatics_aws_utils.lambda_ import call_lambda_function_url
 
 # Invoke a Lambda function
-response = invoke_lambda(
+response = call_lambda_function_url(
     function_name="my-function",
     payload={"key": "value"}
 )
