@@ -65,7 +65,7 @@ def get_efs_path(
             list of mount_points. If None, mount points are detected. Defaults to None.
 
     Returns:
-        EFSPath: Corresponding EFS URI or None if the path cannot be resolved and
+        Corresponding EFS URI or None if the path cannot be resolved and
             raise_if_unresolved is False
     """
     mount_points = mount_points if mount_points is not None else detect_mount_points()
@@ -117,7 +117,7 @@ def get_local_path(
             list of mount points. If None, mount points are detected. Defaults to None.
 
     Returns:
-        Path: The local path. e.g., "/mnt/efs/path/to/file.txt" or None if the path
+        The local path. e.g., "/mnt/efs/path/to/file.txt" or None if the path
             cannot be resolved and raise_if_unmounted is False
     """
     mount_points = mount_points if mount_points is not None else detect_mount_points()

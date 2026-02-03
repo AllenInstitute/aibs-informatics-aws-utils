@@ -102,7 +102,7 @@ def resolve_file_system_ids(*name_or_ids: FileSystemNameOrId) -> List[FSxFileSys
         name_or_ids (Tuple[FileSystemNameOrId]): File system names or ids.
 
     Returns:
-        str: File system id.
+        File system id.
     """
     file_system_ids: List[FSxFileSystemId] = []
     for name_or_id in name_or_ids:
@@ -124,12 +124,11 @@ def get_file_system(
     """Get FSx file system.
 
     Args:
-        file_system_id (Optional[str], optional): File system id.
-        name (Optional[str], optional): File system name.
+        name_or_id (Optional[FileSystemNameOrId], optional): File system name or id.
         tags (Optional[Dict[str, str]], optional): File system tags.
 
     Returns:
-        FileSystemDescriptionTypeDef: File system description.
+        File system description.
     """
     if not name_or_id and not tags:
         raise ValueError("At least one of file_system_id, name or tags must be provided.")
@@ -154,12 +153,13 @@ def list_file_systems(
     You can filter on id, name and tags.
 
     Args:
-        file_system_id (Optional[str], optional): Optionally filter on file system id.
-        name (Optional[str], optional): Optionally filter on name.
+        name_or_ids (Optional[List[FileSystemNameOrId]], optional): Optionally filter on file
+            system names or ids.
         tags (Optional[Dict[str, str]], optional): Optionally filter on tags.
+        **kwargs: Additional arguments passed to the FSx client.
 
     Returns:
-        List[FileSystemDescriptionTypeDef]: List of file systems.
+        List of file systems.
     """
     client = get_fsx_client(**kwargs)
     paginator = client.get_paginator("describe_file_systems")
@@ -199,10 +199,13 @@ def list_data_repository_associations(
     """List data repository associations for a file system.
 
     Args:
-        file_system_id (str): File system id.
+        name_or_id (Optional[FileSystemIdOrName]): File system name or id.
+        filters (Optional[List[FilterTypeDef]], optional): Filters to apply.
+        data_repository_paths (Optional[List[str]], optional): Data repository paths to filter by.
+        **kwargs: Additional arguments passed to the FSx client.
 
     Returns:
-        List[FileSystemTypeDef]: List of data repository associations.
+        List of data repository associations.
     """
     client = get_fsx_client(**kwargs)
     if name_or_id:
@@ -249,7 +252,7 @@ def calculate_size_required(bytes_required: int) -> int:
         bytes_required (int): Bytes required.
 
     Returns:
-        int: Size required.
+        Size required.
     """
     BYTES_IN_TB = 1024 * 1024 * 1024 * 1024
     if bytes_required <= 1.2 * BYTES_IN_TB:

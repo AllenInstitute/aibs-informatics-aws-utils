@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Literal, Optional, overload
+from typing import Any, Dict, Literal, Optional, Union, overload
 
 from aibs_informatics_aws_utils.core import AWSService
 
@@ -18,17 +18,21 @@ def get_secret_value(
 ) -> Dict[str, Any]: ...
 
 
-def get_secret_value(secret_name: str, as_dict: bool = False, region: Optional[str] = None):
+def get_secret_value(
+    secret_name: str, as_dict: bool = False, region: Optional[str] = None
+) -> Union[str, dict[str, Any]]:
     """Retrieves a Secrets Manager secret value
 
     Args:
         secret_name (str): the Secrets Manager secret name
+        as_dict (bool): If True, return the secret as a dictionary. Defaults to False.
+        region (Optional[str]): AWS region. Defaults to None.
 
     Raises:
         ValueError: If there is no such key
 
     Returns:
-        str: The secret value stored at the key name
+        Union[str, dict]: The secret value stored at the key name, as string or dict
     """
     secretsmanager = get_secretsmanager_client(region=region)
 

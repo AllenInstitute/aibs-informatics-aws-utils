@@ -16,6 +16,16 @@ get_sqs_resource = AWSService.SQS.get_resource
 
 
 def delete_from_queue(queue_name: str, receipt_handle: str, region: Optional[str] = None):
+    """Delete a message from an SQS queue.
+
+    Args:
+        queue_name (str): The name of the SQS queue.
+        receipt_handle (str): The receipt handle of the message to delete.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        True if the message was successfully deleted.
+    """
     sqs = get_sqs_client()
     queue_url_response = sqs.get_queue_url(QueueName=queue_name)
     queue_url = queue_url_response["QueueUrl"]
@@ -27,6 +37,18 @@ def delete_from_queue(queue_name: str, receipt_handle: str, region: Optional[str
 
 
 def send_to_dispatch_queue(payload: dict, env_base: str):
+    """Send a message to the demand request dispatch queue.
+
+    Args:
+        payload (dict): The message payload as a dictionary.
+        env_base (str): The environment base used to construct the queue name.
+
+    Raises:
+        AWSError: If the queue cannot be found.
+
+    Returns:
+        The MD5 digest of the sent message body.
+    """
     sqs = get_sqs_client(region=get_region())
     queue_name = "-".join([env_base, "demand_request_queue"])
     logger.info("Queue name: %s", queue_name)
@@ -74,7 +96,7 @@ def send_sqs_message(
             be provided.
 
     Returns:
-        str: Returns an MD5 digest of the send message body.
+        Returns an MD5 digest of the send message body.
     """
     sqs = get_sqs_client(region=get_region())
     try:

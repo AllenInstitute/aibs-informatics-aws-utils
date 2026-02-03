@@ -110,7 +110,7 @@ class MountPointConfiguration:
                 not the same as this mount point/access point.
 
         Returns:
-            Path: The translated absolute path on this mount point.
+            The translated absolute path on this mount point.
         """
         path = Path(path)
         if self.file_system["FileSystemId"] != other.file_system["FileSystemId"]:
@@ -142,7 +142,7 @@ class MountPointConfiguration:
             path (StrPath): The path to convert to a relative path.
 
         Returns:
-            Path: The relative path.
+            The relative path.
 
         """
         path = Path(path)
@@ -183,7 +183,7 @@ class MountPointConfiguration:
             path (StrPath): The path to convert to a path on the EFS file system.
 
         Returns:
-            Path: absolute path on the EFS file system.
+            absolute path on the EFS file system.
         """
         path = self.as_relative_path(path)
         return (self.access_point_path / path).resolve()
@@ -196,7 +196,7 @@ class MountPointConfiguration:
             path (StrPath): The path to convert to a path on the EFS file system.
 
         Returns:
-            EFSPath: absolute URI path on the EFS file system.
+            absolute URI path on the EFS file system.
         """
         return EFSPath.build(
             resource_id=self.file_system["FileSystemId"],
@@ -221,7 +221,7 @@ class MountPointConfiguration:
             path (StrPath): The path to convert to a path on the host where the EFS is mounted.
 
         Returns:
-            Path: absolute path on the host where the EFS is mounted.
+            absolute path on the host where the EFS is mounted.
         """
         path = self.as_relative_path(path)
         return (self.mount_point / path).resolve()
@@ -344,7 +344,8 @@ class MountPointConfiguration:
 
         Args:
             mount_point (StrPath): The mount point.
-            access_point (Optional[str]): The access point. Defaults to None.
+            mount_point_id (Union[str, AccessPointId, FileSystemId]): The mount point identifier.
+            name (Optional[str]): Optional name for the mount point. Defaults to None.
 
         Returns:
             Dict[str, str]: The environment variables.

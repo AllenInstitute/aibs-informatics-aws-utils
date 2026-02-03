@@ -43,6 +43,12 @@ release = [
     "bump-my-version",
     "wheel",
 ]
+docs = [
+    "griffe-pydantic~=1.1",
+    "mkdocs~=1.6",
+    "mkdocs-material~=9.5",
+    "mkdocstrings[python]~=0.25",
+]
 interactive = [
     "ipython~=8.18",
     "jupyter~=1.1",
@@ -51,6 +57,7 @@ all = [
     {include-group = "dev"},
     {include-group = "lint"},
     {include-group = "release"},
+    {include-group = "docs"},
     {include-group = "interactive"},
 ]
 
@@ -75,7 +82,7 @@ Repository = "https://github.com/AllenInstitute/aibs-informatics-aws-utils/"
 # -----------------------------------------------------------------------------
 
 [tool.uv]
-default-groups = ["dev", "lint"]
+default-groups = ["dev", "lint", "docs"]
 
 # -----------------------------------------------------------------------------
 ##  Pyright Configurations

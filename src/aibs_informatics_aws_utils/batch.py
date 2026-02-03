@@ -100,7 +100,7 @@ def to_key_value_pairs(
         remove_null_values (bool): Whether to withhold pairs where value is None. Defaults to True
 
     Returns:
-        List[KeyValuePairTypeDef]: List of name,value json blobs representing env variables
+        List of name,value json blobs representing env variables
     """
 
     return sorted(
@@ -129,7 +129,7 @@ def to_resource_requirements(
         vcpus (Optional[int], optional): Number of VCPUs to use. Defaults to None.
 
     Returns:
-        List[ResourceRequirementTypeDef]: list of resource requirements
+        list of resource requirements
     """
 
     pairs: list[tuple[Literal["GPU", "MEMORY", "VCPU"], Optional[int]]] = [
@@ -153,11 +153,13 @@ def build_retry_strategy(
 
     Args:
         num_retries (int, optional): number of times to retry. Defaults to 5.
-        evaluate_on_exit_list (list, optional): list of EvaluateOnExit configs.
+        evaluate_on_exit_configs (Optional[List[EvaluateOnExitTypeDef]], optional):
+            list of EvaluateOnExit configs.
         include_default_evaluate_on_exit_configs (bool, optional): Whether to exclude default
-            evaluate on exit configuraitons
+            evaluate on exit configurations. Defaults to True.
+
     Returns:
-        RetryStrategy
+        The retry strategy configuration.
     """
     all_evaluate_on_exit_configs: List[EvaluateOnExitTypeDef] = []
     if evaluate_on_exit_configs:
@@ -189,6 +191,25 @@ def register_job_definition(
     propagate_tags: bool = False,
     region: Optional[str] = None,
 ) -> Union[JobDefinitionTypeDef, RegisterJobDefinitionResponseTypeDef]:
+    """Register a job definition with Batch.
+
+    If a matching job definition already exists (same command, image, jobRoleArn,
+    parameters, type, tags, and retry strategy), the existing definition is returned
+    instead of creating a new revision.
+
+    Args:
+        job_definition_name (str): The name of the job definition.
+        container_properties (ContainerPropertiesTypeDef): Container configuration.
+        parameters (Optional[Mapping[str, str]]): Default parameter substitution values.
+        job_definition_type (JobDefinitionTypeType): Type of job. Defaults to "container".
+        retry_strategy (Optional[RetryStrategyTypeDef]): Retry strategy configuration.
+        tags (Optional[Mapping[str, str]]): Tags to apply to the job definition.
+        propagate_tags (bool): Whether to propagate tags to jobs. Defaults to False.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        The existing job definition if matching, otherwise the new registration response.
+    """
     batch = get_batch_client(region=region)
 
     # First we check to make sure that we aren't crearting unnecessary revisions

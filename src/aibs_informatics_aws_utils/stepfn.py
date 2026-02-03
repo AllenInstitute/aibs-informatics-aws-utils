@@ -53,6 +53,8 @@ get_sfn_client = AWSService.STEPFUNCTIONS.get_client
 
 
 class StateMachineArn(_StateMachineArn):
+    """ARN representation for Step Functions state machines."""
+
     @classmethod
     def from_components(  # type: ignore
         cls,
@@ -60,6 +62,16 @@ class StateMachineArn(_StateMachineArn):
         region: Optional[str] = None,
         account_id: Optional[str] = None,
     ) -> "StateMachineArn":
+        """Create a StateMachineArn from components.
+
+        Args:
+            state_machine_name (str): The name of the state machine.
+            region (Optional[str]): AWS region. Defaults to None (uses default region).
+            account_id (Optional[str]): AWS account ID. Defaults to None (uses current).
+
+        Returns:
+            A StateMachineArn constructed from the components.
+        """
         return StateMachineArn(
             ":".join(
                 [
@@ -76,6 +88,8 @@ class StateMachineArn(_StateMachineArn):
 
 
 class ExecutionArn(_ExecutionArn):
+    """ARN representation for Step Functions executions."""
+
     @classmethod
     def from_components(  # type: ignore[override]
         cls,
@@ -84,6 +98,17 @@ class ExecutionArn(_ExecutionArn):
         region: Optional[str] = None,
         account_id: Optional[str] = None,
     ) -> "ExecutionArn":
+        """Create an ExecutionArn from components.
+
+        Args:
+            state_machine_name (str): The name of the state machine.
+            execution_name (str): The name of the execution.
+            region (Optional[str]): AWS region. Defaults to None (uses default region).
+            account_id (Optional[str]): AWS account ID. Defaults to None (uses current).
+
+        Returns:
+            An ExecutionArn constructed from the components.
+        """
         return ExecutionArn(
             ":".join(
                 [
@@ -105,8 +130,23 @@ class ExecutionArn(_ExecutionArn):
 # of duplicating for demand. This also means the same payload can only be
 # executed once in an environment and the name cant be reused for 90 days.
 def build_execution_name(payload: str, date: Optional[datetime] = None) -> str:
+    """Build a unique execution name from a payload string.
+
+    Creates a SHA256 hash of the payload (optionally combined with a date)
+    to generate a deterministic execution name.
+
+    Args:
+        payload (str): The payload string to hash.
+        date (Optional[datetime]): Optional datetime to include for uniqueness.
+
+    Raises:
+        ValueError: If serialization or encoding fails.
+
+    Returns:
+        A SHA256 hex digest suitable for use as an execution name.
+    """
     try:
-        str_to_encode = payload + date.isoformat() if date else ""
+        str_to_encode = payload + date.isoformat() if date else payload
         return hashlib.sha256(str_to_encode.encode()).hexdigest()
     except TypeError as e:
         raise ValueError(f"JSON serialization failed for {payload}: {e}")
@@ -122,6 +162,20 @@ def get_execution_arn(
     env_base: Optional[EnvBase] = None,
     region: Optional[str] = None,
 ) -> ExecutionArn:
+    """Get an execution ARN by state machine and execution name.
+
+    Args:
+        state_machine_name (str): The name of the state machine.
+        execution_name (str): The name of the execution.
+        env_base (Optional[EnvBase]): Environment base for filtering state machines.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Raises:
+        InvalidAmazonResourceNameError: If no matching execution is found.
+
+    Returns:
+        The ExecutionArn for the matching execution.
+    """
     sfn = get_sfn_client(region)
     state_machine = get_state_machine(name=state_machine_name, env_base=env_base, region=region)
     paginator = sfn.get_paginator("list_executions")
@@ -143,6 +197,16 @@ def get_execution_arn(
 def describe_execution(
     execution_arn: str, included_data: IncludedDataType = "ALL_DATA", region: Optional[str] = None
 ) -> DescribeExecutionOutputTypeDef:
+    """Describe a Step Functions execution.
+
+    Args:
+        execution_arn (str): The ARN of the execution to describe.
+        included_data (IncludedDataType): Data to include. Defaults to "ALL_DATA".
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        The execution description including status, input, and output.
+    """
     sfn = get_sfn_client(region=get_region(region=region))
 
     execution_description = sfn.describe_execution(
@@ -157,6 +221,17 @@ def get_execution_history(
     include_execution_data: bool = False,
     region: Optional[str] = None,
 ) -> List[HistoryEventTypeDef]:
+    """Get the execution history for a Step Functions execution.
+
+    Args:
+        execution_arn (Union[ExecutionArn, str]): The ARN of the execution.
+        reverse_order (bool): Return events in reverse chronological order.
+        include_execution_data (bool): Include input/output data in events.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        List of history events for the execution.
+    """
     sfn = get_sfn_client(region=get_region(region=region))
     execution_arn = ExecutionArn(execution_arn)
     paginator = sfn.get_paginator("get_execution_history")
@@ -196,7 +271,7 @@ def start_execution(
         region (str, optional): ergion. Defaults to None.
 
     Returns:
-        ExecutionArn: the execution arn
+        the execution arn
     """
     region = get_region(region=region)
     sfn = get_sfn_client()
@@ -250,6 +325,17 @@ def stop_execution(
     cause: Optional[str] = None,
     region: Optional[str] = None,
 ) -> datetime:
+    """Stop a running Step Functions execution.
+
+    Args:
+        execution_arn (Union[ExecutionArn, str]): The ARN of the execution to stop.
+        error (Optional[str]): Optional error code to record.
+        cause (Optional[str]): Optional cause description to record.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        The datetime when the execution was stopped.
+    """
     sfn = get_sfn_client(region=get_region(region=region))
     response = sfn.stop_execution(
         executionArn=ExecutionArn(execution_arn), error=error or "", cause=cause or ""
@@ -260,6 +346,20 @@ def stop_execution(
 def get_state_machine(
     name: str, env_base: Optional[EnvBase] = None, region: Optional[str] = None
 ) -> StateMachineListItemTypeDef:
+    """Get a state machine by name suffix.
+
+    Args:
+        name (str): The name suffix to match against state machine names.
+        env_base (Optional[EnvBase]): Optional environment base to filter by prefix.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Raises:
+        ResourceNotFoundError: If no matching state machine is found.
+        AttributeError: If multiple state machines match the criteria.
+
+    Returns:
+        The matching state machine metadata.
+    """
     region = get_region(region=region)
     # env_base = env_base or get_env_base()
 
@@ -283,6 +383,15 @@ def get_state_machine(
 def get_state_machines(
     env_base: Optional[EnvBase] = None, region: Optional[str] = None
 ) -> List[StateMachineListItemTypeDef]:
+    """List all state machines, optionally filtered by environment base.
+
+    Args:
+        env_base (Optional[EnvBase]): Optional environment base to filter by prefix.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        List of state machine metadata items.
+    """
     region = get_region(region=region)
     sfn = get_sfn_client(region=region)
     paginator = sfn.get_paginator("list_state_machines")

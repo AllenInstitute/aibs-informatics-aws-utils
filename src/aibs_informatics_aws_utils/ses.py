@@ -47,8 +47,16 @@ get_ses_client = AWSService.SES.get_client
 
 
 def verify_email_identity(email_address: str) -> Dict[str, Any]:  # no type def?
-    """
-    TODO: replace with send_custom_verification_email-> SendCustomVerificationEmailResponseTypeDef:
+    """Send a verification email to an email address.
+
+    Initiates the email verification process for SES. The recipient will
+    receive an email with a verification link.
+
+    Args:
+        email_address (str): The email address to verify.
+
+    Returns:
+        The SES verify email identity response.
     """
     ses = get_ses_client(region=get_region())
     response = ses.verify_email_identity(EmailAddress=email_address)
@@ -56,13 +64,28 @@ def verify_email_identity(email_address: str) -> Dict[str, Any]:  # no type def?
 
 
 def is_verified(identity: str) -> bool:
-    """Checks if email address or domain identity is valid
+    """Check if an email address or domain identity is verified in SES.
 
-    Examples:
-        email identitiy:    `is_verified(myemail@subdomain.domain.com)`
-        subdomain identity  `is_verified(subdomain.domain.com)`
-        domain idenitity    `is_verified(domain.com)`
+    Args:
+        identity (str): The email address or domain to check.
 
+    Raises:
+        AWSError: If the verification status cannot be checked.
+
+    Returns:
+        True if the identity is verified, False otherwise.
+
+    Example:
+        ```python
+        # Check email identity
+        is_verified('myemail@subdomain.domain.com')
+
+        # Check subdomain identity
+        is_verified('subdomain.domain.com')
+
+        # Check domain identity
+        is_verified('domain.com')
+        ```
     """
     ses = get_ses_client(region=get_region())
     try:
@@ -77,6 +100,17 @@ def is_verified(identity: str) -> bool:
 
 
 def send_email(request: SendEmailRequestTypeDef) -> SendEmailResponseTypeDef:
+    """Send an email using SES.
+
+    Args:
+        request (SendEmailRequestTypeDef): The SES send email request configuration.
+
+    Raises:
+        AWSError: If the email cannot be sent.
+
+    Returns:
+        The send email response containing the message ID.
+    """
     logger.info(f"Sending email request: {request}")
     ses = get_ses_client(region=get_region())
 
@@ -95,6 +129,17 @@ def send_simple_email(
     subject: str,
     body: str = "",
 ) -> SendEmailResponseTypeDef:
+    """Send a simple text email using SES.
+
+    Args:
+        source (Union[str, EmailAddress]): The sender email address.
+        to_addresses (Sequence[Union[str, EmailAddress]]): List of recipient addresses.
+        subject (str): The email subject line.
+        body (str): The email body text. Defaults to empty string.
+
+    Returns:
+        The send email response containing the message ID.
+    """
     return send_email(
         SendEmailRequestTypeDef(
             Source=source,
@@ -105,6 +150,17 @@ def send_simple_email(
 
 
 def send_raw_email(request: SendRawEmailRequestTypeDef) -> SendRawEmailResponseTypeDef:
+    """Send a raw MIME email using SES.
+
+    Args:
+        request (SendRawEmailRequestTypeDef): The SES send raw email request.
+
+    Raises:
+        AWSError: If the email cannot be sent.
+
+    Returns:
+        The send raw email response containing the message ID.
+    """
     logger.info(f"Sending email request: {request}")
     ses = get_ses_client(region=get_region())
 
@@ -124,15 +180,17 @@ def send_email_with_attachment(
     body: Union[str, MIMEText] = "",
     attachments_paths: Optional[List[Path]] = None,
 ) -> SendRawEmailResponseTypeDef:
-    """
+    """Send an email with attachments using SES.
+
     Args:
-        source: Source email address
-        to_addresses: List of recipient email addresses
-        subject: Email subject
-        body: Email body which can be either basic str or MIMEText, which can
-            allow html with hyperlinks.
-        attachments_paths: List of optional paths to read contents from and attach to the email
-    Returns: `SendEmailResponseTypeDef`
+        source (Union[str, EmailAddress]): The sender email address.
+        to_addresses (Sequence[Union[str, EmailAddress]]): List of recipient addresses.
+        subject (str): The email subject line.
+        body (Union[str, MIMEText]): The email body (plain text or MIMEText for HTML).
+        attachments_paths (Optional[List[Path]]): Optional list of file paths to attach.
+
+    Returns:
+        The send raw email response containing the message ID.
     """
     msg = MIMEMultipart("mixed")
     msg["Subject"] = subject

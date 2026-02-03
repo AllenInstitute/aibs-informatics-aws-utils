@@ -82,6 +82,15 @@ AWS_REGION_VAR = "AWS_REGION"
 
 
 def get_session(session: Optional[Union[Session, BotocoreSession]] = None) -> Session:
+    """Get or create a boto3 Session.
+
+    Args:
+        session (Optional[Union[Session, BotocoreSession]]): An existing Session
+            or BotocoreSession to use. If None, creates a new default Session.
+
+    Returns:
+        A boto3 Session object.
+    """
     if not session:
         return Session()
     elif isinstance(session, BotocoreSession):
@@ -114,7 +123,7 @@ def get_region(region: Optional[str] = None) -> str:
             - If region is not correct format
 
     Returns:
-        str: AWS Region
+        AWS Region
     """
 
     # If not provided, check session
@@ -144,19 +153,38 @@ def get_region(region: Optional[str] = None) -> str:
 
 
 def get_account_id() -> str:
-    """Will get the account id from the current credentials/identity"""
+    """Get the AWS account ID from the current credentials.
+
+    Returns:
+        The AWS account ID as a string.
+    """
     return get_caller_identity()["Account"]
 
 
 def get_user_id() -> UserId:
+    """Get the IAM user ID from the current credentials.
+
+    Returns:
+        The IAM user ID.
+    """
     return UserId(get_caller_identity()["UserId"])
 
 
 def get_iam_arn() -> IAMArn:
+    """Get the IAM ARN from the current credentials.
+
+    Returns:
+        The IAM ARN of the current identity.
+    """
     return IAMArn(get_caller_identity()["Arn"])
 
 
 def get_caller_identity() -> GetCallerIdentityResponseTypeDef:
+    """Get the caller identity from AWS STS.
+
+    Returns:
+        The caller identity response containing Account, Arn, and UserId.
+    """
     return boto3.client("sts").get_caller_identity()
 
 
@@ -166,14 +194,39 @@ def get_caller_identity() -> GetCallerIdentityResponseTypeDef:
 
 
 def get_client_error_code(client_error: ClientError) -> str:
+    """Extract the error code from a boto3 ClientError.
+
+    Args:
+        client_error (ClientError): The ClientError exception.
+
+    Returns:
+        The error code string, or "Unknown" if not found.
+    """
     return client_error.response.get("Error", {}).get("Code", "Unknown")
 
 
 def get_client_error_message(client_error: ClientError) -> str:
+    """Extract the error message from a boto3 ClientError.
+
+    Args:
+        client_error (ClientError): The ClientError exception.
+
+    Returns:
+        The error message string, or "Unknown" if not found.
+    """
     return client_error.response.get("Error", {}).get("Message", "Unknown")
 
 
 def client_error_code_check(client_error: ClientError, *error_codes: str) -> bool:
+    """Check if a ClientError matches any of the specified error codes.
+
+    Args:
+        client_error (ClientError): The ClientError exception to check.
+        *error_codes (str): One or more error codes to check against.
+
+    Returns:
+        True if the error code matches any of the specified codes.
+    """
     return get_client_error_code(client_error) in error_codes
 
 
@@ -238,7 +291,7 @@ def get_client(
         region (Optional[str], optional): An explicit region. Defaults to None.
 
     Returns:
-        A boto3 Client object
+        botocore.client.BaseClient: A boto3 Client object
     """
     region_name = get_region(region=region or kwargs.get("region_name"))
     if region_name:
@@ -267,7 +320,7 @@ def get_resource(
     session: Optional[boto3.Session] = None,
     region: Optional[str] = None,
     **kwargs,
-):
+) -> ServiceResource:
     """Get a boto3 resource object
     Notes:
 
@@ -283,7 +336,7 @@ def get_resource(
         region (Optional[str], optional): An explicit region. Defaults to None.
 
     Returns:
-        A ServiceResource object
+        boto3.resources.base.ServiceResource: A ServiceResource object
     """
     region_name = get_region(region=region or kwargs.get("region_name"))
     if region_name:
@@ -308,9 +361,24 @@ def get_resource(
 
 @dataclass
 class AWSServiceProvider(Generic[ClientType]):
+    """Provider for creating typed AWS service clients.
+
+    Attributes:
+        service_name: The name of the AWS service.
+    """
+
     service_name: Services
 
     def get_client(self, region: Optional[str] = None, **kwargs) -> ClientType:
+        """Get a typed client for this AWS service.
+
+        Args:
+            region (Optional[str]): AWS region. Defaults to None (uses default region).
+            **kwargs: Additional arguments passed to boto3 client creation.
+
+        Returns:
+            A typed boto3 client for the service.
+        """
         return cast(ClientType, get_client(self.service_name, region=region, **kwargs))
 
 
@@ -318,9 +386,26 @@ class AWSServiceProvider(Generic[ClientType]):
 class AWSServiceAndResourceProvider(
     AWSServiceProvider[ClientType], Generic[ClientType, ResourceType]
 ):
+    """Provider for creating typed AWS service clients and resources.
+
+    Extends AWSServiceProvider to also support resource-based access patterns.
+
+    Attributes:
+        service_name: The name of the AWS service (must support resources).
+    """
+
     service_name: Resources
 
     def get_resource(self, region: Optional[str] = None, **kwargs) -> ResourceType:
+        """Get a typed resource for this AWS service.
+
+        Args:
+            region (Optional[str]): AWS region. Defaults to None (uses default region).
+            **kwargs: Additional arguments passed to boto3 resource creation.
+
+        Returns:
+            A typed boto3 resource for the service.
+        """
         return cast(ResourceType, get_resource(self.service_name, region=region, **kwargs))
 
 

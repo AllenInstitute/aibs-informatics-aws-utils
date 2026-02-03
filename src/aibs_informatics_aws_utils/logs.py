@@ -16,6 +16,17 @@ def build_log_stream_url(
     log_stream_name: str,
     region: Optional[str] = None,
 ) -> str:
+    """Build a CloudWatch Logs console URL for a log stream.
+
+    Args:
+        log_group_name (str): The name of the CloudWatch log group.
+        log_stream_name (str): The name of the log stream within the group.
+        region (Optional[str]): AWS region. Defaults to None (uses default region).
+
+    Returns:
+        The CloudWatch console URL for viewing the log stream.
+    """
+
     def _special_escape(string: str) -> str:
         return urllib.parse.quote(string, safe="").replace("%", "$25")
 

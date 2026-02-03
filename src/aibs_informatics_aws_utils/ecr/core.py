@@ -103,11 +103,12 @@ class ECRRegistryUri(ValidatedStr):
         If region is not provided, region of credentials is used.
 
         Args:
-            account_id (str, optional): The registry ID. Defaults to None.
-            region (str, optional): AWS region. Defaults to None.
+            account_id: The registry ID. Defaults to None.
+            region: AWS region. Defaults to None.
+            **kwargs: Additional keyword arguments (unused).
 
         Returns:
-            str: AWS Registry URI
+            AWS Registry URI.
         """
         account_id = account_id or get_account_id()
         region = get_region(region)
@@ -134,12 +135,12 @@ class ECRRepositoryUri(ECRRegistryUri):
         If region is not provided, region of credentials is used.
 
         Args:
-            repository_name (str): Name of ECR repository
-            account_id (str, optional): The registry ID. Defaults to None.
-            region (str, optional): AWS region. Defaults to None.
+            repository_name: Name of ECR repository.
+            account_id: The registry ID. Defaults to None.
+            region: AWS region. Defaults to None.
 
         Returns:
-            str: AWS Repository URI
+            AWS Repository URI.
         """
         registry_uri = ECRRegistryUri.from_components(account_id=account_id, region=region)
         return ECRRepositoryUri(f"{registry_uri}/{repository_name}")
@@ -165,23 +166,23 @@ class ECRImageUri(ECRRepositoryUri):
         account_id: Optional[str] = None,
         region: Optional[str] = None,
     ) -> "ECRImageUri":
-        """Generate a Image URI.
+        """Generate an Image URI.
 
         If account ID not provided, account Id of credentials is used.
         If region is not provided, region of credentials is used.
 
         Args:
-            repository_name (str): Name of ECR repository
-            image_tag (str, optional): tag associated. Defaults to None.
-            image_digest (str, optional): the image digest. Defaults to None.
-            account_id (str, optional): The registry ID. Defaults to None.
-            region (str, optional): AWS region. Defaults to None.
+            repository_name: Name of ECR repository.
+            image_tag: Tag associated with image. Defaults to None.
+            image_digest: The image digest. Defaults to None.
+            account_id: The registry ID. Defaults to None.
+            region: AWS region. Defaults to None.
 
         Raises:
             ValueError: If both or neither image tag / image digest are provided.
 
         Returns:
-            str: ECR Image URI
+            ECR Image URI.
         """
         if (image_tag and image_digest) or (not image_tag and not image_digest):
             raise ValueError(
@@ -400,10 +401,10 @@ class ECRImage(ECRMixins, DataClassModel):
         )
 
     def get_image_detail(self) -> ImageDetailTypeDef:
-        """Get image detail of this image from ECR
+        """Get image detail of this image from ECR.
 
         Returns:
-            ImageDetailTypeDef: image detail dictionary
+            Image detail dictionary.
         """
         response = self.client.describe_images(
             repositoryName=self.repository_name,
@@ -418,18 +419,19 @@ class ECRImage(ECRMixins, DataClassModel):
         return image_details[0]
 
     def get_image_layers(self) -> List[LayerTypeDef]:
-        """Get layers from image manifest into ECR Layer objects
+        """Get layers from image manifest into ECR Layer objects.
 
         The schema of the image manifest layers is defined here:
         https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
 
-        Note: While docker image manifests can have multiple formats, ECR only supports
-              the schema defined in the link above, a v2 single image manifest. There is
-              a manifest list, that describes multiple architectures, but ECR does not support
-              this. This method assumes the image manifest is in the correct format.
+        Note:
+            While docker image manifests can have multiple formats, ECR only supports
+            the schema defined in the link above, a v2 single image manifest. There is
+            a manifest list, that describes multiple architectures, but ECR does not support
+            this. This method assumes the image manifest is in the correct format.
 
         Returns:
-            List[LayerTypeDef]: List of ECR Image layers
+            List of ECR Image layers.
         """
         image_manifest = json.loads(self.image_manifest)
 
@@ -444,18 +446,19 @@ class ECRImage(ECRMixins, DataClassModel):
         ]
 
     def get_image_config_layer(self) -> LayerTypeDef:
-        """Get the image config layer from image manifest
+        """Get the image config layer from image manifest.
 
         The schema of the image manifest config layer is defined here:
         https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
 
-        Note: While docker image manifests can have multiple formats, ECR only supports
-              the schema defined in the link above, a v2 single image manifest. There is
-              a manifest list, that describes multiple architectures, but ECR does not support
-              this. This method assumes the image manifest is in the correct format.
+        Note:
+            While docker image manifests can have multiple formats, ECR only supports
+            the schema defined in the link above, a v2 single image manifest. There is
+            a manifest list, that describes multiple architectures, but ECR does not support
+            this. This method assumes the image manifest is in the correct format.
 
         Returns:
-            List[LayerTypeDef]: Layer Type dict of the config object
+            Layer Type dict of the config object.
         """
         image_manifest = json.loads(self.image_manifest)
         layer = image_manifest["config"]
@@ -467,9 +470,10 @@ class ECRImage(ECRMixins, DataClassModel):
         )
 
     def get_image_config(self) -> Dict[str, Any]:
-        """Get ECR or docker image configuration json metadata
+        """Get ECR or docker image configuration json metadata.
+
         Returns:
-            Dict[str, Any]: dictionary with image configuration
+            Dictionary with image configuration.
         """
         # get image_manifest (sha256: hash)
         config_digest = json.loads(self.image_manifest)["config"]["digest"]
@@ -484,29 +488,28 @@ class ECRImage(ECRMixins, DataClassModel):
         return response.json()
 
     def add_image_tags(self, *image_tags: str):
-        """
-        Add tags to image
+        """Add tags to image.
 
         Args:
-            image_tags (Union[str, None]): list of tags to add to image
+            *image_tags: Tags to add to image.
         """
         self.logger.info(f"Adding tags={image_tags} to {self.uri}")
         for tag in image_tags:
             self.put_image(image_tag=tag)
 
     def put_image(self, image_tag: Optional[str]):
-        """Make a call to put_image API to add image to ECR repository
+        """Make a call to put_image API to add image to ECR repository.
 
         This method will add an image to the ECR repository. If the image already exists,
         it will not raise an error. Instead, it will log that the image already
         exists with the given tag.
 
-        Note: This operation does not push an image to the repository. It only adds
-        the image manifest to the repository.
+        Note:
+            This operation does not push an image to the repository. It only adds
+            the image manifest to the repository.
 
         Args:
-            image_tag (Optional[str]): tag to associate with image. If None, image is untagged.
-
+            image_tag: Tag to associate with image. If None, image is untagged.
         """
         try:
             if image_tag is None:
@@ -581,10 +584,10 @@ class ECRResource(ECRMixins, DataClassModel):
         return f"arn:aws:ecr:{self.region}:{self.account_id}"
 
     def get_resource_tags(self) -> List[ResourceTag]:
-        """Gets the tags for this ECR Resource
+        """Gets the tags for this ECR Resource.
 
         Returns:
-            List[ResourceTag]: list of tags
+            List of tags.
         """
         return [
             ResourceTag(Key=tag["Key"], Value=tag["Value"])
@@ -595,13 +598,13 @@ class ECRResource(ECRMixins, DataClassModel):
     def update_resource_tags(
         self, *tags: ResourceTag, mode: TagMode = cast(TagMode, TagMode.APPEND)
     ):
-        """Updates the tags for a ECR Resource
+        """Updates the tags for an ECR Resource.
 
         An update can either append or overwrite the existing tags.
 
-
         Args:
-            mode (TagMode, optional): Either append or overwrite tags of resource.
+            *tags: Resource tags to update.
+            mode: Either append or overwrite tags of resource.
                 Defaults to TagMode.APPEND.
         """
         tag_dict = dict([(tag["Key"], tag["Value"]) for tag in tags])
@@ -651,15 +654,12 @@ class ECRRepository(ECRResource):
         image_tag_mutability: ImageTagMutabilityType = "MUTABLE",
         exists_ok: bool = True,
     ):
-        """Create an ECR Repository
+        """Create an ECR Repository.
 
         Args:
-            tags (List[ResourceTag], optional): list of repo tags to add. Defaults to None.
-            image_tag_mutability (ImageTagMutabilityType, optional): whether image
-                tag is immutable. Defaults to "MUTABLE".
-            exists_ok (bool, optional): Suppress error if repository already exists.
-                Defaults to True.
-
+            tags: List of repo tags to add. Defaults to None.
+            image_tag_mutability: Whether image tag is immutable. Defaults to "MUTABLE".
+            exists_ok: Suppress error if repository already exists. Defaults to True.
         """
         if tags is None:
             tags = []
@@ -681,10 +681,10 @@ class ECRRepository(ECRResource):
                 raise e
 
     def exists(self) -> bool:
-        """Check if repository exists
+        """Check if repository exists.
 
         Returns:
-            bool: True if repository exists
+            True if repository exists.
         """
         try:
             self.client.describe_repositories(
@@ -706,10 +706,10 @@ class ECRRepository(ECRResource):
         )
 
     def delete(self, force: bool):
-        """Delete the ECR repository described by this instance
+        """Delete the ECR repository described by this instance.
 
         Args:
-            force (bool): Ignore if images in repository.
+            force: Ignore if images in repository.
         """
         self.client.delete_repository(
             registryId=self.account_id, repositoryName=self.repository_name, force=force
@@ -718,13 +718,14 @@ class ECRRepository(ECRResource):
     def get_image(
         self, image_tag: Optional[str] = None, image_digest: Optional[str] = None
     ) -> "ECRImage":
-        """Get the image associated with the following tag.
+        """Get the image associated with the following tag or digest.
 
         Args:
-            image_tag (str): image tag
+            image_tag: Image tag. Defaults to None.
+            image_digest: Image digest. Defaults to None.
 
         Returns:
-            ECRImage: the image with the image tag
+            The image with the image tag or digest.
         """
         if (image_tag is None) == (image_digest is None):
             raise ValueError(
@@ -743,13 +744,13 @@ class ECRRepository(ECRResource):
             )
 
     def get_images(self, tag_status: TagStatusType = "ANY") -> List["ECRImage"]:
-        """Fetches all images in a given repository
+        """Fetches all images in a given repository.
 
         Args:
-            tag_status (TagStatusType, optional): Filter non-tagged images. Defaults to "ANY".
+            tag_status: Filter non-tagged images. Defaults to "ANY".
 
         Returns:
-            List[ECRImage]: list of images in repository
+            List of images in repository.
         """
 
         # To fetch necessary image info, we need to make two calls:
@@ -854,14 +855,14 @@ class ECRRegistry(ECRResource):
         repository_name: Optional[Union[str, re.Pattern]] = None,
         repository_tags: Optional[List[ResourceTag]] = None,
     ) -> List[ECRRepository]:
-        """Filter repositories based on resource tags specified
+        """Filter repositories based on resource tags specified.
 
         Args:
-            repositories (List[ECRRepository]): list of resources to filter
-            filter_tags (List[ResourceTag]): list of resource tags
+            repository_name: Repository name or pattern to filter by.
+            repository_tags: List of resource tags to filter by.
 
         Returns:
-            List[ECRRepository]: filtered list with resource tags
+            Filtered list of repositories with resource tags.
         """
         repositories = self.list_repositories()
         filtered_repos = []
@@ -880,10 +881,10 @@ class ECRRegistry(ECRResource):
         return filtered_repos
 
     def list_repositories(self) -> List[ECRRepository]:
-        """List all repositories in the Registry
+        """List all repositories in the Registry.
 
         Returns:
-            List[ECRRepository]: list of repositories in the registry
+            List of repositories in the registry.
         """
 
         paginator = self.client.get_paginator("describe_repositories")
@@ -926,13 +927,14 @@ class ECRRegistry(ECRResource):
 
 
 def resolve_image_uri(name: str, default_tag: Optional[str] = None) -> str:
-    """Resolve full image URI from input name
+    """Resolve full image URI from input name.
 
     Args:
-        name (str): Partial or fully qualified uri, name of image or repository
+        name: Partial or fully qualified uri, name of image or repository.
+        default_tag: Default tag to use if not specified. Defaults to None.
 
     Returns:
-        str: fully qualified image URI
+        Fully qualified image URI.
     """
 
     try:
