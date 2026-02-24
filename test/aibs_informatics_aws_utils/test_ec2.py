@@ -111,19 +111,19 @@ def test__network_performance_sort_key__works(network_performance, expected, rai
 @moto.mock_aws
 def test__get_availability_zones__no_args_gets_default_region(aws_credentials_fixture):
     azs = get_availability_zones()
-    assert len(set([az[: az.rfind("-")] for az in azs])) == 1
+    assert len({az[: az.rfind("-")] for az in azs}) == 1
 
 
 @moto.mock_aws
 def test__get_availability_zones__all_regions(aws_credentials_fixture):
     azs = get_availability_zones(all_regions=True)
-    assert len(set([az[: az.rfind("-")] for az in azs])) > 1
+    assert len({az[: az.rfind("-")] for az in azs}) > 1
 
 
 @moto.mock_aws
 def test__get_availability_zones__filtered_by_region(aws_credentials_fixture):
     azs = get_availability_zones(regions=["us-east-1", "us-west-2"])
-    assert len(set([az[: az.rfind("-")] for az in azs])) == 2
+    assert len({az[: az.rfind("-")] for az in azs}) == 2
 
 
 @moto.mock_aws
@@ -221,13 +221,13 @@ def test__describe_instance_types_by_props__all_args_reduce_to_none(aws_credenti
 @moto.mock_aws
 def test__get_instance_types_by_az__no_args(aws_credentials_fixture):
     its_by_az = get_instance_types_by_az()
-    assert len(set([az[:-1] for az in its_by_az.keys()])) == 1
+    assert len({az[:-1] for az in its_by_az.keys()}) == 1
 
 
 @moto.mock_aws
 def test__get_instance_types_by_az__regions_specified(aws_credentials_fixture):
     its_by_az = get_instance_types_by_az(regions=["us-east-1", "us-west-2"])
-    assert len(set([az[:-1] for az in its_by_az.keys()])) == 2
+    assert len({az[:-1] for az in its_by_az.keys()}) == 2
     assert any([az.startswith("us-east-1") for az in its_by_az.keys()])
     assert any([az.startswith("us-west-2") for az in its_by_az.keys()])
 

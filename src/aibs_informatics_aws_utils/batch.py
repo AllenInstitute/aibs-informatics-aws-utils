@@ -1,5 +1,6 @@
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from aibs_informatics_core.env import ENV_BASE_KEY_ALIAS, EnvBase, get_env_base
 from aibs_informatics_core.models.aws.batch import JobName, ResourceRequirements
@@ -62,9 +63,9 @@ get_batch_client = AWSService.BATCH.get_client
 
 
 def to_volume(
-    source_path: Optional[str],
-    name: Optional[str],
-    efs_volume_configuration: Optional[EFSVolumeConfigurationTypeDef],
+    source_path: str | None,
+    name: str | None,
+    efs_volume_configuration: EFSVolumeConfigurationTypeDef | None,
 ) -> VolumeTypeDef:
     volume_dict = VolumeTypeDef()
     if source_path:
@@ -77,9 +78,9 @@ def to_volume(
 
 
 def to_mount_point(
-    container_path: Optional[str],
+    container_path: str | None,
     read_only: bool,
-    source_volume: Optional[str],
+    source_volume: str | None,
 ) -> MountPointTypeDef:
     mount_point_dict = MountPointTypeDef(readOnly=read_only)
     if container_path:
@@ -90,9 +91,9 @@ def to_mount_point(
 
 
 def to_key_value_pairs(
-    environment: Dict[str, str],
+    environment: dict[str, str],
     remove_null_values: bool = True,
-) -> List[KeyValuePairTypeDef]:
+) -> list[KeyValuePairTypeDef]:
     """Converts a map style of environment variables into a list of key-value pairs
 
     Args:
@@ -114,10 +115,10 @@ def to_key_value_pairs(
 
 
 def to_resource_requirements(
-    gpu: Optional[int] = None,
-    memory: Optional[int] = None,
-    vcpus: Optional[int] = None,
-) -> List[ResourceRequirementTypeDef]:
+    gpu: int | None = None,
+    memory: int | None = None,
+    vcpus: int | None = None,
+) -> list[ResourceRequirementTypeDef]:
     """Converts Batch resource requirement parameters into a list of ResourceRequirement objects
 
     The returned list only includes dictionary entries for resources that specify
@@ -132,7 +133,7 @@ def to_resource_requirements(
         list of resource requirements
     """
 
-    pairs: list[tuple[Literal["GPU", "MEMORY", "VCPU"], Optional[int]]] = [
+    pairs: list[tuple[Literal["GPU", "MEMORY", "VCPU"], int | None]] = [
         ("GPU", gpu),
         ("MEMORY", memory),
         ("VCPU", vcpus),
@@ -142,7 +143,7 @@ def to_resource_requirements(
 
 def build_retry_strategy(
     num_retries: int = 5,
-    evaluate_on_exit_configs: Optional[List[EvaluateOnExitTypeDef]] = None,
+    evaluate_on_exit_configs: list[EvaluateOnExitTypeDef] | None = None,
     include_default_evaluate_on_exit_configs: bool = True,
 ) -> RetryStrategyTypeDef:
     """Build a Retry Strategy for a Job definition
@@ -161,7 +162,7 @@ def build_retry_strategy(
     Returns:
         The retry strategy configuration.
     """
-    all_evaluate_on_exit_configs: List[EvaluateOnExitTypeDef] = []
+    all_evaluate_on_exit_configs: list[EvaluateOnExitTypeDef] = []
     if evaluate_on_exit_configs:
         all_evaluate_on_exit_configs.extend(evaluate_on_exit_configs)
     if include_default_evaluate_on_exit_configs:
@@ -184,13 +185,13 @@ def build_retry_strategy(
 def register_job_definition(
     job_definition_name: str,
     container_properties: ContainerPropertiesTypeDef,
-    parameters: Optional[Mapping[str, str]] = None,
+    parameters: Mapping[str, str] | None = None,
     job_definition_type: JobDefinitionTypeType = "container",
-    retry_strategy: Optional[RetryStrategyTypeDef] = None,
-    tags: Optional[Mapping[str, str]] = None,
+    retry_strategy: RetryStrategyTypeDef | None = None,
+    tags: Mapping[str, str] | None = None,
     propagate_tags: bool = False,
-    region: Optional[str] = None,
-) -> Union[JobDefinitionTypeDef, RegisterJobDefinitionResponseTypeDef]:
+    region: str | None = None,
+) -> JobDefinitionTypeDef | RegisterJobDefinitionResponseTypeDef:
     """Register a job definition with Batch.
 
     If a matching job definition already exists (same command, image, jobRoleArn,
@@ -250,8 +251,8 @@ def register_job_definition(
 
 
 def get_latest_job_definition(
-    job_definition_name: str, region: Optional[str] = None
-) -> Optional[JobDefinitionTypeDef]:
+    job_definition_name: str, region: str | None = None
+) -> JobDefinitionTypeDef | None:
     batch = get_batch_client(region=region)
     response = batch.describe_job_definitions(
         jobDefinitionName=job_definition_name,
@@ -268,9 +269,9 @@ def get_latest_job_definition(
 def submit_job(
     job_definition: str,
     job_queue: str,
-    job_name: Optional[Union[JobName, str]] = None,
-    env_base: Optional[EnvBase] = None,
-    region: Optional[str] = None,
+    job_name: JobName | str | None = None,
+    env_base: EnvBase | None = None,
+    region: str | None = None,
 ) -> SubmitJobResponseTypeDef:
     batch_client = get_batch_client(region=region)
     env_base = env_base or get_env_base()
@@ -292,17 +293,17 @@ class BatchJobBuilder:
     image: str
     job_definition_name: str
     job_name: str
-    command: List[str] = field(default_factory=list)
-    environment: Dict[str, str] = field(default_factory=dict)
-    job_definition_tags: Dict[str, str] = field(default_factory=dict)
-    resource_requirements: Union[List[ResourceRequirementTypeDef], ResourceRequirements] = field(
+    command: list[str] = field(default_factory=list)
+    environment: dict[str, str] = field(default_factory=dict)
+    job_definition_tags: dict[str, str] = field(default_factory=dict)
+    resource_requirements: list[ResourceRequirementTypeDef] | ResourceRequirements = field(
         default_factory=list
     )
-    mount_points: List[MountPointTypeDef] = field(default_factory=list)
-    volumes: List[VolumeTypeDef] = field(default_factory=list)
-    job_role_arn: Optional[str] = field(default=None)
+    mount_points: list[MountPointTypeDef] = field(default_factory=list)
+    volumes: list[VolumeTypeDef] = field(default_factory=list)
+    job_role_arn: str | None = field(default=None)
     privileged: bool = field(default=False)
-    linux_parameters: Optional[LinuxParametersTypeDef] = field(default=None)
+    linux_parameters: LinuxParametersTypeDef | None = field(default=None)
     env_base: EnvBase = field(default_factory=EnvBase.from_env)
 
     def __post_init__(self):
@@ -335,10 +336,10 @@ class BatchJobBuilder:
         )
 
     @property
-    def container_overrides__sfn(self) -> Dict[str, Any]:
+    def container_overrides__sfn(self) -> dict[str, Any]:
         return convert_key_case(self.container_overrides, pascalcase)  # type: ignore[arg-type]
 
-    def _normalized_resource_requirements(self) -> List[ResourceRequirementTypeDef]:
+    def _normalized_resource_requirements(self) -> list[ResourceRequirementTypeDef]:
         if isinstance(self.resource_requirements, list):
             return sorted(self.resource_requirements, key=lambda _: _["type"])
         else:
@@ -350,15 +351,15 @@ class BatchJobBuilder:
 
 
 def describe_jobs(
-    job_ids: List[str],
-    region: Optional[str] = None,
+    job_ids: list[str],
+    region: str | None = None,
 ) -> DescribeJobsResponseTypeDef:
     batch = get_batch_client(region=region)
     response = batch.describe_jobs(jobs=job_ids)
     return response
 
 
-def batch_log_stream_name_to_url(log_stream_name: str, region: Optional[str] = None) -> str:
+def batch_log_stream_name_to_url(log_stream_name: str, region: str | None = None) -> str:
     log_group_name = "/aws/batch/job"
     return build_log_stream_url(
         log_group_name=log_group_name, log_stream_name=log_stream_name, region=region

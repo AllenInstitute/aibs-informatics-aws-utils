@@ -5,25 +5,19 @@ import logging
 import math
 import os
 from collections import defaultdict
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from enum import Enum
 from functools import lru_cache
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
+from re import Pattern
 from tempfile import NamedTemporaryFile
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    List,
     Literal,
-    Mapping,
-    Optional,
-    Pattern,
-    Set,
-    Tuple,
     Union,
 )
 from urllib import parse
@@ -103,7 +97,7 @@ LOCAL_ETAG_READ_BUFFER_BYTES = 8 * MB
 AWS_S3_MULTIPART_LIMIT = 10000
 
 
-def download_to_json_object(s3_path: S3URI, **kwargs) -> Dict[str, Any]:
+def download_to_json_object(s3_path: S3URI, **kwargs) -> dict[str, Any]:
     content = download_to_json(s3_path=s3_path, **kwargs)
     assert isinstance(content, dict)
     return content
@@ -137,7 +131,7 @@ def download_s3_path(
     s3_path: S3URI,
     local_path: Path,
     exist_ok: bool = False,
-    transfer_config: Optional[TransferConfig] = None,
+    transfer_config: TransferConfig | None = None,
     force: bool = True,
     size_only: bool = False,
     **kwargs,
@@ -236,7 +230,7 @@ def download_s3_object_prefix(
     s3_path: S3URI,
     local_path: Path,
     exist_ok: bool = False,
-    transfer_config: Optional[TransferConfig] = None,
+    transfer_config: TransferConfig | None = None,
     force: bool = True,
     size_only: bool = False,
     **kwargs,
@@ -298,7 +292,7 @@ def download_s3_object(
     s3_path: S3URI,
     local_path: Path,
     exist_ok: bool = False,
-    transfer_config: Optional[TransferConfig] = None,
+    transfer_config: TransferConfig | None = None,
     force: bool = True,
     size_only: bool = False,
     **kwargs,
@@ -337,9 +331,7 @@ def download_s3_object(
         s3_object.download_file(Filename=str(local_path.resolve()), Config=transfer_config)
 
 
-def upload_json(
-    content: JSON, s3_path: S3URI, extra_args: Optional[Dict[str, Any]] = None, **kwargs
-):
+def upload_json(content: JSON, s3_path: S3URI, extra_args: dict[str, Any] | None = None, **kwargs):
     with NamedTemporaryFile("w") as f:
         f.write(json.dumps(content, sort_keys=True))
         f.flush()
@@ -348,7 +340,7 @@ def upload_json(
 
 
 def upload_scratch_file(
-    local_path: Path, s3_path: S3URI, extra_args: Optional[Dict[str, Any]] = None, **kwargs
+    local_path: Path, s3_path: S3URI, extra_args: dict[str, Any] | None = None, **kwargs
 ):
     extra_args = extra_args or {}
     extra_args.update(SCRATCH_EXTRA_ARGS)
@@ -358,8 +350,8 @@ def upload_scratch_file(
 def upload_path(
     local_path: Path,
     s3_path: S3URI,
-    extra_args: Optional[Dict[str, Any]] = None,
-    transfer_config: Optional[TransferConfig] = None,
+    extra_args: dict[str, Any] | None = None,
+    transfer_config: TransferConfig | None = None,
     force: bool = True,
     size_only: bool = False,
     **kwargs,
@@ -396,8 +388,8 @@ def upload_path(
 def upload_folder(
     local_path: Path,
     s3_path: S3URI,
-    extra_args: Optional[Dict[str, Any]] = None,
-    transfer_config: Optional[TransferConfig] = None,
+    extra_args: dict[str, Any] | None = None,
+    transfer_config: TransferConfig | None = None,
     force: bool = True,
     size_only: bool = False,
     **kwargs,
@@ -421,10 +413,10 @@ def upload_folder(
 
 @retry(ResponseStreamingError, tries=10, backoff=2.0)
 def upload_file(
-    local_path: Union[str, Path],
+    local_path: str | Path,
     s3_path: S3URI,
-    extra_args: Optional[Dict[str, Any]] = None,
-    transfer_config: Optional[TransferConfig] = None,
+    extra_args: dict[str, Any] | None = None,
+    transfer_config: TransferConfig | None = None,
     force: bool = True,
     size_only: bool = False,
     **kwargs,
@@ -588,8 +580,8 @@ def get_s3_path_stats(s3_path: S3URI, **kwargs) -> S3PathStats:
     bucket, key = s3_path.bucket, s3_path.key
     logger.info(f"Getting file stats: {s3_path}")
 
-    size_bytes: Optional[int] = None
-    object_count: Optional[int] = None
+    size_bytes: int | None = None
+    object_count: int | None = None
 
     try:
         file_info = s3.head_object(Bucket=bucket, Key=key)
@@ -615,7 +607,7 @@ def get_s3_path_stats(s3_path: S3URI, **kwargs) -> S3PathStats:
 
 def update_path_tags(
     s3_path: S3URI,
-    tags: Dict[str, str],
+    tags: dict[str, str],
     mode: Literal["replace", "append", "delete"] = "append",
     recursive: bool = True,
     **kwargs,
@@ -676,18 +668,18 @@ def update_path_tags(
 
 
 def sync_paths(
-    source_path: Union[Path, S3URI],
-    destination_path: Union[Path, S3URI],
-    source_path_prefix: Optional[str] = None,
-    include: Optional[List[Pattern]] = None,
-    exclude: Optional[List[Pattern]] = None,
-    extra_args: Optional[Dict[str, Any]] = None,
-    transfer_config: Optional[TransferConfig] = None,
+    source_path: Path | S3URI,
+    destination_path: Path | S3URI,
+    source_path_prefix: str | None = None,
+    include: list[Pattern] | None = None,
+    exclude: list[Pattern] | None = None,
+    extra_args: dict[str, Any] | None = None,
+    transfer_config: TransferConfig | None = None,
     force: bool = False,
     size_only: bool = False,
     delete: bool = False,
     **kwargs,
-) -> List[S3TransferResponse]:
+) -> list[S3TransferResponse]:
     logger.info(f"Syncing {source_path} to {destination_path}")
 
     source_path_key = source_path.key if isinstance(source_path, S3URI) else str(source_path)
@@ -763,10 +755,10 @@ def sync_paths(
 
 
 def generate_transfer_request(
-    source_path: Union[Path, S3URI],
-    destination_path: Union[Path, S3URI],
-    source_path_prefix: Optional[str] = None,
-    extra_args: Optional[Dict[str, Any]] = None,
+    source_path: Path | S3URI,
+    destination_path: Path | S3URI,
+    source_path_prefix: str | None = None,
+    extra_args: dict[str, Any] | None = None,
 ) -> S3TransferRequest:
     """Create an S3 transfer request.
 
@@ -816,12 +808,12 @@ def generate_transfer_request(
 
 def process_transfer_requests(
     *transfer_requests: S3TransferRequest,
-    transfer_config: Optional[TransferConfig] = None,
+    transfer_config: TransferConfig | None = None,
     force: bool = False,
     size_only: bool = False,
     suppress_errors: bool = False,
     **kwargs,
-) -> List[S3TransferResponse]:
+) -> list[S3TransferResponse]:
     """Process a list of S3 transfer requests.
 
     Args:
@@ -902,8 +894,8 @@ def client_error_code_check__SlowDown(ex: Exception) -> bool:
 def copy_s3_object(
     source_path: S3URI,
     destination_path: S3URI,
-    extra_args: Optional[Dict[str, Any]] = None,
-    transfer_config: Optional[TransferConfig] = None,
+    extra_args: dict[str, Any] | None = None,
+    transfer_config: TransferConfig | None = None,
     force: bool = True,
     size_only: bool = False,
     **kwargs,
@@ -951,8 +943,8 @@ def copy_s3_object(
 
 def delete_s3_path(
     s3_path: S3URI,
-    include: Optional[List[Pattern]] = None,
-    exclude: Optional[List[Pattern]] = None,
+    include: list[Pattern] | None = None,
+    exclude: list[Pattern] | None = None,
     **kwargs,
 ):
     """Delete an S3 path (object or prefix).
@@ -968,7 +960,7 @@ def delete_s3_path(
     delete_s3_objects(s3_paths, **kwargs)
 
 
-def delete_s3_objects(s3_paths: List[S3URI], **kwargs):
+def delete_s3_objects(s3_paths: list[S3URI], **kwargs):
     """Delete a list of S3 objects.
 
     Args:
@@ -978,7 +970,7 @@ def delete_s3_objects(s3_paths: List[S3URI], **kwargs):
     logger.info(f"Found {len(s3_paths)} objects to delete.")
     s3 = get_s3_client(**kwargs)
 
-    bucket_objects: Dict[str, Set[str]] = defaultdict(set)
+    bucket_objects: dict[str, set[str]] = defaultdict(set)
     for s3_path in s3_paths:
         bucket_objects[s3_path.bucket].add(s3_path.key)
 
@@ -1000,10 +992,10 @@ def delete_s3_objects(s3_paths: List[S3URI], **kwargs):
 def move_s3_path(
     source_path: S3URI,
     destination_path: S3URI,
-    include: Optional[List[Pattern]] = None,
-    exclude: Optional[List[Pattern]] = None,
-    extra_args: Optional[Dict[str, Any]] = None,
-    transfer_config: Optional[TransferConfig] = None,
+    include: list[Pattern] | None = None,
+    exclude: list[Pattern] | None = None,
+    extra_args: dict[str, Any] | None = None,
+    transfer_config: TransferConfig | None = None,
     **kwargs,
 ):
     """Move S3 Path from source to destination.
@@ -1036,10 +1028,10 @@ def move_s3_path(
 
 def list_s3_paths(
     s3_path: S3URI,
-    include: Optional[List[Pattern]] = None,
-    exclude: Optional[List[Pattern]] = None,
+    include: list[Pattern] | None = None,
+    exclude: list[Pattern] | None = None,
     **kwargs,
-) -> List[S3URI]:
+) -> list[S3URI]:
     """List all S3 paths under a Key prefix (as defined by S3 path).
 
     Include/Exclude patterns are applied to the RELATIVE KEY PATH.
@@ -1078,12 +1070,12 @@ def list_s3_paths(
 
     s3 = get_s3_client(**kwargs)
 
-    def match_results(value: str, patterns: List[Pattern]) -> List[bool]:
+    def match_results(value: str, patterns: list[Pattern]) -> list[bool]:
         return [_.match(value) is not None for _ in patterns]
 
     paginator = s3.get_paginator("list_objects_v2")
 
-    s3_paths: List[S3URI] = []
+    s3_paths: list[S3URI] = []
     for response in paginator.paginate(Bucket=s3_path.bucket, Prefix=s3_path.key):
         for item in response.get("Contents", []):
             key = item.get("Key", "")
@@ -1100,11 +1092,11 @@ class PresignedUrlAction(Enum):
 
 
 def generate_presigned_urls(
-    s3_paths: List[S3URI],
+    s3_paths: list[S3URI],
     action: PresignedUrlAction = PresignedUrlAction.READ,
     expires_in: int = 3600,
     **kwargs,
-) -> List[str]:
+) -> list[str]:
     """Generate pre-signed URLs for given S3 paths.
 
     Args:
@@ -1149,8 +1141,8 @@ def generate_presigned_url(
 
 
 def should_sync(
-    source_path: Union[Path, S3URI],
-    destination_path: Union[Path, S3URI],
+    source_path: Path | S3URI,
+    destination_path: Path | S3URI,
     size_only: bool = False,
     **kwargs,
 ) -> bool:
@@ -1177,12 +1169,12 @@ def should_sync(
     """
     source_last_modified: datetime
     source_size_bytes: int
-    source_hash: Callable[[], Optional[str]]
-    dest_last_modified: Optional[datetime] = None
-    dest_size_bytes: Optional[int] = None
-    dest_hash: Callable[[], Optional[str]]
-    multipart_chunk_size_bytes: Optional[int] = None
-    multipart_threshold_bytes: Optional[int] = None
+    source_hash: Callable[[], str | None]
+    dest_last_modified: datetime | None = None
+    dest_size_bytes: int | None = None
+    dest_hash: Callable[[], str | None]
+    multipart_chunk_size_bytes: int | None = None
+    multipart_threshold_bytes: int | None = None
 
     if isinstance(destination_path, S3URI) and is_object(destination_path):
         dest_s3_object = get_object(destination_path, **kwargs)
@@ -1192,7 +1184,7 @@ def should_sync(
             destination_path, **kwargs
         )
 
-        def dest_hash() -> Optional[str]:
+        def dest_hash() -> str | None:
             return dest_s3_object.e_tag if not size_only else None
     elif isinstance(destination_path, Path) and destination_path.exists():
         dest_local_path = destination_path
@@ -1200,7 +1192,7 @@ def should_sync(
         dest_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         dest_size_bytes = local_stats.st_size
 
-        def dest_hash() -> Optional[str]:
+        def dest_hash() -> str | None:
             return (
                 get_local_etag(
                     dest_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
@@ -1219,7 +1211,7 @@ def should_sync(
             source_path, **kwargs
         )
 
-        def source_hash() -> Optional[str]:
+        def source_hash() -> str | None:
             return src_s3_object.e_tag if not size_only else None
     elif isinstance(source_path, Path) and source_path.exists():
         src_local_path = source_path
@@ -1227,7 +1219,7 @@ def should_sync(
         source_last_modified = datetime.fromtimestamp(local_stats.st_mtime, tz=timezone.utc)
         source_size_bytes = local_stats.st_size
 
-        def source_hash() -> Optional[str]:
+        def source_hash() -> str | None:
             return (
                 get_local_etag(
                     src_local_path, multipart_chunk_size_bytes, multipart_threshold_bytes
@@ -1256,12 +1248,12 @@ def should_sync(
 
 
 def check_paths_in_sync(
-    source_path: Union[Path, S3URI],
-    destination_path: Union[Path, S3URI],
+    source_path: Path | S3URI,
+    destination_path: Path | S3URI,
     size_only: bool = False,
     ignore_folder_placeholder_objects: bool = True,
     allow_subset: bool = False,
-    max_workers: Optional[int] = None,
+    max_workers: int | None = None,
     **kwargs,
 ) -> bool:
     """Check whether source and destination paths are in sync.
@@ -1286,7 +1278,7 @@ def check_paths_in_sync(
         True if paths are in sync, False otherwise.
     """
 
-    def _resolve_paths(path: Union[Path, S3URI]) -> List[Union[Path, S3URI]]:
+    def _resolve_paths(path: Path | S3URI) -> list[Path | S3URI]:
         if isinstance(path, Path):
             if path.is_dir():
                 return list(map(Path, sorted(find_paths(path, include_dirs=False))))
@@ -1305,7 +1297,7 @@ def check_paths_in_sync(
                     )
                 ]
 
-    def _find_relative_path(full_path: Union[Path, S3URI], root_path: Union[Path, S3URI]) -> str:
+    def _find_relative_path(full_path: Path | S3URI, root_path: Path | S3URI) -> str:
         if isinstance(full_path, Path) and isinstance(root_path, Path):
             if full_path == root_path:
                 return ""
@@ -1334,11 +1326,11 @@ def check_paths_in_sync(
     if len(source_paths) == 0:
         raise ValueError(f"Source path {source_path} does not exist")
 
-    stripped_source_path_to_path_map: Dict[str, Union[Path, S3URI]] = {
+    stripped_source_path_to_path_map: dict[str, Path | S3URI] = {
         _find_relative_path(sp, source_path): sp for sp in source_paths
     }
 
-    stripped_destination_path_to_path_map: Dict[str, Union[Path, S3URI]] = {
+    stripped_destination_path_to_path_map: dict[str, Path | S3URI] = {
         _find_relative_path(dp, destination_path): dp for dp in destination_paths
     }
 
@@ -1424,9 +1416,9 @@ def update_s3_storage_class(
 
     # 1. Iterate over all s3 paths under our s3_path and determine archive restores to be done.
     #    Also, start any storage class transitions that can be done.
-    paths_to_restore: List[S3URI] = []
-    paths_restoring: List[S3URI] = []
-    failed_transitions: List[S3URI] = []
+    paths_to_restore: list[S3URI] = []
+    paths_restoring: list[S3URI] = []
+    failed_transitions: list[S3URI] = []
     for p in s3_paths:
         run_path_transition: bool = False
         s3_obj = get_object(p)
@@ -1503,7 +1495,7 @@ def update_s3_storage_class(
 # --------------------------------------------------------------------
 #                               Helpers
 # --------------------------------------------------------------------
-def _get_prefix_size_and_count(bucket_name: str, key_prefix: str, **kwargs) -> Tuple[int, int]:
+def _get_prefix_size_and_count(bucket_name: str, key_prefix: str, **kwargs) -> tuple[int, int]:
     s3 = get_s3_resource(**kwargs)
     bucket = s3.Bucket(bucket_name)
     object_count = 0
@@ -1525,9 +1517,7 @@ def _get_prefix_last_modified(bucket_name: str, key_prefix: str, **kwargs) -> da
     return last_modified
 
 
-def determine_multipart_attributes(
-    s3_path: S3URI, **kwargs
-) -> Tuple[Optional[int], Optional[int]]:
+def determine_multipart_attributes(s3_path: S3URI, **kwargs) -> tuple[int | None, int | None]:
     """Determine multipart upload chunk size and approximate threshold, if applicable.
 
     Multipart attributes are the following:
@@ -1596,7 +1586,7 @@ def determine_chunk_size(
 
 @retry(OSError)
 def get_local_etag(
-    path: Path, chunk_size_bytes: Optional[int] = None, threshold_bytes: Optional[int] = None
+    path: Path, chunk_size_bytes: int | None = None, threshold_bytes: int | None = None
 ) -> str:
     """Calculates an expected AWS s3 upload etag for a local on-disk file.
     Takes into account multipart uploads, but does NOT account for additional encryption
@@ -1620,7 +1610,7 @@ def get_local_etag(
 
     size_bytes = path.stat().st_size
 
-    chunk_digests: List[bytes] = []
+    chunk_digests: list[bytes] = []
     buffer_size = min(chunk_size_bytes, LOCAL_ETAG_READ_BUFFER_BYTES)
 
     with open(path, "rb") as fp:

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING
 
 import boto3
 import moto
@@ -30,10 +30,10 @@ class MountPointConfigurationTests(EFSTestsBase):
         detect_mount_points.cache_clear()
 
     @property
-    def mock_aws_config(self) -> Optional[DefaultConfig]:
+    def mock_aws_config(self) -> DefaultConfig | None:
         return {"batch": {"use_docker": False}, "core": {"reset_boto3_session": True}}
 
-    def setUpEFS(self, *access_points: Tuple[str, Path], file_system_name: Optional[str] = None):
+    def setUpEFS(self, *access_points: tuple[str, Path], file_system_name: str | None = None):
         self.create_file_system(file_system_name)
         for access_point_name, access_point_path in access_points:
             self.create_access_point(
@@ -400,10 +400,10 @@ class MountPointConfigurationTests(EFSTestsBase):
 
     def get_mount_point(
         self,
-        mount_point: Union[Path, str],
-        access_point_name: Optional[str],
-        access_point_path: Optional[Union[Path, str]],
-        file_system_name: Optional[str] = None,
+        mount_point: Path | str,
+        access_point_name: str | None,
+        access_point_path: Path | str | None,
+        file_system_name: str | None = None,
         create: bool = True,
     ) -> MountPointConfiguration:
         file_system = self.create_file_system(file_system_name)

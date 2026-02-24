@@ -12,7 +12,7 @@ __all__ = [
 import logging
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic, Literal, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar, cast
 
 import boto3
 from aibs_informatics_core.models.aws.core import AWSRegion
@@ -81,7 +81,7 @@ logger = logging.getLogger(__name__)  # type: logging.Logger
 AWS_REGION_VAR = "AWS_REGION"
 
 
-def get_session(session: Optional[Union[Session, BotocoreSession]] = None) -> Session:
+def get_session(session: Session | BotocoreSession | None = None) -> Session:
     """Get or create a boto3 Session.
 
     Args:
@@ -99,7 +99,7 @@ def get_session(session: Optional[Union[Session, BotocoreSession]] = None) -> Se
         return session
 
 
-def get_region(region: Optional[str] = None) -> str:
+def get_region(region: str | None = None) -> str:
     """Get and sanitize region value
 
     Will retrieve the current region from a newly created boto3 session.
@@ -272,8 +272,8 @@ ResourceType = TypeVar("ResourceType", bound=ServiceResource)
 @cache
 def get_client(
     service: Clients,
-    session: Optional[boto3.Session] = None,
-    region: Optional[str] = None,
+    session: boto3.Session | None = None,
+    region: str | None = None,
     **kwargs,
 ):
     """Get a boto3 client object
@@ -300,7 +300,7 @@ def get_client(
     # If config for our client is not set, we want to set it to use "standard" mode
     # (default is "legacy") and increase the number of retries to 5 (default is 3)
     # See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html#available-retry-modes
-    config: Optional[Config] = kwargs.pop("config", None)
+    config: Config | None = kwargs.pop("config", None)
     default_config = Config(
         connect_timeout=120, read_timeout=120, retries={"max_attempts": 6, "mode": "standard"}
     )
@@ -317,8 +317,8 @@ def get_client(
 @cache
 def get_resource(
     service: Resources,
-    session: Optional[boto3.Session] = None,
-    region: Optional[str] = None,
+    session: boto3.Session | None = None,
+    region: str | None = None,
     **kwargs,
 ) -> ServiceResource:
     """Get a boto3 resource object
@@ -345,7 +345,7 @@ def get_resource(
     # If config for our client is not set, we want to set it to use "standard" mode
     # (default is "legacy") and increase the number of retries to 5 (default is 3)
     # See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html#available-retry-modes
-    config: Optional[Config] = kwargs.pop("config", None)
+    config: Config | None = kwargs.pop("config", None)
     default_config = Config(
         connect_timeout=120, read_timeout=120, retries={"max_attempts": 6, "mode": "standard"}
     )
@@ -369,7 +369,7 @@ class AWSServiceProvider(Generic[ClientType]):
 
     service_name: Services
 
-    def get_client(self, region: Optional[str] = None, **kwargs) -> ClientType:
+    def get_client(self, region: str | None = None, **kwargs) -> ClientType:
         """Get a typed client for this AWS service.
 
         Args:
@@ -396,7 +396,7 @@ class AWSServiceAndResourceProvider(
 
     service_name: Resources
 
-    def get_resource(self, region: Optional[str] = None, **kwargs) -> ResourceType:
+    def get_resource(self, region: str | None = None, **kwargs) -> ResourceType:
         """Get a typed resource for this AWS service.
 
         Args:

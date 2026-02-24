@@ -1,7 +1,7 @@
 import hashlib
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING
 
 from aibs_informatics_core.env import EnvBase
 from aibs_informatics_core.models.aws.sfn import ExecutionArn as _ExecutionArn
@@ -59,8 +59,8 @@ class StateMachineArn(_StateMachineArn):
     def from_components(  # type: ignore
         cls,
         state_machine_name: str,
-        region: Optional[str] = None,
-        account_id: Optional[str] = None,
+        region: str | None = None,
+        account_id: str | None = None,
     ) -> "StateMachineArn":
         """Create a StateMachineArn from components.
 
@@ -95,8 +95,8 @@ class ExecutionArn(_ExecutionArn):
         cls,
         state_machine_name: str,
         execution_name: str,
-        region: Optional[str] = None,
-        account_id: Optional[str] = None,
+        region: str | None = None,
+        account_id: str | None = None,
     ) -> "ExecutionArn":
         """Create an ExecutionArn from components.
 
@@ -129,7 +129,7 @@ class ExecutionArn(_ExecutionArn):
 # so with same name and payload always returns the same execution, instead
 # of duplicating for demand. This also means the same payload can only be
 # executed once in an environment and the name cant be reused for 90 days.
-def build_execution_name(payload: str, date: Optional[datetime] = None) -> str:
+def build_execution_name(payload: str, date: datetime | None = None) -> str:
     """Build a unique execution name from a payload string.
 
     Creates a SHA256 hash of the payload (optionally combined with a date)
@@ -159,8 +159,8 @@ def build_execution_name(payload: str, date: Optional[datetime] = None) -> str:
 def get_execution_arn(
     state_machine_name: str,
     execution_name: str,
-    env_base: Optional[EnvBase] = None,
-    region: Optional[str] = None,
+    env_base: EnvBase | None = None,
+    region: str | None = None,
 ) -> ExecutionArn:
     """Get an execution ARN by state machine and execution name.
 
@@ -195,7 +195,7 @@ def get_execution_arn(
 
 
 def describe_execution(
-    execution_arn: str, included_data: IncludedDataType = "ALL_DATA", region: Optional[str] = None
+    execution_arn: str, included_data: IncludedDataType = "ALL_DATA", region: str | None = None
 ) -> DescribeExecutionOutputTypeDef:
     """Describe a Step Functions execution.
 
@@ -216,11 +216,11 @@ def describe_execution(
 
 
 def get_execution_history(
-    execution_arn: Union[ExecutionArn, str],
+    execution_arn: ExecutionArn | str,
     reverse_order: bool = False,
     include_execution_data: bool = False,
-    region: Optional[str] = None,
-) -> List[HistoryEventTypeDef]:
+    region: str | None = None,
+) -> list[HistoryEventTypeDef]:
     """Get the execution history for a Step Functions execution.
 
     Args:
@@ -250,9 +250,9 @@ def start_execution(
     state_machine_name: str,
     state_machine_input: str,
     reuse_existing_execution: bool = False,
-    execution_name: Optional[str] = None,
-    env_base: Optional[EnvBase] = None,
-    region: Optional[str] = None,
+    execution_name: str | None = None,
+    env_base: EnvBase | None = None,
+    region: str | None = None,
 ) -> ExecutionArn:
     """Starts a StepFn Execution
 
@@ -320,10 +320,10 @@ def start_execution(
 
 
 def stop_execution(
-    execution_arn: Union[ExecutionArn, str],
-    error: Optional[str] = None,
-    cause: Optional[str] = None,
-    region: Optional[str] = None,
+    execution_arn: ExecutionArn | str,
+    error: str | None = None,
+    cause: str | None = None,
+    region: str | None = None,
 ) -> datetime:
     """Stop a running Step Functions execution.
 
@@ -344,7 +344,7 @@ def stop_execution(
 
 
 def get_state_machine(
-    name: str, env_base: Optional[EnvBase] = None, region: Optional[str] = None
+    name: str, env_base: EnvBase | None = None, region: str | None = None
 ) -> StateMachineListItemTypeDef:
     """Get a state machine by name suffix.
 
@@ -381,8 +381,8 @@ def get_state_machine(
 
 
 def get_state_machines(
-    env_base: Optional[EnvBase] = None, region: Optional[str] = None
-) -> List[StateMachineListItemTypeDef]:
+    env_base: EnvBase | None = None, region: str | None = None
+) -> list[StateMachineListItemTypeDef]:
     """List all state machines, optionally filtered by environment base.
 
     Args:

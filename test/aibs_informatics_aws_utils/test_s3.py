@@ -4,7 +4,6 @@ import hashlib
 import re
 from pathlib import Path
 from time import sleep
-from typing import Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import moto
@@ -74,7 +73,7 @@ class S3Tests(AwsBaseTest):
         self.DEFAULT_BUCKET_NAME = "a-random-bucket"
         self.setUpBucket(self.DEFAULT_BUCKET_NAME)
 
-    def setUpBucket(self, bucket_name: Optional[str] = None):
+    def setUpBucket(self, bucket_name: str | None = None):
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
         self.s3_client.create_bucket(
             Bucket=bucket_name,
@@ -109,11 +108,11 @@ class S3Tests(AwsBaseTest):
             kwargs["Bucket"] = self.DEFAULT_BUCKET_NAME
         return self.s3_client.list_objects_v2(**kwargs)
 
-    def _get_tag_dict(self, s3_path: S3URI) -> Dict[str, str]:
+    def _get_tag_dict(self, s3_path: S3URI) -> dict[str, str]:
         response = self.s3_client.get_object_tagging(Bucket=s3_path.bucket, Key=s3_path.key)
         return {tag["Key"]: tag["Value"] for tag in response.get("TagSet", [])}
 
-    def _put_tags(self, s3_path: S3URI, tags: Dict[str, str]):
+    def _put_tags(self, s3_path: S3URI, tags: dict[str, str]):
         self.s3_client.put_object_tagging(
             Bucket=s3_path.bucket,
             Key=s3_path.key,

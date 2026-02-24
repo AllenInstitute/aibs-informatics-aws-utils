@@ -1,7 +1,6 @@
 from copy import deepcopy
 from decimal import Decimal
 from operator import itemgetter
-from typing import Dict, List
 
 import boto3
 import moto
@@ -39,8 +38,8 @@ class DynamoDBTests(AwsBaseTest):
     def setUpTable(
         self,
         table_name: str = None,
-        key_schema: List[Dict[str, str]] = None,
-        attr_definitions: List[Dict[str, str]] = None,
+        key_schema: list[dict[str, str]] = None,
+        attr_definitions: list[dict[str, str]] = None,
         **kwargs,
     ) -> str:
         table_name = table_name or self.DEFAULT_TABLE_NAME

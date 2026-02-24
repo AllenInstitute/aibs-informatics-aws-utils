@@ -13,7 +13,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Union, cast
 
 from aibs_informatics_core.models.aws.efs import AccessPointId, EFSPath, FileSystemId
 from aibs_informatics_core.utils.decorators import retry
@@ -71,7 +71,7 @@ class MountPointConfiguration:
     """
 
     file_system: FileSystemDescriptionTypeDef
-    access_point: Optional[AccessPointDescriptionTypeDef]
+    access_point: AccessPointDescriptionTypeDef | None
     mount_point: Path
 
     # TODO: make hashable
@@ -234,7 +234,7 @@ class MountPointConfiguration:
         """Checks if the path is relative to the mount point"""
         return Path(path).is_relative_to(self.mount_point)
 
-    def as_env_vars(self, name: Optional[str] = None) -> Dict[str, str]:
+    def as_env_vars(self, name: str | None = None) -> dict[str, str]:
         """Converts the mount point configuration to environment variables."""
         if self.access_point and self.access_point.get("AccessPointId"):
             mount_point_id = self.access_point["AccessPointId"]
@@ -247,10 +247,10 @@ class MountPointConfiguration:
     def build(
         cls,
         mount_point: StrPath,
-        access_point: Optional[Union[str, AccessPointDescriptionTypeDef]] = None,
-        file_system: Optional[Union[str, FileSystemDescriptionTypeDef]] = None,
-        access_point_tags: Optional[Dict[str, str]] = None,
-        file_system_tags: Optional[Dict[str, str]] = None,
+        access_point: str | AccessPointDescriptionTypeDef | None = None,
+        file_system: str | FileSystemDescriptionTypeDef | None = None,
+        access_point_tags: dict[str, str] | None = None,
+        file_system_tags: dict[str, str] | None = None,
     ) -> MountPointConfiguration:
         """Creates a new config from the given mount point and access point or file system.
 
@@ -337,9 +337,9 @@ class MountPointConfiguration:
     def to_env_vars(
         cls,
         mount_point: StrPath,
-        mount_point_id: Union[str, AccessPointId, FileSystemId],
-        name: Optional[str] = None,
-    ) -> Dict[str, str]:
+        mount_point_id: str | AccessPointId | FileSystemId,
+        name: str | None = None,
+    ) -> dict[str, str]:
         """Converts the mount point configuration to environment variables.
 
         Args:
@@ -392,8 +392,8 @@ class MountPointConfiguration:
 
 @cache
 @retry(retryable_exceptions=(NoCredentialsError), tries=5, backoff=2.0)
-def detect_mount_points() -> List[MountPointConfiguration]:
-    mount_points: List[MountPointConfiguration] = []
+def detect_mount_points() -> list[MountPointConfiguration]:
+    mount_points: list[MountPointConfiguration] = []
 
     if batch_job_id := get_env_var("AWS_BATCH_JOB_ID"):
         logger.info(f"Detected Batch job {batch_job_id}")
@@ -419,14 +419,14 @@ def detect_mount_points() -> List[MountPointConfiguration]:
 
 
 def deduplicate_mount_points(
-    mount_points: List[MountPointConfiguration],
-) -> List[MountPointConfiguration]:
+    mount_points: list[MountPointConfiguration],
+) -> list[MountPointConfiguration]:
     """
     Deduplicates a list of MountPointConfiguration objects based on the file
     system id and access point id.
     """
 
-    unique_configs: Dict[str, MountPointConfiguration] = {}
+    unique_configs: dict[str, MountPointConfiguration] = {}
     for mp_config in mount_points:
         key = mp_config.mount_point.as_posix()
 
@@ -458,8 +458,8 @@ def deduplicate_mount_points(
 # ------------------------------------
 
 
-def _detect_mount_points_from_lambda(lambda_function_name: str) -> List[MountPointConfiguration]:
-    mount_points: List[MountPointConfiguration] = []
+def _detect_mount_points_from_lambda(lambda_function_name: str) -> list[MountPointConfiguration]:
+    mount_points: list[MountPointConfiguration] = []
     lambda_ = get_lambda_client()
     response = lambda_.get_function_configuration(FunctionName=lambda_function_name)
 
@@ -475,8 +475,8 @@ def _detect_mount_points_from_lambda(lambda_function_name: str) -> List[MountPoi
     return _remove_invalid_mount_points(mount_points)
 
 
-def _detect_mount_points_from_batch_job(batch_job_id: str) -> List[MountPointConfiguration]:
-    mount_points: List[MountPointConfiguration] = []
+def _detect_mount_points_from_batch_job(batch_job_id: str) -> list[MountPointConfiguration]:
+    mount_points: list[MountPointConfiguration] = []
     batch = get_batch_client()
     response = batch.describe_jobs(jobs=[batch_job_id])
     job_container = response.get("jobs", [cast(JobDetailTypeDef, {})])[0].get("container", {})
@@ -513,8 +513,8 @@ def _detect_mount_points_from_batch_job(batch_job_id: str) -> List[MountPointCon
     return _remove_invalid_mount_points(mount_points)
 
 
-def _detect_mount_points_from_env() -> List[MountPointConfiguration]:
-    mount_points: List[MountPointConfiguration] = []
+def _detect_mount_points_from_env() -> list[MountPointConfiguration]:
+    mount_points: list[MountPointConfiguration] = []
 
     for k, v in os.environ.items():
         if k.startswith(EFS_MOUNT_POINT_PATH_VAR):
@@ -553,9 +553,9 @@ def _detect_mount_points_from_env() -> List[MountPointConfiguration]:
 
 
 def _remove_invalid_mount_points(
-    mount_points: List[MountPointConfiguration],
-) -> List[MountPointConfiguration]:
-    valid_mount_points: List[MountPointConfiguration] = []
+    mount_points: list[MountPointConfiguration],
+) -> list[MountPointConfiguration]:
+    valid_mount_points: list[MountPointConfiguration] = []
     for mp in mount_points:
         try:
             if not mp.mount_point.absolute():

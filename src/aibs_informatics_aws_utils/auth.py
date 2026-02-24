@@ -1,5 +1,3 @@
-from typing import Optional
-
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 from botocore.compat import parse_qsl, urlparse
@@ -29,7 +27,7 @@ class IamAWSRequestsAuth(AuthBase):
         ```
     """
 
-    def __init__(self, session: Optional[Session] = None, service_name: str = "execute-api"):
+    def __init__(self, session: Session | None = None, service_name: str = "execute-api"):
         self.boto3_session = get_session(session)
         credentials = self.boto3_session.get_credentials()
         if not credentials:

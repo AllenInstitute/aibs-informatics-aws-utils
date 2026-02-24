@@ -6,7 +6,8 @@ __all__ = [
 ]
 
 import logging
-from typing import TYPE_CHECKING, Mapping, Optional
+from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from botocore.exceptions import ClientError
 
@@ -34,15 +35,15 @@ get_sns_resource = AWSService.SNS.get_resource
 
 def publish(
     message: str,
-    topic_arn: Optional[str] = None,
-    target_arn: Optional[str] = None,
-    phone_number: Optional[str] = None,
-    subject: Optional[str] = None,
-    message_structure: Optional[str] = None,
-    message_attributes: Optional[Mapping[str, MessageAttributeValueTypeDef]] = None,
-    message_deduplication_id: Optional[str] = None,
-    message_group_id: Optional[str] = None,
-    region: Optional[str] = None,
+    topic_arn: str | None = None,
+    target_arn: str | None = None,
+    phone_number: str | None = None,
+    subject: str | None = None,
+    message_structure: str | None = None,
+    message_attributes: Mapping[str, MessageAttributeValueTypeDef] | None = None,
+    message_deduplication_id: str | None = None,
+    message_group_id: str | None = None,
+    region: str | None = None,
 ) -> PublishResponseTypeDef:
     """Publish a message to an SNS topic, endpoint, or phone number.
 
@@ -104,12 +105,12 @@ def publish(
 def publish_to_topic(
     message: str,
     topic_arn: str,
-    subject: Optional[str] = None,
-    message_structure: Optional[str] = None,
-    message_attributes: Optional[Mapping[str, MessageAttributeValueTypeDef]] = None,
-    message_deduplication_id: Optional[str] = None,
-    message_group_id: Optional[str] = None,
-    region: Optional[str] = None,
+    subject: str | None = None,
+    message_structure: str | None = None,
+    message_attributes: Mapping[str, MessageAttributeValueTypeDef] | None = None,
+    message_deduplication_id: str | None = None,
+    message_group_id: str | None = None,
+    region: str | None = None,
 ) -> PublishResponseTypeDef:
     """Publish a message to an SNS topic.
 

@@ -1,5 +1,5 @@
 import json
-from typing import TYPE_CHECKING, Any, Dict, Literal, Union, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 from botocore.exceptions import ClientError
 
@@ -39,7 +39,7 @@ def put_ssm_parameter(
 @overload
 def get_ssm_parameter(
     param_name: str, as_dict: Literal[True]
-) -> Dict[str, Any]: ...  # pragma: no cover
+) -> dict[str, Any]: ...  # pragma: no cover
 
 
 @overload
@@ -48,7 +48,7 @@ def get_ssm_parameter(
 ) -> str: ...  # pragma: no cover
 
 
-def get_ssm_parameter(param_name: str, as_dict: bool = False) -> Union[str, Dict[str, Any]]:
+def get_ssm_parameter(param_name: str, as_dict: bool = False) -> str | dict[str, Any]:
     """Retrieves a SSM parameter value
 
     Args:

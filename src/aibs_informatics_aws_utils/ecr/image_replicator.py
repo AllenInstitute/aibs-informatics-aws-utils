@@ -1,5 +1,5 @@
 import re
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 import requests
 from aibs_informatics_core.utils.logging import LoggingMixin
@@ -25,7 +25,7 @@ from aibs_informatics_core.models.base.model import SchemaModel
 class ReplicateImageRequest(SchemaModel):
     source_image: ECRImage
     destination_repository: ECRRepository
-    destination_image_tags: List[str] = field(default_factory=list)
+    destination_image_tags: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -48,7 +48,7 @@ class ECRImageReplicator(LoggingMixin):
         self,
         source_image: ECRImage,
         destination_repository: ECRRepository,
-        destination_image_tags: Optional[List[str]] = None,
+        destination_image_tags: list[str] | None = None,
     ) -> ECRImage:
         """Copies the source image into the destination repository.
 
@@ -130,7 +130,7 @@ class ECRImageReplicator(LoggingMixin):
         self,
         source_image: ECRImage,
         destination_repository: ECRRepository,
-        destination_image_tags: Optional[List[str]] = None,
+        destination_image_tags: list[str] | None = None,
     ) -> ECRImage:
         """Put image manifest and tags for an image.
 
@@ -202,7 +202,7 @@ class ECRImageReplicator(LoggingMixin):
         self,
         source_repository: ECRRepository,
         destination_repository: ECRRepository,
-        layers: List[LayerTypeDef],
+        layers: list[LayerTypeDef],
         check_if_exists: bool = True,
     ):
         """Upload image layers of the source image to the destination repository.
@@ -362,7 +362,7 @@ class ECRImageReplicator(LoggingMixin):
         http_response = requests.request(
             "GET",
             download_url,
-            headers={"Range": "bytes={}-{}".format(part_first_byte, part_last_byte)},
+            headers={"Range": f"bytes={part_first_byte}-{part_last_byte}"},
             stream=False,
         )
 
@@ -419,7 +419,7 @@ class ECRImageReplicator(LoggingMixin):
 
     def _get_missing_layers(
         self, client: ECRClient, repository_name: str, put_image_error: ClientError
-    ) -> List[LayerTypeDef]:
+    ) -> list[LayerTypeDef]:
         """Gets missing layers from a ClientError while putting image.
 
         Args:

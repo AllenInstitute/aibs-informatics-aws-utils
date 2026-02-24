@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Dict, Optional, Union
 
 import boto3
 import moto
@@ -27,21 +26,21 @@ class EFSTestsBase(AwsBaseTest):
         self.mock_efs.start()
 
         self.set_aws_credentials()
-        self._file_store_name_id_map: Dict[str, str] = {}
+        self._file_store_name_id_map: dict[str, str] = {}
 
     def tearDown(self) -> None:
         super().tearDown()
         self.mock_efs.stop()
 
     @property
-    def mock_aws_config(self) -> Optional[moto.core.config.DefaultConfig]:
+    def mock_aws_config(self) -> moto.core.config.DefaultConfig | None:
         return None
 
     @property
     def efs_client(self):
         return boto3.client("efs")
 
-    def create_file_system(self, file_system_name: Optional[str] = None, **tags):
+    def create_file_system(self, file_system_name: str | None = None, **tags):
         file_system_name = file_system_name or "fs"
         if file_system_name not in self._file_store_name_id_map:
             tags = [{"Key": k, "Value": v} for k, v in tags.items()]
@@ -56,9 +55,9 @@ class EFSTestsBase(AwsBaseTest):
     def create_access_point(
         self,
         access_point_name: str,
-        access_point_path: Optional[Union[str, Path]] = None,
-        file_system_id: Optional[str] = None,
-        file_system_name: Optional[str] = None,
+        access_point_path: str | Path | None = None,
+        file_system_id: str | None = None,
+        file_system_name: str | None = None,
         **tags,
     ):
         file_system_id = file_system_id or self.create_file_system(file_system_name)

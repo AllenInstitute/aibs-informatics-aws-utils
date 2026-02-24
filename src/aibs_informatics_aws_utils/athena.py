@@ -1,7 +1,7 @@
 import logging
 import sys
 import time
-from typing import TYPE_CHECKING, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Literal
 
 if sys.version_info >= (3, 11):
     # For Python 3.11+
@@ -41,8 +41,8 @@ get_athena_client = AWSService.ATHENA.get_client
 
 def start_query_execution(
     query_string: str,
-    work_group: Optional[str] = None,
-    execution_parameters: Optional[List[str]] = None,
+    work_group: str | None = None,
+    execution_parameters: list[str] | None = None,
     **kwargs: Unpack[StartQueryExecutionInputTypeDef],
 ) -> StartQueryExecutionOutputTypeDef:
     """Start an Athena query execution.
@@ -97,7 +97,7 @@ def get_query_execution(query_execution_id: str) -> GetQueryExecutionOutputTypeD
 
 def query_waiter(
     query_execution_id: str, timeout: int = 60
-) -> Tuple[ATHENA_QUERY_WAITER_STATUS, QueryExecutionStatusTypeDef]:
+) -> tuple[ATHENA_QUERY_WAITER_STATUS, QueryExecutionStatusTypeDef]:
     """Wait for an Athena query to complete.
 
     Polls the query execution status until it reaches a terminal state
