@@ -1,17 +1,10 @@
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
 
 import moto
 import pytest
 from aibs_informatics_core.env import EnvBase
-from aibs_informatics_core.models.base import (
-    CustomAwareDateTime,
-    FloatField,
-    IntegerField,
-    StringField,
-    custom_field,
-)
+from aibs_informatics_core.models.base import IsoDateTime
 from aibs_informatics_core.models.db import (
     DBIndex,
     DBIndexNameEnum,
@@ -92,11 +85,11 @@ class SimpleIndex(DBIndex):
 
 @dataclass
 class SimpleModel(DBModel):
-    primary_key: str = custom_field(mm_field=StringField())
-    str_attr: str = custom_field(mm_field=StringField())
-    int_attr: int = custom_field(mm_field=IntegerField())
-    float_attr: float = custom_field(mm_field=FloatField())
-    datetime_attr: datetime = custom_field(mm_field=CustomAwareDateTime(format="iso8601"))
+    primary_key: str
+    str_attr: str
+    int_attr: int
+    float_attr: float
+    datetime_attr: IsoDateTime
 
 
 @dataclass
@@ -211,9 +204,6 @@ class SimpleTableTests(AwsBaseTest):
         # updates all fields for full dict
         e4 = self.table.update(key, e1.to_dict())
         self.assertEqual(e4, e1)
-        # updates only specified fields from partial entry
-        e5 = self.table.update(key, SimpleModel.from_dict({"int_attr": 4}, partial=True))
-        self.assertEqual(e5.int_attr, 4)
         # updates only specified fields from dict
         e6 = self.table.update(key, {"int_attr": 3})
         self.assertEqual(e6.int_attr, 3)

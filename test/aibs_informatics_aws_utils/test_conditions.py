@@ -188,7 +188,7 @@ def test__ExpressionComponents__fix_collisions(
             ConditionBaseExpression(
                 format="{0} {operator} {1}",
                 operator="=",
-                values=[AttributeBaseExpression("Key", "k1"), "s1"],
+                values=[AttributeBaseExpression(attr_class="Key", attr_name="k1"), "s1"],
             ),
             does_not_raise(),
             id="KEY.EQ Condition",
@@ -198,7 +198,7 @@ def test__ExpressionComponents__fix_collisions(
             ConditionBaseExpression(
                 format="{0} {operator} {1}",
                 operator="=",
-                values=[AttributeBaseExpression("Attr", "a1"), 1],
+                values=[AttributeBaseExpression(attr_class="Attr", attr_name="a1"), 1],
             ),
             does_not_raise(),
             id="ATTR.EQ Condition",
@@ -253,7 +253,7 @@ def test__ConditionBaseTranslator__serialize_condition(
             ConditionBaseExpression(
                 format="{0} {operator} {1}",
                 operator="=",
-                values=[AttributeBaseExpression("Key", "k1"), "s1"],
+                values=[AttributeBaseExpression(attr_class="Key", attr_name="k1"), "s1"],
             ),
             Key("k1").eq("s1"),
             does_not_raise(),
@@ -269,7 +269,7 @@ def test__ConditionBaseTranslator__serialize_condition(
             ConditionBaseExpression(
                 format="{0} {operator} {1}",
                 operator="=",
-                values=[AttributeBaseExpression("Attr", "a1"), 1],
+                values=[AttributeBaseExpression(attr_class="Attr", attr_name="a1"), 1],
             ),
             Attr("a1").eq(1),
             does_not_raise(),
