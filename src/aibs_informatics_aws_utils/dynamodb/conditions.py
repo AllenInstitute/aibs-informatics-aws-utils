@@ -1,7 +1,9 @@
 import re
 from collections import defaultdict
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, Match, Optional, Union, cast
+from re import Match
+from typing import Any, Union, cast
 
 from aibs_informatics_core.collections import ValidatedStr
 from aibs_informatics_core.models.aws.dynamodb import (
@@ -24,7 +26,7 @@ from boto3.dynamodb.types import TypeSerializer
 logger = get_logger(__name__)
 
 
-def condition_to_str(condition: Optional[ConditionBase]) -> Optional[str]:
+def condition_to_str(condition: ConditionBase | None) -> str | None:
     """Converts a ConditionBase Boto3 object to its str representation
 
     NOTE: Function should be removed if this PR is merged: https://github.com/boto/boto3/pull/3254
@@ -60,14 +62,14 @@ def condition_to_str(condition: Optional[ConditionBase]) -> Optional[str]:
 @dataclass
 class ExpressionComponentsBase:
     expression: str
-    expression_attribute_names: Dict[str, str]
-    expression_attribute_values: Dict[str, Any]
+    expression_attribute_names: dict[str, str]
+    expression_attribute_values: dict[str, Any]
 
     @cached_property
-    def expression_attribute_values__serialized(self) -> Dict[str, Dict[str, Any]]:
+    def expression_attribute_values__serialized(self) -> dict[str, dict[str, Any]]:
         serializer = TypeSerializer()
         return {
-            k: cast(Dict[str, Any], serializer.serialize(v))
+            k: cast(dict[str, Any], serializer.serialize(v))
             for k, v in self.expression_attribute_values.items()
         }
 
@@ -124,8 +126,8 @@ class ConditionExpressionComponents(ExpressionComponentsBase):
 
         return ConditionExpressionComponents(
             expression=bce.condition_expression,
-            expression_attribute_names=cast(Dict[str, str], bce.attribute_name_placeholders),
-            expression_attribute_values=cast(Dict[str, Any], bce.attribute_value_placeholders),
+            expression_attribute_names=cast(dict[str, str], bce.attribute_name_placeholders),
+            expression_attribute_values=cast(dict[str, Any], bce.attribute_value_placeholders),
         )
 
     def fix_collisions(
@@ -178,7 +180,7 @@ class ConditionExpressionComponents(ExpressionComponentsBase):
         intersect_values = set(this_placeholder_values).intersection(other_placeholder_values)
 
         # create mapping for placeholder updates
-        update_map: Dict[AttrPlaceholder, AttrPlaceholder] = {}
+        update_map: dict[AttrPlaceholder, AttrPlaceholder] = {}
 
         # Now create new placeholders for colliding placeholders,
         # and add to the placeholder update mapping.
@@ -224,12 +226,12 @@ class AttrPlaceholder(ValidatedStr):
     @classmethod
     def sorted(
         cls, placeholders: Iterable[Union[str, "AttrPlaceholder"]]
-    ) -> List["AttrPlaceholder"]:
+    ) -> list["AttrPlaceholder"]:
         return sorted(map(AttrPlaceholder, placeholders), key=lambda _: _.number)
 
     @classmethod
-    def build_prefix_max_number_map(cls, *placeholders: "AttrPlaceholder") -> Dict[str, int]:
-        map: Dict[str, int] = defaultdict(int)
+    def build_prefix_max_number_map(cls, *placeholders: "AttrPlaceholder") -> dict[str, int]:
+        map: dict[str, int] = defaultdict(int)
         for placeholder in placeholders:
             if map[placeholder.prefix] < placeholder.number:
                 map[placeholder.prefix] = placeholder.number
@@ -245,14 +247,14 @@ class ConditionBaseTranslator:
     @classmethod
     def deserialize_attribute(
         cls, attribute_expression: AttributeBaseExpression
-    ) -> Union[Key, Attr, AttributeBase]:
+    ) -> Key | Attr | AttributeBase:
         return cls._ATTRIBUTE_BASE_CLASS_LOOKUP[attribute_expression.attr_class](
             attribute_expression.attr_name
         )
 
     @classmethod
     def deserialize_condition(
-        cls, condition_expression: Union[str, ConditionBaseExpression], is_key: bool = True
+        cls, condition_expression: str | ConditionBaseExpression, is_key: bool = True
     ) -> ConditionBase:
         """Convert ConditionBase Expression into ConditionBase.
 
@@ -268,7 +270,7 @@ class ConditionBaseTranslator:
         def _deserialize_condition(ce: ConditionBaseExpression) -> ConditionBase:
             ce_key = (ce.format, ce.operator)
             condition_base_cls = cls._CONDITION_BASE_CLASS_LOOKUP[ce_key]
-            ce_values: list[Union[AttributeBase, ConditionBase]] = []
+            ce_values: list[AttributeBase | ConditionBase] = []
             for ce_value in ce.values:
                 if isinstance(ce_value, ConditionBaseExpression):
                     ce_values.append(_deserialize_condition(ce_value))
@@ -304,7 +306,7 @@ class ConditionBaseTranslator:
         )
 
     @classmethod
-    def _get_condition_base_operators(cls) -> List[str]:
+    def _get_condition_base_operators(cls) -> list[str]:
         return [
             _.expression_operator
             for _ in ConditionBaseTranslator._CONDITION_BASE_CLASS_LOOKUP.values()

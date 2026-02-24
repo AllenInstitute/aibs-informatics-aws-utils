@@ -1,6 +1,7 @@
+from collections.abc import Mapping
 from copy import deepcopy
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from aibs_informatics_core.utils.logging import get_logger
 from boto3.dynamodb.conditions import ConditionBase
@@ -45,8 +46,8 @@ get_dynamodb_resource = AWSService.DYNAMO_DB.get_resource
 # ----------------------------------------------------------------------------
 def table_put_item(
     table_name: str,
-    item: Dict[str, Any],
-    condition_expression: Optional[ConditionBase] = None,
+    item: dict[str, Any],
+    condition_expression: ConditionBase | None = None,
     **kwargs,
 ) -> PutItemOutputTableTypeDef:
     """Put an item into a DynamoDB table.
@@ -77,8 +78,8 @@ def table_put_item(
 
 
 def table_get_item(
-    table_name: str, key: Mapping[str, Any], attrs: Optional[str] = None
-) -> Optional[Dict[str, Any]]:
+    table_name: str, key: Mapping[str, Any], attrs: str | None = None
+) -> dict[str, Any] | None:
     """Get a single item from a DynamoDB table.
 
     Args:
@@ -104,10 +105,10 @@ def table_get_item(
 
 def table_get_items(
     table_name: str,
-    keys: List[Mapping[str, Any]],
-    attrs: Optional[str] = None,
-    region: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    keys: list[Mapping[str, Any]],
+    attrs: str | None = None,
+    region: str | None = None,
+) -> list[dict[str, Any]]:
     """Batch get multiple items from a DynamoDB table.
 
     Handles pagination automatically when more than 100 keys are provided.
@@ -124,7 +125,7 @@ def table_get_items(
     db = get_dynamodb_client(region=region)
     serializer = TypeSerializer()
 
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
 
     # we receive an error if there are more than 100 calls
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#DynamoDB.Client.batch_get_item
@@ -175,7 +176,7 @@ def table_update_item(
     attributes: Mapping[str, Any],
     return_values: Literal["NONE", "ALL_OLD", "UPDATED_OLD", "ALL_NEW", "UPDATED_NEW"] = "NONE",
     **kwargs,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Update an item in a DynamoDB table.
 
     Args:
@@ -217,10 +218,10 @@ def table_update_item(
 def table_delete_item(
     table_name: str,
     key: Mapping[str, Any],
-    condition_expression: Optional[ConditionBase] = None,
+    condition_expression: ConditionBase | None = None,
     return_values: Literal["NONE", "ALL_OLD"] = "NONE",
     **kwargs,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Delete an item from a DynamoDB table.
 
     Args:
@@ -255,11 +256,11 @@ def table_delete_item(
 def table_query(
     table_name: str,
     key_condition_expression: ConditionBase,
-    index_name: Optional[str] = None,
-    filter_expression: Optional[ConditionBase] = None,
-    region: Optional[str] = None,
+    index_name: str | None = None,
+    filter_expression: ConditionBase | None = None,
+    region: str | None = None,
     consistent_read: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Query a DynamoDB table.
 
     Args:
@@ -324,7 +325,7 @@ def table_query(
     else:
         db_request["ConsistentRead"] = consistent_read
 
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     paginator = db.get_paginator("query")
     logger.info(f"Performing DB 'query' on {table.name} with following parameters: {db_request}")
     for i, response in enumerate(paginator.paginate(**db_request)):  # type: ignore  # pylance complains about extra fields
@@ -339,11 +340,11 @@ def table_query(
 
 def table_scan(
     table_name: str,
-    index_name: Optional[str] = None,
-    filter_expression: Optional[ConditionBase] = None,
-    region: Optional[str] = None,
+    index_name: str | None = None,
+    filter_expression: ConditionBase | None = None,
+    region: str | None = None,
     consistent_read: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Scan a DynamoDB table.
 
     Args:
@@ -393,7 +394,7 @@ def table_scan(
     else:
         db_request["ConsistentRead"] = consistent_read
 
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     paginator = db.get_paginator("scan")
     logger.info(f"Performing DB 'scan' on {table.name} with following parameters: {db_request}")
     for i, response in enumerate(paginator.paginate(**db_request)):  # type: ignore  # pylance complains about extra fields
@@ -408,7 +409,7 @@ def table_scan(
     return [{k: deserializer.deserialize(v) for k, v in item.items()} for item in items]
 
 
-def table_get_key_schema(table_name: str) -> Dict[str, str]:
+def table_get_key_schema(table_name: str) -> dict[str, str]:
     """Get the key schema for a DynamoDB table.
 
     Args:
@@ -422,9 +423,7 @@ def table_get_key_schema(table_name: str) -> Dict[str, str]:
     return {k["KeyType"]: k["AttributeName"] for k in table.key_schema}
 
 
-def execute_partiql_statement(
-    statement: str, region: Optional[str] = None
-) -> List[Dict[str, Any]]:
+def execute_partiql_statement(statement: str, region: str | None = None) -> list[dict[str, Any]]:
     """Execute a PartiQL statement against DynamoDB.
 
     Handles pagination automatically to retrieve all results.
@@ -447,7 +446,7 @@ def execute_partiql_statement(
     return results
 
 
-def table_as_resource(table: str, region: Optional[str] = None):
+def table_as_resource(table: str, region: str | None = None):
     """Get a DynamoDB Table resource.
 
     Args:
@@ -461,7 +460,7 @@ def table_as_resource(table: str, region: Optional[str] = None):
     return db.Table(table)
 
 
-def convert_decimals_to_floats(item: Dict[str, Any], in_place: bool = True) -> Dict[str, Any]:
+def convert_decimals_to_floats(item: dict[str, Any], in_place: bool = True) -> dict[str, Any]:
     """Convert all Decimal values in a dictionary to floats.
 
     DynamoDB returns numeric values as Decimal objects. This function recursively
@@ -476,7 +475,7 @@ def convert_decimals_to_floats(item: Dict[str, Any], in_place: bool = True) -> D
         The dictionary with all Decimals converted to floats.
     """
 
-    def _convert_decimals_to_floats(obj: Union[Dict[str, Any], List[Any]]):
+    def _convert_decimals_to_floats(obj: dict[str, Any] | list[Any]):
         if isinstance(obj, list):
             for i in range(len(obj)):
                 if isinstance(obj[i], Decimal):
@@ -496,7 +495,7 @@ def convert_decimals_to_floats(item: Dict[str, Any], in_place: bool = True) -> D
     return item
 
 
-def convert_floats_to_decimals(item: Dict[str, Any], in_place: bool = True) -> Dict[str, Any]:
+def convert_floats_to_decimals(item: dict[str, Any], in_place: bool = True) -> dict[str, Any]:
     """Convert all float values in a dictionary to Decimals.
 
     DynamoDB requires numeric values to be Decimal objects. This function recursively
@@ -511,7 +510,7 @@ def convert_floats_to_decimals(item: Dict[str, Any], in_place: bool = True) -> D
         The dictionary with all floats converted to Decimals.
     """
 
-    def _convert_floats_to_decimals(obj: Union[Dict[str, Any], List[Any]]):
+    def _convert_floats_to_decimals(obj: dict[str, Any] | list[Any]):
         if isinstance(obj, list):
             for i in range(len(obj)):
                 if isinstance(obj[i], float):

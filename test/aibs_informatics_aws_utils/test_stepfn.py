@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 from aibs_informatics_core.env import EnvBase
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
@@ -65,7 +65,7 @@ else:
         ),
     ],
 )
-def test_StateMachineArn_validation(arn: str, expected: Tuple[str, ...], raises_error):
+def test_StateMachineArn_validation(arn: str, expected: tuple[str, ...], raises_error):
     region, account, state_machine_name = expected
     with raises_error:
         sm_arn = StateMachineArn(arn)
@@ -104,7 +104,7 @@ def test_StateMachineArn_validation(arn: str, expected: Tuple[str, ...], raises_
         ),
     ],
 )
-def test_ExecutionArn_validation(arn: str, expected: Tuple[str, ...], raises_error):
+def test_ExecutionArn_validation(arn: str, expected: tuple[str, ...], raises_error):
     region, account, state_machine_name, exec_name = expected
     with raises_error:
         exec_arn = ExecutionArn(arn)

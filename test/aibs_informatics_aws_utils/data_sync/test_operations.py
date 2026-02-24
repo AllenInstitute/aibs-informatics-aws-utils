@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-from typing import Optional, Union
 
 import moto
 from aibs_informatics_core.models.aws.s3 import S3URI
@@ -28,7 +27,7 @@ class OperationsTests(AwsBaseTest):
         fs = self.tmp_path()
         return fs
 
-    def setUpBucket(self, bucket_name: Optional[str] = None) -> str:
+    def setUpBucket(self, bucket_name: str | None = None) -> str:
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
         self.s3_client.create_bucket(
             Bucket=bucket_name,
@@ -37,13 +36,13 @@ class OperationsTests(AwsBaseTest):
         return bucket_name
 
     def put_object(
-        self, key: str, content: str, bucket_name: Optional[str] = None, **kwargs
+        self, key: str, content: str, bucket_name: str | None = None, **kwargs
     ) -> S3URI:
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
         self.s3_client.put_object(Bucket=bucket_name, Key=key, Body=content, **kwargs)
         return self.get_s3_path(key=key, bucket_name=bucket_name)
 
-    def get_object(self, key: str, bucket_name: Optional[str] = None) -> str:
+    def get_object(self, key: str, bucket_name: str | None = None) -> str:
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
         response = self.s3_client.get_object(Bucket=bucket_name, Key=key)
         return response["Body"].read().decode()
@@ -64,7 +63,7 @@ class OperationsTests(AwsBaseTest):
     def s3_resource(self):
         return get_s3_resource(region=self.DEFAULT_REGION)
 
-    def get_s3_path(self, key: str, bucket_name: Optional[str] = None) -> S3URI:
+    def get_s3_path(self, key: str, bucket_name: str | None = None) -> S3URI:
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
         return S3URI.build(bucket_name=bucket_name, key=key)
 
@@ -450,7 +449,7 @@ class OperationsTests(AwsBaseTest):
         assert not is_object(destination_path)
 
     def assertPathsEqual(
-        self, src_path: Union[Path, S3URI], dst_path: Union[Path, S3URI], expected_num_files: int
+        self, src_path: Path | S3URI, dst_path: Path | S3URI, expected_num_files: int
     ):
         is_src_local = isinstance(src_path, Path)
         is_dst_local = isinstance(dst_path, Path)

@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from aibs_informatics_core.models.aws.dynamodb import (
     AttributeBaseExpression,
@@ -115,7 +115,7 @@ def test__ExpressionComponents__from_condition(
     ],
 )
 def test__UpdateExpressionComponents__from_dict(
-    attributes: Dict[str, Any],
+    attributes: dict[str, Any],
     expected: UpdateExpressionComponents,
     expected_serialized_values: dict,
 ):
@@ -237,7 +237,7 @@ def test__ExpressionComponents__fix_collisions(
     ],
 )
 def test__ConditionBaseTranslator__serialize_condition(
-    condition: ConditionBase, expression: Optional[ConditionBaseExpression], raises_error
+    condition: ConditionBase, expression: ConditionBaseExpression | None, raises_error
 ):
     with raises_error:
         actual = ConditionBaseTranslator.serialize_condition(condition)
@@ -299,8 +299,8 @@ def test__ConditionBaseTranslator__serialize_condition(
     ],
 )
 def test__ConditionBaseTranslator__deserialize_condition(
-    expression: Union[str, ConditionBaseExpression],
-    condition: Optional[ConditionBase],
+    expression: str | ConditionBaseExpression,
+    condition: ConditionBase | None,
     raises_error,
 ):
     with raises_error:

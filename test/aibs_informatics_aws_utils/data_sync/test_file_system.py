@@ -1,8 +1,8 @@
 import errno
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Mapping, Optional, Set, Tuple, Union
 from unittest import mock
 
 import pytz
@@ -93,9 +93,7 @@ class LocalFileSystemTests(BaseTest):
     def setUp(self) -> None:
         super().setUp()
 
-    def create_local_file_system(
-        self, file_stats_map: Mapping[Union[Path, str], Tuple[int]]
-    ) -> Path:
+    def create_local_file_system(self, file_stats_map: Mapping[Path | str, tuple[int]]) -> Path:
         root_file_system = self.tmp_path()
         for relative_path, (size,) in file_stats_map.items():
             full_path = root_file_system / relative_path
@@ -260,10 +258,10 @@ class LocalFileSystemTests(BaseTest):
 
     def assertLocalFileSystem_partition(
         self,
-        file_stats_map: Mapping[Union[Path, str], Tuple[int]],
-        expected_node_paths: Set[str],
-        size_bytes_limit: Optional[int] = None,
-        object_count_limit: Optional[int] = None,
+        file_stats_map: Mapping[Path | str, tuple[int]],
+        expected_node_paths: set[str],
+        size_bytes_limit: int | None = None,
+        object_count_limit: int | None = None,
     ):
         local_path = self.create_local_file_system(file_stats_map=file_stats_map)
         local_root = LocalFileSystem.from_path(str(local_path))
@@ -281,8 +279,8 @@ class EFSFileSystemTests(EFSTestsBase):
         detect_mount_points.cache_clear()
 
     def setUpEFSFileSystem(
-        self, name: str, access_point_path: Optional[Union[str, Path]] = None
-    ) -> Tuple[Path, EFSPath]:
+        self, name: str, access_point_path: str | Path | None = None
+    ) -> tuple[Path, EFSPath]:
         mount_point_path = self.tmp_path()
         file_system_id = self.create_file_system()
         if access_point_path is not None:
@@ -324,9 +322,7 @@ class EFSFileSystemTests(EFSTestsBase):
         efs_node_paths = {node.path for node in efs_nodes}
         assert efs_node_paths == {f"{efs_path}/X", f"{efs_path}/Y"}
 
-    def populate_file_system(
-        self, path: Path, file_stats_map: Mapping[Union[Path, str], Tuple[int]]
-    ):
+    def populate_file_system(self, path: Path, file_stats_map: Mapping[Path | str, tuple[int]]):
         for relative_path, (size,) in file_stats_map.items():
             full_path = path / relative_path
             full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -381,7 +377,7 @@ class S3FileSystemTests(AwsBaseTest):
         last_modified: datetime = None,
         key_prefix: str = None,
         bucket_name: str = None,
-    ) -> Tuple[S3URI, S3PathStats]:
+    ) -> tuple[S3URI, S3PathStats]:
         return (
             S3URI.build(
                 bucket_name=bucket_name or self.BUCKET_NAME,
@@ -584,10 +580,10 @@ class S3FileSystemTests(AwsBaseTest):
     def assertS3FileSystem_partition(
         self,
         s3_root_uri: S3URI,
-        key_stats_map: Dict[str, S3PathStats],
-        expected_s3_node_keys: Set[str],
-        size_bytes_limit: Optional[int] = None,
-        object_count_limit: Optional[int] = None,
+        key_stats_map: dict[str, S3PathStats],
+        expected_s3_node_keys: set[str],
+        size_bytes_limit: int | None = None,
+        object_count_limit: int | None = None,
     ):
         s3_paths_stats = dict(
             [
