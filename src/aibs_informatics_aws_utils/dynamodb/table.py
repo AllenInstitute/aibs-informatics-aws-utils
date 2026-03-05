@@ -1,4 +1,5 @@
 import functools
+import logging
 from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
 from typing import (
@@ -259,10 +260,19 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
 
     @classmethod
     def build_entry(cls, item: dict[str, Any], **kwargs) -> DB_MODEL:
-        return cls.get_db_model_cls().from_dict(item, **kwargs)
+        model_cls = cls.get_db_model_cls()
+        return cast(DB_MODEL, model_cls.from_dict(item, **kwargs))
 
     @classmethod
-    def build_item(cls, entry: DB_MODEL, **kwargs) -> dict[str, Any]:
+    def build_item(cls, entry: DB_MODEL, partial: bool = False, **kwargs) -> dict[str, Any]:
+        if partial:
+            logging.warning(
+                "Deprecation Warning: partial=True is deprecated and will be removed in a future "
+                "release. Please use the 'partial_model' method of your DBModel class to create "
+                "a partial model class and use that as the DB_MODEL type parameter for your "
+                "DynamoDBTable subclass."
+            )
+        kwargs.setdefault("exclude_unset", partial)
         entry_dict = entry.to_dict(**kwargs)
         return convert_floats_to_decimals(entry_dict)
 

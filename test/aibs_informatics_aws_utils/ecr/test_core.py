@@ -33,10 +33,16 @@ from test.aibs_informatics_aws_utils.ecr.base import ECRTestBase
     [
         param(
             LifecyclePolicyRule(
-                1,
-                "",
-                LifecyclePolicySelection("untagged", [], "sinceImagePushed", 7, "days"),
-                LifecyclePolicyAction("expire"),
+                rule_priority=1,
+                description="",
+                selection=LifecyclePolicySelection(
+                    tag_status="untagged",
+                    tag_prefix_list=[],
+                    count_type="sinceImagePushed",
+                    count_number=7,
+                    count_unit="days"
+                ),
+                action=LifecyclePolicyAction(type="expire"),
             ),
             {
                 "action": {"type": "expire"},
@@ -79,10 +85,16 @@ def test__LifecyclePolicyRule__to_dict(input, expected, raises_error):
                 },
             },
             LifecyclePolicyRule(
-                1,
-                "",
-                LifecyclePolicySelection("untagged", [], "sinceImagePushed", 7, "days"),
-                LifecyclePolicyAction("expire"),
+                rule_priority=1,
+                description="",
+                selection=LifecyclePolicySelection(
+                    tag_status="untagged",
+                    tag_prefix_list=[],
+                    count_type="sinceImagePushed",
+                    count_number=7,
+                    count_unit="days"
+                ),
+                action=LifecyclePolicyAction(type="expire"),
             ),
             does_not_raise(),
             id="valid Lifecycle policy with empty fields deserialized",
@@ -154,37 +166,73 @@ def test__LifecyclePolicyRule__REMOVE_UNTAGGED__works_as_expected():
         param(
             [
                 LifecyclePolicyRule(
-                    3,
-                    "",
-                    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 3, "days"),
+                    rule_priority=3,
+                    description="",
+                    selection=LifecyclePolicySelection(
+                        tag_status="untagged",
+                        tag_prefix_list=[],
+                        count_type="sinceImagePushed",
+                        count_number=3,
+                        count_unit="days"
+                    ),
                 ),
                 LifecyclePolicyRule(
-                    2,
-                    "",
-                    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 2, "days"),
+                    rule_priority=2,
+                    description="",
+                    selection=LifecyclePolicySelection(
+                        tag_status="untagged",
+                        tag_prefix_list=[],
+                        count_type="sinceImagePushed",
+                        count_number=2,
+                        count_unit="days"
+                    ),
                 ),
                 LifecyclePolicyRule(
-                    1,
-                    "",
-                    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 1, "days"),
+                    rule_priority=1,
+                    description="",
+                    selection=LifecyclePolicySelection(
+                        tag_status="untagged",
+                        tag_prefix_list=[],
+                        count_type="sinceImagePushed",
+                        count_number=7,
+                        count_unit="days"
+                    ),
                 ),
             ],
             LifecyclePolicy(
                 rules=[
                     LifecyclePolicyRule(
-                        1,
-                        "",
-                        LifecyclePolicySelection("untagged", [], "sinceImagePushed", 1, "days"),
+                        rule_priority=1,
+                        description="",
+                        selection=LifecyclePolicySelection(
+                            tag_status="untagged",
+                            tag_prefix_list=[],
+                            count_type="sinceImagePushed",
+                            count_number=1,
+                            count_unit="days"
+                        ),
                     ),
                     LifecyclePolicyRule(
-                        2,
-                        "",
-                        LifecyclePolicySelection("untagged", [], "sinceImagePushed", 2, "days"),
+                        rule_priority=2,
+                        description="",
+                        selection=LifecyclePolicySelection(
+                            tag_status="untagged",
+                            tag_prefix_list=[],
+                            count_type="sinceImagePushed",
+                            count_number=2,
+                            count_unit="days"
+                        ),
                     ),
                     LifecyclePolicyRule(
-                        3,
-                        "",
-                        LifecyclePolicySelection("untagged", [], "sinceImagePushed", 3, "days"),
+                        rule_priority=3,
+                        description="",
+                        selection=LifecyclePolicySelection(
+                            tag_status="untagged",
+                            tag_prefix_list=[],
+                            count_type="sinceImagePushed",
+                            count_number=3,
+                            count_unit="days"
+                        ),
                     ),
                 ]
             ),
@@ -194,37 +242,73 @@ def test__LifecyclePolicyRule__REMOVE_UNTAGGED__works_as_expected():
         param(
             [
                 LifecyclePolicyRule(
-                    3,
-                    "",
-                    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 3, "days"),
+                    rule_priority=3,
+                    description="",
+                    selection=LifecyclePolicySelection(
+                        tag_status="untagged",
+                        tag_prefix_list=[],
+                        count_type="sinceImagePushed",
+                        count_number=3,
+                        count_unit="days"
+                    ),
                 ),
                 LifecyclePolicyRule(
-                    2,
-                    "",
-                    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 2, "days"),
+                    rule_priority=2,
+                    description="",
+                    selection=LifecyclePolicySelection(
+                        tag_status="untagged",
+                        tag_prefix_list=[],
+                        count_type="sinceImagePushed",
+                        count_number=2,
+                        count_unit="days"
+                    ),
                 ),
                 LifecyclePolicyRule(
-                    3,
-                    "",
-                    LifecyclePolicySelection("untagged", [], "sinceImagePushed", 4, "days"),
+                    rule_priority=3,
+                    description="",
+                    selection=LifecyclePolicySelection(
+                        tag_status="untagged",
+                        tag_prefix_list=[],
+                        count_type="sinceImagePushed",
+                        count_number=4,
+                        count_unit="days"
+                    ),
                 ),
             ],
             LifecyclePolicy(
                 rules=[
                     LifecyclePolicyRule(
-                        2,
-                        "",
-                        LifecyclePolicySelection("untagged", [], "sinceImagePushed", 2, "days"),
+                        rule_priority=2,
+                        description="",
+                        selection=LifecyclePolicySelection(
+                            tag_status="untagged",
+                            tag_prefix_list=[],
+                            count_type="sinceImagePushed",
+                            count_number=2,
+                            count_unit="days"
+                        ),
                     ),
                     LifecyclePolicyRule(
-                        3,
-                        "",
-                        LifecyclePolicySelection("untagged", [], "sinceImagePushed", 3, "days"),
+                        rule_priority=3,
+                        description="",
+                        selection=LifecyclePolicySelection(
+                            tag_status="untagged",
+                            tag_prefix_list=[],
+                            count_type="sinceImagePushed",
+                            count_number=3,
+                            count_unit="days"
+                        ),
                     ),
                     LifecyclePolicyRule(
-                        4,
-                        "",
-                        LifecyclePolicySelection("untagged", [], "sinceImagePushed", 4, "days"),
+                        rule_priority=4,
+                        description="",
+                        selection=LifecyclePolicySelection(
+                            tag_status="untagged",
+                            tag_prefix_list=[],
+                            count_type="sinceImagePushed",
+                            count_number=4,
+                            count_unit="days"
+                        ),
                     ),
                 ]
             ),
@@ -243,14 +327,26 @@ def test__LifecyclePolicy__sorts_rules(rules, expected, raises_error):
 def test__LifecyclePolicy__reprioritize_rules__in_place_works():
     rules = [
         LifecyclePolicyRule(
-            2,
-            "two",
-            LifecyclePolicySelection("untagged", [], "sinceImagePushed", 2, "days"),
+            rule_priority=2,
+            description="two",
+            selection=LifecyclePolicySelection(
+                tag_status="untagged",
+                tag_prefix_list=[],
+                count_type="sinceImagePushed",
+                count_number=2,
+                count_unit="days"
+            ),
         ),
         LifecyclePolicyRule(
-            1,
-            "one",
-            LifecyclePolicySelection("untagged", [], "sinceImagePushed", 1, "days"),
+            rule_priority=1,
+            description="one",
+            selection=LifecyclePolicySelection(
+                tag_status="untagged",
+                tag_prefix_list=[],
+                count_type="sinceImagePushed",
+                count_number=1,
+                count_unit="days"
+            ),
         ),
     ]
 
@@ -467,7 +563,9 @@ class ECRImageTests(ECRTestBase):
             repository_name=image.repository_name,
             image_digest=image.image_digest,
         )
-        self.assertEqual(json.loads(ecr_image.image_manifest), json.loads(image.image_manifest))
+        image_manifest = ecr_image.image_manifest
+        assert image_manifest is not None
+        self.assertEqual(json.loads(image_manifest), json.loads(image.image_manifest))
 
     def test__init__without_manifest__fails_to_resolve_image_details_from_ecr(self):
         repo = self.create_repository("repository_name")
@@ -585,19 +683,19 @@ class ECRImageTests(ECRTestBase):
 @moto.mock_aws
 class ECRRegistryTests(ECRTestBase):
     def test__get_ecr_login__works(self):
-        registry = ECRRegistry(self.ACCOUNT_ID, self.REGION)
+        registry = ECRRegistry(account_id=self.ACCOUNT_ID, region=self.REGION)
         login = registry.get_ecr_login()
         self.assertEqual(login.registry, registry.uri)
         self.assertTrue(login.username)
         self.assertTrue(login.password)
 
     def test__from_uri__succeeds(self):
-        registry = ECRRegistry(self.ACCOUNT_ID, self.REGION)
+        registry = ECRRegistry(account_id=self.ACCOUNT_ID, region=self.REGION)
         new_registry = ECRRegistry.from_uri(registry.uri)
         self.assertEqual(registry, new_registry)
 
     def test__from_env__succeeds(self):
-        registry = ECRRegistry(self.ACCOUNT_ID, self.REGION)
+        registry = ECRRegistry(account_id=self.ACCOUNT_ID, region=self.REGION)
         new_registry = ECRRegistry.from_env(registry.region)
         self.assertEqual(registry, new_registry)
 
@@ -610,7 +708,7 @@ class ECRRegistryTests(ECRTestBase):
         self.create_repository("repo2", tag2a)
         self.create_repository("repo3", tag2b)
 
-        registry = ECRRegistry(self.ACCOUNT_ID, self.REGION)
+        registry = ECRRegistry(account_id=self.ACCOUNT_ID, region=self.REGION)
         actual = registry.get_repositories()
         self.assertEqual(len(actual), 3)
 
@@ -643,7 +741,7 @@ class ECRRegistryTests(ECRTestBase):
         self.create_repository("repoxyz-3", tag1, tag2a)
         self.create_repository("repoabc", tag1, tag2a)
 
-        registry = ECRRegistry(self.ACCOUNT_ID, self.REGION)
+        registry = ECRRegistry(account_id=self.ACCOUNT_ID, region=self.REGION)
         actual = registry.get_repositories(
             repository_name=re.compile(r"^repoxyz"), repository_tags=[tag1, tag2a]
         )

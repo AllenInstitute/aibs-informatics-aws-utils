@@ -117,7 +117,9 @@ class ECRTestBase(AwsBaseTest):
             registryId=self.ACCOUNT_ID,
             tags=[_ for _ in repository_tags],
         )
-        return ECRRepository(self.ACCOUNT_ID, self.REGION, repository_name)
+        return ECRRepository(
+            account_id=self.ACCOUNT_ID, region=self.REGION, repository_name=repository_name
+        )
 
     def put_image(
         self,

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 import requests
 from aibs_informatics_core.utils.logging import LoggingMixin
 from botocore.exceptions import ClientError
+from pydantic import Field
 
 from aibs_informatics_aws_utils.core import get_client_error_code
 from aibs_informatics_aws_utils.ecr.core import ECRImage, ECRRepository
@@ -15,21 +16,16 @@ else:
     ECRClient = object
     LayerTypeDef = dict
 
-
-from dataclasses import dataclass, field
-
-from aibs_informatics_core.models.base.model import SchemaModel
+from aibs_informatics_core.models.base import PydanticBaseModel
 
 
-@dataclass
-class ReplicateImageRequest(SchemaModel):
+class ReplicateImageRequest(PydanticBaseModel):
     source_image: ECRImage
     destination_repository: ECRRepository
-    destination_image_tags: list[str] = field(default_factory=list)
+    destination_image_tags: list[str] = Field(default_factory=list)
 
 
-@dataclass
-class ReplicateImageResponse(SchemaModel):
+class ReplicateImageResponse(PydanticBaseModel):
     destination_image: ECRImage
 
 

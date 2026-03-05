@@ -13,8 +13,7 @@ from pathlib import Path
 import pytz
 from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3URI
-from aibs_informatics_core.models.base import CustomAwareDateTime, custom_field
-from aibs_informatics_core.models.base.model import SchemaModel
+from aibs_informatics_core.models.base import CustomAwareDateTime, PydanticBaseModel, custom_field
 from aibs_informatics_core.utils.logging import get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from aibs_informatics_core.utils.time import BEGINNING_OF_TIME
@@ -28,8 +27,7 @@ logger = get_logger(__name__)
 SEP = "/"
 
 
-@dataclass
-class PathStats(SchemaModel):
+class PathStats(PydanticBaseModel):
     size_bytes: int = custom_field()
     object_count: int = custom_field()
     last_modified: datetime = custom_field(mm_field=CustomAwareDateTime())
