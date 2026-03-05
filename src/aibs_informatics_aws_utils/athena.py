@@ -1,15 +1,8 @@
 import logging
-import sys
 import time
-from typing import TYPE_CHECKING, Literal
 
-if sys.version_info >= (3, 11):
-    # For Python 3.11+
-    from typing import Unpack
-else:  # pragma: no cover
-    # For Python < 3.11
-    from typing_extensions import Unpack
-
+# For Python 3.11+
+from typing import TYPE_CHECKING, Literal, Unpack
 
 from botocore.exceptions import ClientError
 
