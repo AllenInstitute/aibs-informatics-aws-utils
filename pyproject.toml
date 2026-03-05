@@ -16,7 +16,7 @@ maintainers = [{ name = "AIBS Informatics Group", email = "marmot@alleninstitute
 description = "Library of AWS utility code for informatics projects at the Allen Institute for Brain Science"
 readme = { file = "README.md", content-type = "text/markdown" }
 dynamic = [ "version"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 dependencies = [
     "boto3~=1.35",
