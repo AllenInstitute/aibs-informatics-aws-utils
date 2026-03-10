@@ -1,9 +1,11 @@
 import builtins
+import errno
 import hashlib
 import re
 from pathlib import Path
 from time import sleep
 from typing import Dict, Optional
+from unittest.mock import MagicMock, patch
 
 import moto
 import requests
@@ -29,6 +31,7 @@ from aibs_informatics_aws_utils.s3 import (
     copy_s3_object,
     delete_s3_path,
     determine_multipart_attributes,
+    download_s3_object,
     download_s3_path,
     download_to_json,
     download_to_json_object,
@@ -1569,3 +1572,57 @@ def test__generate_transfer_request(input, expected, raises_error):
 
     if expected is not None:
         assert actual == expected
+
+
+@moto.mock_aws
+class DownloadS3ObjectRetryTests(AwsBaseTest):
+    """Tests for download_s3_object retry behavior with OSError (EFS I/O errors)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.set_region(self.DEFAULT_REGION)
+        self.DEFAULT_BUCKET_NAME = "test-bucket"
+        self.s3_client.create_bucket(
+            Bucket=self.DEFAULT_BUCKET_NAME,
+            CreateBucketConfiguration={"LocationConstraint": self.DEFAULT_REGION},
+        )
+
+    @property
+    def s3_client(self):
+        return get_s3_client(region=self.DEFAULT_REGION)
+
+    def get_s3_path(self, key: str) -> S3URI:
+        return S3URI.build(bucket_name=self.DEFAULT_BUCKET_NAME, key=key)
+
+    @patch("aibs_informatics_aws_utils.s3.get_object")
+    def test__download_s3_object__retries_on_eio_error(self, mock_get_object: MagicMock):
+        """Verify that OSError with errno.EIO (errno 5) triggers retry."""
+        mock_s3_obj = MagicMock()
+        eio_error = OSError(errno.EIO, "Input/output error")
+        mock_s3_obj.download_file.side_effect = [eio_error, eio_error, None]
+        mock_get_object.return_value = mock_s3_obj
+
+        s3_path = self.get_s3_path("test/key")
+        local_path = self.tmp_path() / "output_file"
+
+        download_s3_object(s3_path=s3_path, local_path=local_path, force=True)
+
+        assert mock_s3_obj.download_file.call_count == 3
+
+    @patch("aibs_informatics_aws_utils.s3.get_object")
+    def test__download_s3_object__does_not_retry_on_non_eio_oserror(
+        self, mock_get_object: MagicMock
+    ):
+        """Verify that OSError with non-EIO errno (e.g., ENOSPC) is NOT retried."""
+        mock_s3_obj = MagicMock()
+        enospc_error = OSError(errno.ENOSPC, "No space left on device")
+        mock_s3_obj.download_file.side_effect = enospc_error
+        mock_get_object.return_value = mock_s3_obj
+
+        s3_path = self.get_s3_path("test/key")
+        local_path = self.tmp_path() / "output_file"
+
+        with raises(OSError):
+            download_s3_object(s3_path=s3_path, local_path=local_path, force=True)
+
+        assert mock_s3_obj.download_file.call_count == 1

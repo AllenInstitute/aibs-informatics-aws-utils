@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import json
 import logging
@@ -286,9 +287,12 @@ def download_s3_object_prefix(
 
 
 @retry(
-    (ConnectionClosedError, EndpointConnectionError, ResponseStreamingError, ClientError),
+    (ConnectionClosedError, EndpointConnectionError, ResponseStreamingError, ClientError, OSError),
     tries=10,
     backoff=2.0,
+    retryable_exception_callbacks=[
+        (OSError, lambda e: getattr(e, "errno", None) == errno.EIO),
+    ],
 )
 def download_s3_object(
     s3_path: S3URI,

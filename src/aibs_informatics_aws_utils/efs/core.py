@@ -45,7 +45,7 @@ def throttling_exception_callback(ex):
     return client_error_code_check(ex, "ThrottlingException")
 
 
-@retry(ClientError, [throttling_exception_callback])
+@retry(ClientError, [throttling_exception_callback], tries=7, delay=3, backoff=2.0)
 def list_efs_file_systems(
     file_system_id: Optional[str] = None,
     name: Optional[str] = None,
@@ -116,7 +116,7 @@ def get_efs_file_system(
     return file_systems[0]
 
 
-@retry(ClientError, [throttling_exception_callback])
+@retry(ClientError, [throttling_exception_callback], tries=7, delay=3, backoff=2.0)
 def list_efs_access_points(
     access_point_id: Optional[str] = None,
     access_point_name: Optional[str] = None,
