@@ -274,16 +274,18 @@ class BatchTests(AwsBaseTest):
 
     def get_container_props(
         self,
-        command: list[str] = [],
+        command: list[str] | None = None,
         image: str = "test",
-        environment: dict[str, str] = {},
+        environment: dict[str, str] | None = None,
         vcpus: int = 64,
         memory: int = 128000,
     ) -> ContainerPropertiesTypeDef:
         return ContainerPropertiesTypeDef(
-            command=command,
+            command=command or [],
             image=image,
-            environment=[dict(name=k, value=v) for k, v in environment.items()],
+            environment=(
+                [dict(name=k, value=v) for k, v in environment.items()] if environment else []
+            ),
             resourceRequirements=[
                 dict(value=str(vcpus), type="VCPU"),
                 dict(value=str(memory), type="MEMORY"),
