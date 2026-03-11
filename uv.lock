@@ -64,7 +64,6 @@ release = [
 requires-dist = [
     { name = "aibs-informatics-core", specifier = ">=0.2.6,<1" },
     { name = "boto3", specifier = "~=1.35" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = "~=4.15" },
 ]
 
 [package.metadata.requires-dev]

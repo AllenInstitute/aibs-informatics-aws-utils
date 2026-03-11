@@ -1,7 +1,5 @@
 import logging
 import time
-
-# For Python 3.11+
 from typing import TYPE_CHECKING, Literal, Unpack
 
 from botocore.exceptions import ClientError
