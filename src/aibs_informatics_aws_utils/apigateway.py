@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 from aibs_informatics_aws_utils.core import AWSService, get_region
 from aibs_informatics_aws_utils.exceptions import ResourceNotFoundError
@@ -11,7 +11,7 @@ else:
 get_apigateway_client = AWSService.API_GATEWAY.get_client
 
 
-def get_rest_api(api_name: str, region: Optional[str] = None) -> RestApiTypeDef:
+def get_rest_api(api_name: str, region: str | None = None) -> RestApiTypeDef:
     """Get a REST API by name.
 
     Args:
@@ -27,7 +27,7 @@ def get_rest_api(api_name: str, region: Optional[str] = None) -> RestApiTypeDef:
     apigw = get_apigateway_client(region=region)
 
     paginator = apigw.get_paginator("get_rest_apis")
-    rest_apis: List[RestApiTypeDef] = paginator.paginate(
+    rest_apis: list[RestApiTypeDef] = paginator.paginate(
         PaginationConfig={"MaxItems": 100}
     ).build_full_result()["items"]
 
@@ -40,7 +40,7 @@ def get_rest_api(api_name: str, region: Optional[str] = None) -> RestApiTypeDef:
 
 
 def get_rest_api_endpoint(
-    rest_api: RestApiTypeDef, stage: str = "prod", region: Optional[str] = None
+    rest_api: RestApiTypeDef, stage: str = "prod", region: str | None = None
 ) -> str:
     """Get the endpoint URL for a REST API.
 

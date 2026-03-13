@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
 
 import moto
 import pytest
@@ -124,7 +123,7 @@ class SimpleTableTests(AwsBaseTest):
         self.set_region(self.DEFAULT_REGION)
         self.table = self.setUpTable()
 
-    def setUpTable(self, env_base: Optional[EnvBase] = None) -> SimpleTable:
+    def setUpTable(self, env_base: EnvBase | None = None) -> SimpleTable:
         table = SimpleTable(env_base or self.env_base)
 
         self.ddb.create_table(

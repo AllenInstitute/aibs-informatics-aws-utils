@@ -1,5 +1,5 @@
 import json
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING
 
 import requests
 from aibs_informatics_core.models.aws.core import AWSRegion
@@ -21,8 +21,8 @@ get_lambda_client = AWSService.LAMBDA.get_client
 
 
 def get_lambda_function_url(
-    function_name: Union[LambdaFunctionName, str], region: Optional[AWSRegion] = None
-) -> Optional[LambdaFunctionUrl]:
+    function_name: LambdaFunctionName | str, region: AWSRegion | None = None
+) -> LambdaFunctionUrl | None:
     """Get the function URL for a Lambda function.
 
     Args:
@@ -47,8 +47,8 @@ def get_lambda_function_url(
 
 
 def get_lambda_function_file_systems(
-    function_name: Union[LambdaFunctionName, str], region: Optional[AWSRegion] = None
-) -> List[FileSystemConfigTypeDef]:
+    function_name: LambdaFunctionName | str, region: AWSRegion | None = None
+) -> list[FileSystemConfigTypeDef]:
     """Get the file system configurations for a Lambda function.
 
     Args:
@@ -70,13 +70,13 @@ def get_lambda_function_file_systems(
 
 
 def call_lambda_function_url(
-    function_name: Union[LambdaFunctionName, LambdaFunctionUrl, str],
-    payload: Optional[Union[ModelProtocol, dict, str, bytes]] = None,
-    region: Optional[AWSRegion] = None,
-    headers: Optional[dict] = None,
-    auth: Optional[AuthBase] = None,
+    function_name: LambdaFunctionName | LambdaFunctionUrl | str,
+    payload: ModelProtocol | dict | str | bytes | None = None,
+    region: AWSRegion | None = None,
+    headers: dict | None = None,
+    auth: AuthBase | None = None,
     **request_kwargs,
-) -> Union[dict, str, None]:
+) -> dict | str | None:
     """Call a Lambda function via its function URL.
 
     Args:
@@ -104,7 +104,7 @@ def call_lambda_function_url(
     else:
         raise ValueError(f"Invalid function name or url: {function_name}")
 
-    json_payload: Optional[str] = None
+    json_payload: str | None = None
     if isinstance(payload, (dict, list)):
         json_payload = json.dumps(payload)
     elif isinstance(payload, ModelProtocol):

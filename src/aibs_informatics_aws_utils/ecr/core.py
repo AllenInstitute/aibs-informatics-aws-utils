@@ -8,14 +8,9 @@ from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
     Literal,
-    Optional,
-    Type,
     TypedDict,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -95,7 +90,7 @@ class ECRRegistryUri(ValidatedStr):
 
     @classmethod
     def from_components(
-        cls, account_id: Optional[str] = None, region: Optional[str] = None, **kwargs
+        cls, account_id: str | None = None, region: str | None = None, **kwargs
     ) -> "ECRRegistryUri":
         """Generate a Registry URI.
 
@@ -126,8 +121,8 @@ class ECRRepositoryUri(ECRRegistryUri):
     def from_components(  # type: ignore[override]
         cls,
         repository_name: str,
-        account_id: Optional[str] = None,
-        region: Optional[str] = None,
+        account_id: str | None = None,
+        region: str | None = None,
     ) -> "ECRRepositoryUri":
         """Generate a Repository URI.
 
@@ -150,21 +145,21 @@ class ECRImageUri(ECRRepositoryUri):
     regex_pattern = ECR_IMAGE_URI_PATTERN
 
     @property
-    def image_tag(self) -> Optional[str]:
+    def image_tag(self) -> str | None:
         return self.get_match_groups()[-2]
 
     @property
-    def image_digest(self) -> Optional[str]:
+    def image_digest(self) -> str | None:
         return self.get_match_groups()[-1]
 
     @classmethod
     def from_components(  # type: ignore[override]
         cls,
         repository_name: str,
-        image_tag: Optional[str] = None,
-        image_digest: Optional[str] = None,
-        account_id: Optional[str] = None,
-        region: Optional[str] = None,
+        image_tag: str | None = None,
+        image_digest: str | None = None,
+        account_id: str | None = None,
+        region: str | None = None,
     ) -> "ECRImageUri":
         """Generate an Image URI.
 
@@ -213,12 +208,12 @@ class LifecyclePolicySelection(DataClassModel):
     tag_status: Literal["tagged", "untagged", "any"] = field(
         metadata=config(letter_case=LetterCase.CAMEL)
     )
-    tag_prefix_list: List[str] = field(metadata=config(letter_case=LetterCase.CAMEL))
+    tag_prefix_list: list[str] = field(metadata=config(letter_case=LetterCase.CAMEL))
     count_type: Literal["imageCountMoreThan", "sinceImagePushed"] = field(
         metadata=config(letter_case=LetterCase.CAMEL)
     )
     count_number: int = field(metadata=config(letter_case=LetterCase.CAMEL))
-    count_unit: Optional[Literal["days"]] = field(
+    count_unit: Literal["days"] | None = field(
         default=None, metadata=config(letter_case=LetterCase.CAMEL)
     )
 
@@ -266,18 +261,18 @@ class LifecyclePolicyRule(DataClassModel):
 
 @dataclass
 class LifecyclePolicy(DataClassModel):
-    rules: List[LifecyclePolicyRule]
+    rules: list[LifecyclePolicyRule]
 
     def __post_init__(self):
         self.rules = self.reprioritize_rules(self.rules, in_place=True)
 
     @staticmethod
     def reprioritize_rules(
-        rules: List[LifecyclePolicyRule], in_place: bool = False
-    ) -> List[LifecyclePolicyRule]:
+        rules: list[LifecyclePolicyRule], in_place: bool = False
+    ) -> list[LifecyclePolicyRule]:
         rule_priority = 0
 
-        sorted_rules: List[LifecyclePolicyRule]
+        sorted_rules: list[LifecyclePolicyRule]
 
         def sort_key(_):
             return _.rule_priority
@@ -319,7 +314,7 @@ class ECRMixins(LoggingMixin):
     account_id: str
     region: str
 
-    def __init__(self, account_id: str, region: str, client: Optional[ECRClient] = None):
+    def __init__(self, account_id: str, region: str, client: ECRClient | None = None):
         self.account_id = account_id
         self.region = region
         self._client = client
@@ -339,7 +334,7 @@ class ECRMixins(LoggingMixin):
         raise NotImplementedError("")  # pragma: no cover
 
     @classmethod
-    def from_uri(cls: Type[T], uri: str) -> T:
+    def from_uri(cls: type[T], uri: str) -> T:
         raise NotImplementedError("")  # pragma: no cover
 
 
@@ -356,8 +351,8 @@ class ECRImage(ECRMixins, DataClassModel):
         region: str,
         repository_name: str,
         image_digest: str,
-        image_manifest: Optional[str] = None,
-        client: Optional[ECRClient] = None,
+        image_manifest: str | None = None,
+        client: ECRClient | None = None,
     ):
         super().__init__(account_id=account_id, region=region, client=client)
         self.repository_name = repository_name
@@ -376,11 +371,11 @@ class ECRImage(ECRMixins, DataClassModel):
             self.image_manifest = image_manifest
 
     @property
-    def image_pushed_at(self) -> Optional[datetime]:
+    def image_pushed_at(self) -> datetime | None:
         return self.get_image_detail().get("imagePushedAt")
 
     @property
-    def image_tags(self) -> List[str]:
+    def image_tags(self) -> list[str]:
         image_detail = self.get_image_detail()
         return image_detail.get("imageTags", [])
 
@@ -418,7 +413,7 @@ class ECRImage(ECRMixins, DataClassModel):
             )  # pragma: no cover
         return image_details[0]
 
-    def get_image_layers(self) -> List[LayerTypeDef]:
+    def get_image_layers(self) -> list[LayerTypeDef]:
         """Get layers from image manifest into ECR Layer objects.
 
         The schema of the image manifest layers is defined here:
@@ -469,7 +464,7 @@ class ECRImage(ECRMixins, DataClassModel):
             mediaType=layer["mediaType"],
         )
 
-    def get_image_config(self) -> Dict[str, Any]:
+    def get_image_config(self) -> dict[str, Any]:
         """Get ECR or docker image configuration json metadata.
 
         Returns:
@@ -497,7 +492,7 @@ class ECRImage(ECRMixins, DataClassModel):
         for tag in image_tags:
             self.put_image(image_tag=tag)
 
-    def put_image(self, image_tag: Optional[str]):
+    def put_image(self, image_tag: str | None):
         """Make a call to put_image API to add image to ECR repository.
 
         This method will add an image to the ECR repository. If the image already exists,
@@ -583,7 +578,7 @@ class ECRResource(ECRMixins, DataClassModel):
     def arn(self) -> str:
         return f"arn:aws:ecr:{self.region}:{self.account_id}"
 
-    def get_resource_tags(self) -> List[ResourceTag]:
+    def get_resource_tags(self) -> list[ResourceTag]:
         """Gets the tags for this ECR Resource.
 
         Returns:
@@ -607,7 +602,7 @@ class ECRResource(ECRMixins, DataClassModel):
             mode: Either append or overwrite tags of resource.
                 Defaults to TagMode.APPEND.
         """
-        tag_dict = dict([(tag["Key"], tag["Value"]) for tag in tags])
+        tag_dict = {tag["Key"]: tag["Value"] for tag in tags}
         if mode == TagMode.OVERWRITE:
             existing_tags = self.get_resource_tags()
             tag_keys_to_remove = [
@@ -631,7 +626,7 @@ class ECRRepository(ECRResource):
         account_id: str,
         region: str,
         repository_name: str,
-        client: Optional[ECRClient] = None,
+        client: ECRClient | None = None,
     ):
         super().__init__(account_id=account_id, region=region, client=client)
         self.repository_name = repository_name
@@ -650,7 +645,7 @@ class ECRRepository(ECRResource):
 
     def create(
         self,
-        tags: Optional[List[ResourceTag]] = None,
+        tags: list[ResourceTag] | None = None,
         image_tag_mutability: ImageTagMutabilityType = "MUTABLE",
         exists_ok: bool = True,
     ):
@@ -716,7 +711,7 @@ class ECRRepository(ECRResource):
         )
 
     def get_image(
-        self, image_tag: Optional[str] = None, image_digest: Optional[str] = None
+        self, image_tag: str | None = None, image_digest: str | None = None
     ) -> "ECRImage":
         """Get the image associated with the following tag or digest.
 
@@ -743,7 +738,7 @@ class ECRRepository(ECRResource):
                 f"Could not find an image in {self.uri} with tag={image_tag}"
             )
 
-    def get_images(self, tag_status: TagStatusType = "ANY") -> List["ECRImage"]:
+    def get_images(self, tag_status: TagStatusType = "ANY") -> list["ECRImage"]:
         """Fetches all images in a given repository.
 
         Args:
@@ -765,7 +760,7 @@ class ECRRepository(ECRResource):
             repositoryName=self.repository_name,
             filter=ListImagesFilterTypeDef(tagStatus=tag_status),
         )
-        image_digests: List[str] = sorted(
+        image_digests: list[str] = sorted(
             list(
                 {
                     image_id["imageDigest"]
@@ -788,7 +783,7 @@ class ECRRepository(ECRResource):
         # Next we consolidate the results, ensuring that the image manifests
         # are all the same. If an image digest has differing manifests,
         # we should throw an error.
-        digest_to_manifest_map: Dict[str, str] = {}
+        digest_to_manifest_map: dict[str, str] = {}
         for image in response["images"]:
             image_digest = image["imageId"]["imageDigest"]  # type: ignore
             image_manifest = image["imageManifest"]  # type: ignore
@@ -837,8 +832,8 @@ class ECRRepository(ECRResource):
     def from_name(
         cls,
         repository_name: str,
-        account_id: Optional[str] = None,
-        region: Optional[str] = None,
+        account_id: str | None = None,
+        region: str | None = None,
     ) -> "ECRRepository":
         region = get_region(region)
         account_id = account_id or get_account_id()
@@ -852,9 +847,9 @@ class ECRRegistry(ECRResource):
 
     def get_repositories(
         self,
-        repository_name: Optional[Union[str, re.Pattern]] = None,
-        repository_tags: Optional[List[ResourceTag]] = None,
-    ) -> List[ECRRepository]:
+        repository_name: str | re.Pattern | None = None,
+        repository_tags: list[ResourceTag] | None = None,
+    ) -> list[ECRRepository]:
         """Filter repositories based on resource tags specified.
 
         Args:
@@ -880,7 +875,7 @@ class ECRRegistry(ECRResource):
             filtered_repos.append(repo)
         return filtered_repos
 
-    def list_repositories(self) -> List[ECRRepository]:
+    def list_repositories(self) -> list[ECRRepository]:
         """List all repositories in the Registry.
 
         Returns:
@@ -888,7 +883,7 @@ class ECRRegistry(ECRResource):
         """
 
         paginator = self.client.get_paginator("describe_repositories")
-        repositories: List[ECRRepository] = []
+        repositories: list[ECRRepository] = []
         for describe_repos_response in paginator.paginate(registryId=self.account_id):
             for repository in describe_repos_response["repositories"]:
                 assert "repositoryName" in repository
@@ -922,11 +917,11 @@ class ECRRegistry(ECRResource):
         return ECRRegistry(account_id=registry_uri.account_id, region=registry_uri.region)
 
     @classmethod
-    def from_env(cls, region: Optional[str] = None) -> "ECRRegistry":
+    def from_env(cls, region: str | None = None) -> "ECRRegistry":
         return ECRRegistry(account_id=get_account_id(), region=get_region(region))
 
 
-def resolve_image_uri(name: str, default_tag: Optional[str] = None) -> str:
+def resolve_image_uri(name: str, default_tag: str | None = None) -> str:
     """Resolve full image URI from input name.
 
     Args:

@@ -2,7 +2,6 @@ import datetime
 import json
 import re
 from time import sleep
-from typing import Tuple
 from unittest import mock
 
 import moto
@@ -297,7 +296,7 @@ def test__LifecyclePolicy__reprioritize_rules__in_place_works():
         ),
     ],
 )
-def test_ECRRegistryUri_validation(uri: str, expected: Tuple[str, ...], raises_error):
+def test_ECRRegistryUri_validation(uri: str, expected: tuple[str, ...], raises_error):
     expected_account, expected_region = expected
     with raises_error:
         ecr_registry_uri = ECRRegistryUri(uri)
@@ -340,7 +339,7 @@ def test_ECRRegistryUri_validation(uri: str, expected: Tuple[str, ...], raises_e
         ),
     ],
 )
-def test_ECRRepositoryUri_validation(uri: str, expected: Tuple[str, ...], raises_error):
+def test_ECRRepositoryUri_validation(uri: str, expected: tuple[str, ...], raises_error):
     expected_account, expected_region, expected_repository_name = expected
 
     with raises_error:
@@ -406,7 +405,7 @@ def test_ECRRepositoryUri_validation(uri: str, expected: Tuple[str, ...], raises
 )
 def test_ECRImageUri_validation(
     uri: str,
-    expected: Tuple[str, ...],
+    expected: tuple[str, ...],
     raises_error,
 ):
     (

@@ -6,7 +6,7 @@ __all__ = [
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Literal, Optional, Union, overload
+from typing import TYPE_CHECKING, Literal, Union, overload
 
 from aibs_informatics_core.models.aws.efs import EFSPath
 
@@ -38,23 +38,23 @@ StrPath = Union[Path, str]
 def get_efs_path(
     local_path: Path,
     raise_if_unresolved: Literal[False],
-    mount_points: Optional[List[MountPointConfiguration]] = None,
-) -> Optional[EFSPath]: ...
+    mount_points: list[MountPointConfiguration] | None = None,
+) -> EFSPath | None: ...
 
 
 @overload
 def get_efs_path(
     local_path: Path,
     raise_if_unresolved: Literal[True] = True,
-    mount_points: Optional[List[MountPointConfiguration]] = None,
+    mount_points: list[MountPointConfiguration] | None = None,
 ) -> EFSPath: ...
 
 
 def get_efs_path(
     local_path: Path,
     raise_if_unresolved: bool = True,
-    mount_points: Optional[List[MountPointConfiguration]] = None,
-) -> Optional[EFSPath]:
+    mount_points: list[MountPointConfiguration] | None = None,
+) -> EFSPath | None:
     """Converts a local path assumed to be on a mount point to the EFS path
 
     Args:
@@ -90,23 +90,23 @@ def get_efs_path(
 def get_local_path(
     efs_path: EFSPath,
     raise_if_unmounted: Literal[False],
-    mount_points: Optional[List[MountPointConfiguration]] = None,
-) -> Optional[Path]: ...
+    mount_points: list[MountPointConfiguration] | None = None,
+) -> Path | None: ...
 
 
 @overload
 def get_local_path(
     efs_path: EFSPath,
     raise_if_unmounted: Literal[True] = True,
-    mount_points: Optional[List[MountPointConfiguration]] = None,
+    mount_points: list[MountPointConfiguration] | None = None,
 ) -> Path: ...
 
 
 def get_local_path(
     efs_path: EFSPath,
     raise_if_unmounted: bool = True,
-    mount_points: Optional[List[MountPointConfiguration]] = None,
-) -> Optional[Path]:
+    mount_points: list[MountPointConfiguration] | None = None,
+) -> Path | None:
     """Gets a valid locally mounted path for the given EFS path.
 
     Args:

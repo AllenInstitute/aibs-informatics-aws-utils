@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING
 from unittest import mock
 
 from aibs_informatics_core.env import ENV_BASE_KEY_ALIAS, EnvBase, EnvType
@@ -274,16 +274,18 @@ class BatchTests(AwsBaseTest):
 
     def get_container_props(
         self,
-        command: List[str] = [],
+        command: list[str] | None = None,
         image: str = "test",
-        environment: Dict[str, str] = {},
+        environment: dict[str, str] | None = None,
         vcpus: int = 64,
         memory: int = 128000,
     ) -> ContainerPropertiesTypeDef:
         return ContainerPropertiesTypeDef(
-            command=command,
+            command=command or [],
             image=image,
-            environment=[dict(name=k, value=v) for k, v in environment.items()],
+            environment=(
+                [dict(name=k, value=v) for k, v in environment.items()] if environment else []
+            ),
             resourceRequirements=[
                 dict(value=str(vcpus), type="VCPU"),
                 dict(value=str(memory), type="MEMORY"),
@@ -298,8 +300,8 @@ class BatchTests(AwsBaseTest):
         retryStrategy: RetryStrategyTypeDef = None,
         status: str = "ACTIVE",
         schedulingPriority: int = None,
-        parameters: Dict[str, str] = None,
-        tags: Dict[str, str] = None,
+        parameters: dict[str, str] = None,
+        tags: dict[str, str] = None,
     ) -> JobDefinitionTypeDef:
         kwargs = dict(
             jobDefinitionName=job_def_name,

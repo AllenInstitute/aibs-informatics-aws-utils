@@ -10,7 +10,7 @@ __all__ = [
 ]
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, ClassVar, Union
 
 from aibs_informatics_core.collections import ValidatedStr
 
@@ -44,8 +44,8 @@ FileSystemNameOrId = Union[FSxFileSystemId, str]
 
 
 def split_name_and_id(
-    id_or_name: Optional[FileSystemNameOrId],
-) -> Tuple[Optional[str], Optional[FSxFileSystemId]]:
+    id_or_name: FileSystemNameOrId | None,
+) -> tuple[str | None, FSxFileSystemId | None]:
     """Identify file system identifier as name or id
 
     Examples:
@@ -73,8 +73,8 @@ def split_name_and_id(
 
 
 def split_name_and_ids(
-    names_or_ids: List[FileSystemNameOrId],
-) -> Tuple[List[str], List[FSxFileSystemId]]:
+    names_or_ids: list[FileSystemNameOrId],
+) -> tuple[list[str], list[FSxFileSystemId]]:
     """Split file system combined list of names and ids into separate lists.
 
     Example:
@@ -95,7 +95,7 @@ def split_name_and_ids(
     ]
 
 
-def resolve_file_system_ids(*name_or_ids: FileSystemNameOrId) -> List[FSxFileSystemId]:
+def resolve_file_system_ids(*name_or_ids: FileSystemNameOrId) -> list[FSxFileSystemId]:
     """Resolve file system ids from file system names or ids.
 
     Args:
@@ -104,7 +104,7 @@ def resolve_file_system_ids(*name_or_ids: FileSystemNameOrId) -> List[FSxFileSys
     Returns:
         File system id.
     """
-    file_system_ids: List[FSxFileSystemId] = []
+    file_system_ids: list[FSxFileSystemId] = []
     for name_or_id in name_or_ids:
         name, file_system_id = split_name_and_id(name_or_id)
         if file_system_id:
@@ -118,8 +118,8 @@ def resolve_file_system_ids(*name_or_ids: FileSystemNameOrId) -> List[FSxFileSys
 
 
 def get_file_system(
-    name_or_id: Optional[FileSystemNameOrId] = None,
-    tags: Optional[Dict[str, str]] = None,
+    name_or_id: FileSystemNameOrId | None = None,
+    tags: dict[str, str] | None = None,
 ) -> FileSystemTypeDef:
     """Get FSx file system.
 
@@ -144,10 +144,10 @@ def get_file_system(
 
 
 def list_file_systems(
-    name_or_ids: Optional[List[FileSystemNameOrId]] = None,
-    tags: Optional[Dict[str, str]] = None,
+    name_or_ids: list[FileSystemNameOrId] | None = None,
+    tags: dict[str, str] | None = None,
     **kwargs,
-) -> List[FileSystemTypeDef]:
+) -> list[FileSystemTypeDef]:
     """List FSx file systems.
 
     You can filter on id, name and tags.
@@ -168,7 +168,7 @@ def list_file_systems(
         response_iter = paginator.paginate(FileSystemIds=file_system_ids)
     else:
         response_iter = paginator.paginate()
-    file_systems: List[FileSystemTypeDef] = []
+    file_systems: list[FileSystemTypeDef] = []
     for response in response_iter:
         filtered_file_systems = response["FileSystems"]
         if not names and not tags:
@@ -190,12 +190,12 @@ def list_file_systems(
 
 
 def list_data_repository_associations(
-    name_or_id: Optional[FileSystemIdOrName],
-    filters: Optional[List[FilterTypeDef]] = None,
+    name_or_id: FileSystemIdOrName | None,
+    filters: list[FilterTypeDef] | None = None,
     # TODO: should I include data repository paths?
-    data_repository_paths: Optional[List[str]] = None,
+    data_repository_paths: list[str] | None = None,
     **kwargs,
-) -> List[DataRepositoryAssociationTypeDef]:
+) -> list[DataRepositoryAssociationTypeDef]:
     """List data repository associations for a file system.
 
     Args:
@@ -221,7 +221,7 @@ def list_data_repository_associations(
             filters = [{"Name": "file-system-id", "Values": file_system_id}]
     if not filters:
         filters = []
-    associations: List[DataRepositoryAssociationTypeDef] = []
+    associations: list[DataRepositoryAssociationTypeDef] = []
     response = client.describe_data_repository_associations(Filters=filters)
     while response["Associations"]:
         new_associations = response["Associations"]
