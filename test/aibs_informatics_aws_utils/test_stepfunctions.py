@@ -11,7 +11,7 @@ from aibs_informatics_aws_utils.exceptions import (
     InvalidAmazonResourceNameError,
     ResourceNotFoundError,
 )
-from aibs_informatics_aws_utils.stepfn import (
+from aibs_informatics_aws_utils.stepfunctions import (
     ExecutionArn,
     StateMachineArn,
     build_execution_name,
@@ -134,12 +134,12 @@ class StepFnTests(AwsBaseTest):
         self._sfn = get_sfn_client(region=self.DEFAULT_REGION)
 
         self._get_sfn_client = self.create_patch(
-            "aibs_informatics_aws_utils.stepfn.get_sfn_client", autospec=SFNClient
+            "aibs_informatics_aws_utils.stepfunctions.get_sfn_client", autospec=SFNClient
         )
         self._get_sfn_client.return_value = self._sfn
 
         self._get_account_id = self.create_patch(
-            "aibs_informatics_aws_utils.stepfn.get_account_id"
+            "aibs_informatics_aws_utils.stepfunctions.get_account_id"
         )
         self._get_account_id.return_value = self.ACCOUNT_ID
 

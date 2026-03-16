@@ -56,7 +56,7 @@ upload_file("local/path/file.txt", "s3://bucket/remote/path/file.txt")
 | [SNS](api/services/sns.md) | `sns` | Notification service utilities |
 | [SQS](api/services/sqs.md) | `sqs` | Queue service utilities |
 | [SSM](api/services/ssm.md) | `ssm` | Systems Manager utilities |
-| [Step Functions](api/services/stepfn.md) | `stepfn` | State machine utilities |
+| [Step Functions](api/services/stepfunctions.md) | `stepfunctions` | State machine utilities |
 
 ## Contributing
 

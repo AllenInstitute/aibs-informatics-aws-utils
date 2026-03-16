@@ -33,7 +33,7 @@ Welcome to the AIBS Informatics AWS Utils API Reference. This section provides d
 | [SNS](services/sns.md) | Simple Notification Service utilities |
 | [SQS](services/sqs.md) | Simple Queue Service utilities |
 | [SSM](services/ssm.md) | Systems Manager utilities |
-| [Step Functions](services/stepfn.md) | State machine utilities |
+| [Step Functions](services/stepfunctions.md) | State machine utilities |
 
 ### Specialized Modules
 
