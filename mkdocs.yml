@@ -71,7 +71,7 @@ nav:
           - SNS: api/services/sns.md
           - SQS: api/services/sqs.md
           - SSM: api/services/ssm.md
-          - Step Functions: api/services/stepfn.md
+          - Step Functions: api/services/stepfunctions.md
       - Constants:
           - Overview: api/constants/index.md
           - EFS: api/constants/efs.md
