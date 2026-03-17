@@ -1,4 +1,3 @@
-import errno
 import hashlib
 import json
 import logging
@@ -40,7 +39,6 @@ from aibs_informatics_core.models.aws.s3 import (
     S3TransferResponse,
     S3UploadRequest,
 )
-from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.file_operations import (
     find_paths,
     get_path_with_root,
@@ -59,6 +57,13 @@ from botocore.exceptions import (
     ConnectionClosedError,
     EndpointConnectionError,
     ResponseStreamingError,
+)
+from tenacity import (
+    retry,
+    retry_if_exception,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential_jitter,
 )
 
 from aibs_informatics_aws_utils.core import (
@@ -287,12 +292,22 @@ def download_s3_object_prefix(
 
 
 @retry(
-    (ConnectionClosedError, EndpointConnectionError, ResponseStreamingError, ClientError, OSError),
-    tries=10,
-    backoff=2.0,
-    retryable_exception_callbacks=[
-        (OSError, lambda e: getattr(e, "errno", None) == errno.EIO),
-    ],
+    retry=(
+        retry_if_exception_type(
+            (
+                ConnectionClosedError,
+                EndpointConnectionError,
+                ResponseStreamingError,
+                ClientError,
+            )
+        )
+        | retry_if_exception(
+            lambda ex: isinstance(ex, OSError) and "Input/output error" in str(ex)
+        )
+    ),
+    stop=stop_after_attempt(10),
+    wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
 )
 def download_s3_object(
     s3_path: S3URI,
@@ -419,7 +434,12 @@ def upload_folder(
     logger.info(f"Uploaded {len(local_paths)} files to: {s3_path}")
 
 
-@retry(ResponseStreamingError, tries=10, backoff=2.0)
+@retry(
+    retry=retry_if_exception_type(ResponseStreamingError),
+    stop=stop_after_attempt(10),
+    wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
+)
 def upload_file(
     local_path: Union[str, Path],
     s3_path: S3URI,
@@ -894,11 +914,16 @@ def process_transfer_requests(
 copy_s3_path = sync_paths
 
 
-def client_error_code_check__SlowDown(ex: Exception) -> bool:
+def _is_slow_down_exception(ex):
     return isinstance(ex, ClientError) and client_error_code_check(ex, "SlowDown")
 
 
-@retry(ClientError, [client_error_code_check__SlowDown], tries=10, backoff=2.0)
+@retry(
+    retry=retry_if_exception(_is_slow_down_exception),
+    stop=stop_after_attempt(10),
+    wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
+)
 def copy_s3_object(
     source_path: S3URI,
     destination_path: S3URI,
@@ -1594,7 +1619,12 @@ def determine_chunk_size(
     return correct_chunk_size_bytes
 
 
-@retry(OSError)
+@retry(
+    retry=retry_if_exception_type(OSError),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
+)
 def get_local_etag(
     path: Path, chunk_size_bytes: Optional[int] = None, threshold_bytes: Optional[int] = None
 ) -> str:

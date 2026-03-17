@@ -22,6 +22,7 @@ dependencies = [
     "boto3~=1.35",
     "aibs-informatics-core>=0.2.6,<1",
     "typing-extensions~=4.15; python_version < '3.11'",
+    "tenacity~=9.0",
 ]
 
 # For dev dependencies: https://peps.python.org/pep-0735/
