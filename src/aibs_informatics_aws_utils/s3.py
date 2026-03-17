@@ -292,13 +292,17 @@ def download_s3_object_prefix(
 
 
 @retry(
-    retry=retry_if_exception_type(
-        (
-            ConnectionClosedError,
-            EndpointConnectionError,
-            ResponseStreamingError,
-            ClientError,
-            OSError,
+    retry=(
+        retry_if_exception_type(
+            (
+                ConnectionClosedError,
+                EndpointConnectionError,
+                ResponseStreamingError,
+                ClientError,
+            )
+        )
+        | retry_if_exception(
+            lambda ex: isinstance(ex, OSError) and "Input/output error" in str(ex)
         )
     ),
     stop=stop_after_attempt(10),
