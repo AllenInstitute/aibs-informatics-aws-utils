@@ -1,4 +1,3 @@
-import errno
 import hashlib
 import json
 import logging
@@ -292,18 +291,16 @@ def download_s3_object_prefix(
         )
 
 
-def _is_retryable_download_exception(ex):
-    if isinstance(ex, (
-        ConnectionClosedError, EndpointConnectionError, ResponseStreamingError, ClientError
-    )):
-        return True
-    if isinstance(ex, OSError) and getattr(ex, "errno", None) == errno.EIO:
-        return True
-    return False
-
-
 @retry(
-    retry=retry_if_exception(_is_retryable_download_exception),
+    retry=retry_if_exception_type(
+        (
+            ConnectionClosedError,
+            EndpointConnectionError,
+            ResponseStreamingError,
+            ClientError,
+            OSError,
+        )
+    ),
     stop=stop_after_attempt(10),
     wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
 )
