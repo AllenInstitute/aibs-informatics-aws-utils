@@ -395,6 +395,7 @@ class MountPointConfiguration:
     retry=retry_if_exception_type(NoCredentialsError),
     stop=stop_after_attempt(5),
     wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
 )
 def detect_mount_points() -> List[MountPointConfiguration]:
     mount_points: List[MountPointConfiguration] = []

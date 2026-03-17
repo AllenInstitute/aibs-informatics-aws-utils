@@ -184,6 +184,7 @@ def build_retry_strategy(
     retry=retry_if_exception_type(ClientError),
     stop=stop_after_attempt(5),
     wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
 )
 def register_job_definition(
     job_definition_name: str,

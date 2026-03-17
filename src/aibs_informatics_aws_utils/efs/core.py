@@ -49,6 +49,7 @@ def _is_throttling_exception(ex):
     retry=retry_if_exception(_is_throttling_exception),
     stop=stop_after_attempt(7),
     wait=wait_exponential_jitter(initial=3, exp_base=2, jitter=1),
+    reraise=True,
 )
 def list_efs_file_systems(
     file_system_id: Optional[str] = None,
@@ -124,6 +125,7 @@ def get_efs_file_system(
     retry=retry_if_exception(_is_throttling_exception),
     stop=stop_after_attempt(7),
     wait=wait_exponential_jitter(initial=3, exp_base=2, jitter=1),
+    reraise=True,
 )
 def list_efs_access_points(
     access_point_id: Optional[str] = None,

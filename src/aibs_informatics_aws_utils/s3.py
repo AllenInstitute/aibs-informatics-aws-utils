@@ -303,6 +303,7 @@ def download_s3_object_prefix(
     ),
     stop=stop_after_attempt(10),
     wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
 )
 def download_s3_object(
     s3_path: S3URI,
@@ -433,6 +434,7 @@ def upload_folder(
     retry=retry_if_exception_type(ResponseStreamingError),
     stop=stop_after_attempt(10),
     wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
 )
 def upload_file(
     local_path: Union[str, Path],
@@ -916,6 +918,7 @@ def _is_slow_down_exception(ex):
     retry=retry_if_exception(_is_slow_down_exception),
     stop=stop_after_attempt(10),
     wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
 )
 def copy_s3_object(
     source_path: S3URI,
@@ -1616,6 +1619,7 @@ def determine_chunk_size(
     retry=retry_if_exception_type(OSError),
     stop=stop_after_attempt(5),
     wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+    reraise=True,
 )
 def get_local_etag(
     path: Path, chunk_size_bytes: Optional[int] = None, threshold_bytes: Optional[int] = None
