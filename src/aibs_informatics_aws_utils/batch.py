@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, U
 
 from aibs_informatics_core.env import ENV_BASE_KEY_ALIAS, EnvBase, get_env_base
 from aibs_informatics_core.models.aws.batch import JobName, ResourceRequirements
-from aibs_informatics_core.utils.decorators import retry
 from aibs_informatics_core.utils.hashing import sha256_hexdigest
 from aibs_informatics_core.utils.logging import get_logger
 from aibs_informatics_core.utils.tools.dicttools import convert_key_case
 from aibs_informatics_core.utils.tools.strtools import pascalcase
 from botocore.exceptions import ClientError
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential_jitter
 
 from aibs_informatics_aws_utils.core import AWS_REGION_VAR, AWSService, get_region
 from aibs_informatics_aws_utils.logs import build_log_stream_url
@@ -180,7 +180,11 @@ def build_retry_strategy(
 
 
 # TODO: need better way of checking when parallel register job def calls collide
-@retry(ClientError)
+@retry(
+    retry=retry_if_exception_type(ClientError),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=1),
+)
 def register_job_definition(
     job_definition_name: str,
     container_properties: ContainerPropertiesTypeDef,
