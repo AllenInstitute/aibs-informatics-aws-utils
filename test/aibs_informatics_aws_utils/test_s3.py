@@ -9,9 +9,9 @@ from unittest.mock import MagicMock, patch
 import moto
 import requests
 from aibs_informatics_core.models.aws.s3 import (
-    S3URI,
     S3CopyRequest,
     S3DownloadRequest,
+    S3Path,
     S3StorageClass,
     S3UploadRequest,
 )
@@ -61,8 +61,8 @@ from aibs_informatics_aws_utils.s3 import (
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
-def any_s3_uri(key: str = "key", bucket: str = "bucket") -> S3URI:
-    return S3URI.build(bucket, key)
+def any_s3_uri(key: str = "key", bucket: str = "bucket") -> S3Path:
+    return S3Path.build(bucket, key)
 
 
 @moto.mock_aws
@@ -81,7 +81,7 @@ class S3Tests(AwsBaseTest):
         )
         return bucket_name
 
-    def put_object(self, key: str, content: str, bucket_name: str = None, **kwargs) -> S3URI:
+    def put_object(self, key: str, content: str, bucket_name: str = None, **kwargs) -> S3Path:
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
         self.s3_client.put_object(Bucket=bucket_name, Key=key, Body=content, **kwargs)
         return self.get_s3_path(key=key, bucket_name=bucket_name)
@@ -99,20 +99,20 @@ class S3Tests(AwsBaseTest):
     def s3_resource(self):
         return get_s3_resource(region=self.DEFAULT_REGION)
 
-    def get_s3_path(self, key: str, bucket_name: str = None) -> S3URI:
+    def get_s3_path(self, key: str, bucket_name: str = None) -> S3Path:
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
-        return S3URI.build(bucket_name=bucket_name, key=key)
+        return S3Path.build(bucket_name=bucket_name, key=key)
 
     def client__list_objects_v2(self, **kwargs):
         if "Bucket" not in kwargs:
             kwargs["Bucket"] = self.DEFAULT_BUCKET_NAME
         return self.s3_client.list_objects_v2(**kwargs)
 
-    def _get_tag_dict(self, s3_path: S3URI) -> dict[str, str]:
+    def _get_tag_dict(self, s3_path: S3Path) -> dict[str, str]:
         response = self.s3_client.get_object_tagging(Bucket=s3_path.bucket, Key=s3_path.key)
         return {tag["Key"]: tag["Value"] for tag in response.get("TagSet", [])}
 
-    def _put_tags(self, s3_path: S3URI, tags: dict[str, str]):
+    def _put_tags(self, s3_path: S3Path, tags: dict[str, str]):
         self.s3_client.put_object_tagging(
             Bucket=s3_path.bucket,
             Key=s3_path.key,
@@ -1325,7 +1325,7 @@ def test__determine_multipart_attributes__works(
 ):
     local_file = create_file
     s3_bucket_fixture.upload_file(Filename=str(local_file), Key="path", Config=transfer_config)
-    s3_path = S3URI(f"s3://{s3_bucket_fixture.name}/path")
+    s3_path = S3Path(f"s3://{s3_bucket_fixture.name}/path")
 
     chunksize, threshold = determine_multipart_attributes(s3_path)
     assert threshold == expected_threshold
@@ -1590,8 +1590,8 @@ class DownloadS3ObjectRetryTests(AwsBaseTest):
     def s3_client(self):
         return get_s3_client(region=self.DEFAULT_REGION)
 
-    def get_s3_path(self, key: str) -> S3URI:
-        return S3URI.build(bucket_name=self.DEFAULT_BUCKET_NAME, key=key)
+    def get_s3_path(self, key: str) -> S3Path:
+        return S3Path.build(bucket_name=self.DEFAULT_BUCKET_NAME, key=key)
 
     @patch("aibs_informatics_aws_utils.s3.get_object")
     def test__download_s3_object__retries_on_eio_error(self, mock_get_object: MagicMock):

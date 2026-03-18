@@ -1,5 +1,4 @@
 import functools
-import logging
 import warnings
 from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
@@ -856,7 +855,12 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         # Track partial items along with their original index, computed key, and a hashable
         # representation of that key so we can match refetched entries regardless of order.
         partial_meta: list[
-            tuple[dict[str, Any], int, DynamoDBKey, tuple[tuple[str, DynamoDBPrimaryKeyItemValue], ...]]
+            tuple[
+                dict[str, Any],
+                int,
+                DynamoDBKey,
+                tuple[tuple[str, DynamoDBPrimaryKeyItemValue], ...],
+            ]
         ] = []
         for i, item in enumerate(items):
             try:
@@ -878,9 +882,8 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
                 tuple[tuple[str, DynamoDBPrimaryKeyItemValue], ...], DB_MODEL
             ] = {}
             for refetched in new_filled_entries:
-                # Derive the key from the refetched model in the same way as from the original item.
-                # We assume DBModel provides a to_dict() method compatible with build_key_from_item.
-                refetched_dict = refetched.to_dict()  # type: ignore[call-arg, attr-defined]
+                # Derive the key from the refetched model in the same way as from the first item.
+                refetched_dict = refetched.to_dict()
                 refetched_key = self.build_key_from_item(refetched_dict)
                 refetched_key_id = tuple(sorted(refetched_key.items()))
                 refetched_by_key[refetched_key_id] = refetched

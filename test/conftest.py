@@ -3,7 +3,7 @@ from unittest import mock
 
 import moto
 import pytest
-from aibs_informatics_core.models.aws.s3 import S3URI
+from aibs_informatics_core.models.aws.s3 import S3Path
 
 from aibs_informatics_aws_utils.s3 import get_s3_client
 
@@ -32,7 +32,7 @@ def s3_client_fixture(aws_credentials_fixture):
 
 
 @pytest.fixture
-def s3_object_fixture(s3_client_fixture, request) -> S3URI:
+def s3_object_fixture(s3_client_fixture, request) -> S3Path:
     mock_bucket_name = request.param.get("mock_bucket_name", "test-bucket")
     mock_bucket_location = request.param.get("mock_bucket_location", "us-west-2")
     mock_object_key = request.param.get("mock_object_key", "test_object.txt")
@@ -52,4 +52,4 @@ def s3_object_fixture(s3_client_fixture, request) -> S3URI:
         StorageClass=mock_object_storage_class,
     )
 
-    yield S3URI.build(bucket_name=mock_bucket_name, key=mock_object_key)
+    yield S3Path.build(bucket_name=mock_bucket_name, key=mock_object_key)

@@ -4,7 +4,7 @@ from decimal import Decimal
 import moto
 import pytest
 from aibs_informatics_core.env import EnvBase
-from aibs_informatics_core.models.base import IsoDateTime
+from aibs_informatics_core.models.base import AwareIsoDateTime
 from aibs_informatics_core.models.db import (
     DBIndex,
     DBIndexNameEnum,
@@ -89,7 +89,7 @@ class SimpleModel(DBModel):
     str_attr: str
     int_attr: int
     float_attr: float
-    datetime_attr: IsoDateTime
+    datetime_attr: AwareIsoDateTime
 
 
 @dataclass

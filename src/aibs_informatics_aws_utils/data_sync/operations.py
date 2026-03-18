@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Union, cast
 
 from aibs_informatics_core.models.aws.efs import EFSPath
-from aibs_informatics_core.models.aws.s3 import S3URI, S3KeyPrefix
+from aibs_informatics_core.models.aws.s3 import S3KeyPrefix, S3Path
 from aibs_informatics_core.models.data_sync import (
     DataSyncConfig,
     DataSyncRequest,
@@ -66,7 +66,7 @@ class DataSyncOperations(LoggingMixin):
     def botocore_config(self) -> Config:
         return get_botocore_config(max_pool_connections=self.config.max_concurrency)
 
-    def sync_local_to_s3(self, source_path: LocalPath, destination_path: S3URI) -> DataSyncResult:
+    def sync_local_to_s3(self, source_path: LocalPath, destination_path: S3Path) -> DataSyncResult:
         source_path = self.sanitize_local_path(source_path)
         if not source_path.exists():
             if self.config.fail_if_missing:
@@ -78,7 +78,7 @@ class DataSyncOperations(LoggingMixin):
                 return DataSyncResult()
         if source_path.is_dir():
             self.logger.info("local source path is folder. Adding suffix to destination path")
-            destination_path = S3URI.build(
+            destination_path = S3Path.build(
                 bucket_name=destination_path.bucket_name,
                 key=destination_path.key_with_folder_suffix,
             )
@@ -100,7 +100,7 @@ class DataSyncOperations(LoggingMixin):
             remove_path(source_path)
         return result
 
-    def sync_s3_to_local(self, source_path: S3URI, destination_path: LocalPath) -> DataSyncResult:
+    def sync_s3_to_local(self, source_path: S3Path, destination_path: LocalPath) -> DataSyncResult:
         self.logger.info(f"Downloading s3 content from {source_path} -> {destination_path}")
         start_time = datetime.now(tz=timezone.utc)
         destination_path = self.sanitize_local_path(destination_path)
@@ -224,8 +224,8 @@ class DataSyncOperations(LoggingMixin):
 
     def sync_s3_to_s3(
         self,
-        source_path: S3URI,
-        destination_path: S3URI,
+        source_path: S3Path,
+        destination_path: S3Path,
         source_path_prefix: S3KeyPrefix | None = None,
     ) -> DataSyncResult:
         self.logger.info(f"Syncing s3 content from {source_path} -> {destination_path}")
@@ -262,23 +262,23 @@ class DataSyncOperations(LoggingMixin):
 
     def sync(
         self,
-        source_path: LocalPath | S3URI,
-        destination_path: LocalPath | S3URI,
+        source_path: LocalPath | S3Path,
+        destination_path: LocalPath | S3Path,
         source_path_prefix: str | None = None,
     ) -> DataSyncResult:
-        if isinstance(source_path, S3URI) and isinstance(destination_path, S3URI):
+        if isinstance(source_path, S3Path) and isinstance(destination_path, S3Path):
             return self.sync_s3_to_s3(
                 source_path=source_path,
                 destination_path=destination_path,
                 source_path_prefix=S3KeyPrefix(source_path_prefix) if source_path_prefix else None,
             )
 
-        elif isinstance(source_path, S3URI):
+        elif isinstance(source_path, S3Path):
             return self.sync_s3_to_local(
                 source_path=source_path,
                 destination_path=cast(LocalPath, destination_path),
             )
-        elif isinstance(destination_path, S3URI):
+        elif isinstance(destination_path, S3Path):
             return self.sync_local_to_s3(
                 source_path=cast(LocalPath, source_path),
                 destination_path=destination_path,
@@ -316,8 +316,8 @@ class DataSyncOperations(LoggingMixin):
 
 # We should consider using cloudpathlib[s3] in the future
 def sync_data(
-    source_path: S3URI | LocalPath,
-    destination_path: S3URI | LocalPath,
+    source_path: S3Path | LocalPath,
+    destination_path: S3Path | LocalPath,
     source_path_prefix: str | None = None,
     max_concurrency: int = 10,
     retain_source_data: bool = True,

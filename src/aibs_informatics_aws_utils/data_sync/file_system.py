@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytz
 from aibs_informatics_core.models.aws.efs import EFSPath
-from aibs_informatics_core.models.aws.s3 import S3URI
-from aibs_informatics_core.models.base import IsoDateTime, PydanticBaseModel
+from aibs_informatics_core.models.aws.s3 import S3Path
+from aibs_informatics_core.models.base import AwareIsoDateTime, PydanticBaseModel
 from aibs_informatics_core.utils.logging import get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from aibs_informatics_core.utils.time import BEGINNING_OF_TIME
@@ -30,7 +30,7 @@ SEP = "/"
 class PathStats(PydanticBaseModel):
     size_bytes: int
     object_count: int
-    last_modified: IsoDateTime
+    last_modified: AwareIsoDateTime
 
 
 @dataclass(order=True)
@@ -320,14 +320,14 @@ class S3FileSystem(BaseFileSystem):
 
     @classmethod
     def from_path(cls, path: str, **kwargs) -> S3FileSystem:
-        s3_path = S3URI(path)
+        s3_path = S3Path(path)
         s3_root = S3FileSystem(bucket=s3_path.bucket, key=s3_path.key)
         s3_root.refresh(**kwargs)
         return s3_root
 
 
 def get_file_system(path: str | Path) -> BaseFileSystem:
-    if isinstance(path, str) and S3URI.is_valid(path):
+    if isinstance(path, str) and S3Path.is_valid(path):
         return S3FileSystem.from_path(path)
     elif isinstance(path, str) and EFSPath.is_valid(path):
         return EFSFileSystem.from_path(path)
