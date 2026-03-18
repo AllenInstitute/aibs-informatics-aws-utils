@@ -313,6 +313,7 @@ T = TypeVar("T", bound="ECRResourceBase")
 
 class ECRResourceBase(PydanticBaseModel):
     _client: ECRClient | None = PrivateAttr(default=None)
+    _logger: logging.Logger | None = PrivateAttr(default=None)
 
     def __init__(self, *, client: ECRClient | None = None, **data) -> None:
         super().__init__(**data)
@@ -328,7 +329,7 @@ class ECRResourceBase(PydanticBaseModel):
 
     @property
     def logger(self) -> logging.Logger:
-        if not hasattr(self, "_logger"):
+        if self._logger is None:
             self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
         return self._logger
 

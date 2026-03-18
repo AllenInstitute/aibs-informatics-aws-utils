@@ -159,7 +159,6 @@ class ECRImageReplicator(LoggingMixin):
             image_manifest=source_image.image_manifest,
             client=destination_repository.client,
         )
-        dest_image._client = destination_repository.client
         try:
             dest_image.put_image(None)
             if tags:
