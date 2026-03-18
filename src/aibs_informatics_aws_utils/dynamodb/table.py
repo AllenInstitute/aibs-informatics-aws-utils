@@ -6,6 +6,7 @@ from typing import (
     Any,
     Generic,
     Literal,
+    TypeAlias,
     TypeVar,
     cast,
     overload,
@@ -275,7 +276,7 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        kwargs.setdefault("exclude_unset", partial)
+        # kwargs.setdefault("exclude_unset", partial)
         entry_dict = entry.to_dict(**kwargs)
         return convert_floats_to_decimals(entry_dict)
 
@@ -850,48 +851,27 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         return filter_expression
 
     def _fill_values(self, items: Sequence[dict[str, Any]]) -> list[DB_MODEL]:
+        HashableKey: TypeAlias = tuple[tuple[str, DynamoDBPrimaryKeyItemValue], ...]
+
         db_model_cls = self.get_db_model_cls()
-        filled_entries: list[DB_MODEL | None] = []
-        # Track partial items along with their original index, computed key, and a hashable
-        # representation of that key so we can match refetched entries regardless of order.
-        partial_meta: list[
-            tuple[
-                dict[str, Any],
-                int,
-                DynamoDBKey,
-                tuple[tuple[str, DynamoDBPrimaryKeyItemValue], ...],
-            ]
-        ] = []
+        filled_entries: list[DB_MODEL | None] = [None] * len(items)
+        partial_keys: list[DynamoDBKey] = []
+        key_to_index: dict[HashableKey, int] = {}
+
         for i, item in enumerate(items):
             try:
-                filled_entries.append(db_model_cls.from_dict(item))
+                filled_entries[i] = db_model_cls.from_dict(item)
             except ValidationError:
                 key = self.build_key_from_item(item)
-                # Use a sorted tuple of (attribute, value) pairs as a stable, hashable key id.
-                key_id = tuple(sorted(key.items()))
-                partial_meta.append((item, i, key, key_id))
-                filled_entries.append(None)
+                partial_keys.append(key)
+                key_to_index[tuple(sorted(key.items()))] = i  # type: ignore[arg-type]
 
-        if partial_meta:
-            # Re-fetch all partial items by their keys.
-            keys = [meta[2] for meta in partial_meta]
-            new_filled_entries = self.batch_get(keys)
-
-            # Build a mapping from key identifier to the refetched DB_MODEL instance.
-            refetched_by_key: dict[
-                tuple[tuple[str, DynamoDBPrimaryKeyItemValue], ...], DB_MODEL
-            ] = {}
-            for refetched in new_filled_entries:
-                # Derive the key from the refetched model in the same way as from the first item.
-                refetched_dict = refetched.to_dict()
-                refetched_key = self.build_key_from_item(refetched_dict)
-                refetched_key_id = tuple(sorted(refetched_key.items()))
-                refetched_by_key[refetched_key_id] = refetched
-
-            # Place each refetched entry back into the correct position by matching on key id.
-            for _, index, _, key_id in partial_meta:
-                if key_id in refetched_by_key:
-                    filled_entries[index] = refetched_by_key[key_id]
+        if partial_keys:
+            for refetched in self.batch_get(partial_keys):
+                refetched_key = self.build_key_from_item(refetched.to_dict())
+                hk = tuple(sorted(refetched_key.items()))
+                if hk in key_to_index:
+                    filled_entries[key_to_index[hk]] = refetched  # type: ignore[index]
 
         return cast(list[DB_MODEL], filled_entries)
 
