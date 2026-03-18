@@ -63,7 +63,7 @@ release = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aibs-informatics-core", specifier = ">=0.2.6,<1" },
+    { name = "aibs-informatics-core", specifier = ">=1.0.0,<2" },
     { name = "boto3", specifier = "~=1.35" },
     { name = "tenacity", specifier = "~=9.0" },
 ]
@@ -116,7 +116,7 @@ release = [
 
 [[package]]
 name = "aibs-informatics-core"
-version = "0.4.2"
+version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dataclasses-json" },
@@ -129,9 +129,9 @@ dependencies = [
     { name = "requests" },
     { name = "typing-inspect" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/37/6c/365beea1a3b47f11fce4f46b7f266e97f0c4c7014458f59481b2308cd4f0/aibs_informatics_core-0.4.2.tar.gz", hash = "sha256:6d4214916159d88d28cb60f34e7006a93d2f92899717c35ab276389736661024", size = 75868, upload-time = "2026-03-05T19:43:19.473Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/ed/30bdec9ec9f181a916a2327a01f4185407bf5f6d42c22a76725f42839bbf/aibs_informatics_core-1.0.0.tar.gz", hash = "sha256:f7e4d359fd6ee31d9e22bdfd14d70c925b35c438def283ce7d2a488059e3e464", size = 73044, upload-time = "2026-03-18T20:02:27.148Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/cb/c5b2fdce716c519303930c18f17be5b626d130f3d6c86e61d856a1956348/aibs_informatics_core-0.4.2-py3-none-any.whl", hash = "sha256:b4f3cb7b9039acbbc358d58726bec264ecee4ec52952b335359bae15f7b8a11b", size = 97028, upload-time = "2026-03-05T19:43:18.223Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/9f/bca1764a6bc1a643c1caace7f2124a0afba54c9c08239f61a4bda2389fa5/aibs_informatics_core-1.0.0-py3-none-any.whl", hash = "sha256:4f6a17a60d9169ff003fcb898bf0e114b9660b72c5dc2606b3aa0a56a0e6f021", size = 91559, upload-time = "2026-03-18T20:02:25.56Z" },
 ]
 
 [[package]]
