@@ -22,9 +22,9 @@ from typing import (
 from urllib import parse
 
 from aibs_informatics_core.models.aws.s3 import (
-    S3URI,
     S3CopyRequest,
     S3DownloadRequest,
+    S3Path,
     S3PathStats,
     S3RestoreStatus,
     S3RestoreStatusEnum,
@@ -86,7 +86,7 @@ S3_SCRATCH_TAGGING_KEY = "time-to-live"
 S3_SCRATCH_TAGGING_VALUE = "scratch"
 
 
-PathOrUri = Union[Path, S3URI]
+PathOrUri = Union[Path, S3Path]
 
 
 SCRATCH_EXTRA_ARGS = {
@@ -102,17 +102,17 @@ LOCAL_ETAG_READ_BUFFER_BYTES = 8 * MB
 AWS_S3_MULTIPART_LIMIT = 10000
 
 
-def download_to_json_object(s3_path: S3URI, **kwargs) -> dict[str, Any]:
+def download_to_json_object(s3_path: S3Path, **kwargs) -> dict[str, Any]:
     content = download_to_json(s3_path=s3_path, **kwargs)
     assert isinstance(content, dict)
     return content
 
 
-def download_to_json(s3_path: S3URI, **kwargs) -> JSON:
+def download_to_json(s3_path: S3Path, **kwargs) -> JSON:
     """Helper method to read a JSON file from S3.
 
     Args:
-        s3_path (S3URI): S3 URI to the JSON file.
+        s3_path (S3Path): S3 URI to the JSON file.
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
@@ -133,7 +133,7 @@ def download_to_json(s3_path: S3URI, **kwargs) -> JSON:
 
 
 def download_s3_path(
-    s3_path: S3URI,
+    s3_path: S3Path,
     local_path: Path,
     exist_ok: bool = False,
     transfer_config: TransferConfig | None = None,
@@ -159,7 +159,7 @@ def download_s3_path(
     - If S3 path is an object, it will be downloaded as a file.
 
     Args:
-        s3_path (S3URI): URI of the object or folder.
+        s3_path (S3Path): URI of the object or folder.
         local_path (Path): Local destination path.
         exist_ok (bool): If True, local path may exist previously. Defaults to False.
         transfer_config (Optional[TransferConfig]): Transfer configuration. Defaults to None.
@@ -232,7 +232,7 @@ def download_s3_path(
 
 
 def download_s3_object_prefix(
-    s3_path: S3URI,
+    s3_path: S3Path,
     local_path: Path,
     exist_ok: bool = False,
     transfer_config: TransferConfig | None = None,
@@ -243,7 +243,7 @@ def download_s3_object_prefix(
     """Download an S3 object prefix to a local path.
 
     Args:
-        s3_path (S3URI): URI of the object prefix (folder).
+        s3_path (S3Path): URI of the object prefix (folder).
         local_path (Path): Local destination path.
         exist_ok (bool): If True, local path may exist previously. Defaults to False.
         transfer_config (Optional[TransferConfig]): Transfer configuration. Defaults to None.
@@ -304,7 +304,7 @@ def download_s3_object_prefix(
     reraise=True,
 )
 def download_s3_object(
-    s3_path: S3URI,
+    s3_path: S3Path,
     local_path: Path,
     exist_ok: bool = False,
     transfer_config: TransferConfig | None = None,
@@ -315,7 +315,7 @@ def download_s3_object(
     """Download contents of an S3 object to file.
 
     Args:
-        s3_path (S3URI): S3 URI to object.
+        s3_path (S3Path): S3 URI to object.
         local_path (Path): Destination path.
         exist_ok (bool): If True, local path can already exist. Defaults to False.
         transfer_config (Optional[TransferConfig]): Transfer configuration. Defaults to None.
@@ -346,7 +346,9 @@ def download_s3_object(
         s3_object.download_file(Filename=str(local_path.resolve()), Config=transfer_config)
 
 
-def upload_json(content: JSON, s3_path: S3URI, extra_args: dict[str, Any] | None = None, **kwargs):
+def upload_json(
+    content: JSON, s3_path: S3Path, extra_args: dict[str, Any] | None = None, **kwargs
+):
     with NamedTemporaryFile("w") as f:
         f.write(json.dumps(content, sort_keys=True))
         f.flush()
@@ -355,7 +357,7 @@ def upload_json(content: JSON, s3_path: S3URI, extra_args: dict[str, Any] | None
 
 
 def upload_scratch_file(
-    local_path: Path, s3_path: S3URI, extra_args: dict[str, Any] | None = None, **kwargs
+    local_path: Path, s3_path: S3Path, extra_args: dict[str, Any] | None = None, **kwargs
 ):
     extra_args = extra_args or {}
     extra_args.update(SCRATCH_EXTRA_ARGS)
@@ -364,7 +366,7 @@ def upload_scratch_file(
 
 def upload_path(
     local_path: Path,
-    s3_path: S3URI,
+    s3_path: S3Path,
     extra_args: dict[str, Any] | None = None,
     transfer_config: TransferConfig | None = None,
     force: bool = True,
@@ -402,7 +404,7 @@ def upload_path(
 
 def upload_folder(
     local_path: Path,
-    s3_path: S3URI,
+    s3_path: S3Path,
     extra_args: dict[str, Any] | None = None,
     transfer_config: TransferConfig | None = None,
     force: bool = True,
@@ -412,7 +414,7 @@ def upload_folder(
     local_paths = find_paths(local_path, include_dirs=False, include_files=True)
     for source_path in local_paths:
         destination_key = os.path.normpath(s3_path.key + source_path[len(str(local_path)) :])
-        destination_path = S3URI.build(bucket_name=s3_path.bucket, key=destination_key)
+        destination_path = S3Path.build(bucket_name=s3_path.bucket, key=destination_key)
         logger.debug(f"Uploading '{source_path}' to '{destination_path}'")
         upload_file(
             local_path=source_path,
@@ -434,7 +436,7 @@ def upload_folder(
 )
 def upload_file(
     local_path: str | Path,
-    s3_path: S3URI,
+    s3_path: S3Path,
     extra_args: dict[str, Any] | None = None,
     transfer_config: TransferConfig | None = None,
     force: bool = True,
@@ -468,7 +470,7 @@ def upload_file(
         )
 
 
-def get_object(s3_path: S3URI, **kwargs) -> Object:
+def get_object(s3_path: S3Path, **kwargs) -> Object:
     s3 = get_s3_resource(**kwargs)
     try:
         return s3.Object(s3_path.bucket, s3_path.key)
@@ -476,7 +478,7 @@ def get_object(s3_path: S3URI, **kwargs) -> Object:
         raise AWSError(f"Error finding s3 object: {s3_path} {e}") from e
 
 
-def is_object(s3_path: S3URI, **kwargs) -> bool:
+def is_object(s3_path: S3Path, **kwargs) -> bool:
     s3 = get_s3_client(**kwargs)
     try:
         s3.head_object(Bucket=s3_path.bucket, Key=s3_path.key)
@@ -489,7 +491,7 @@ def is_object(s3_path: S3URI, **kwargs) -> bool:
     return True
 
 
-def is_object_prefix(s3_path: S3URI, **kwargs) -> bool:
+def is_object_prefix(s3_path: S3Path, **kwargs) -> bool:
     s3 = get_s3_client(**kwargs)
     response = s3.list_objects_v2(
         Bucket=s3_path.bucket,
@@ -501,7 +503,7 @@ def is_object_prefix(s3_path: S3URI, **kwargs) -> bool:
     return len(response.get("Contents", [])) > 0
 
 
-def is_folder(s3_path: S3URI, **kwargs) -> bool:
+def is_folder(s3_path: S3Path, **kwargs) -> bool:
     """Check if S3 Path is a "folder" or object.
 
     To be a "folder", it must satisfy following conditions:
@@ -531,19 +533,19 @@ def is_folder(s3_path: S3URI, **kwargs) -> bool:
         ```
 
     Args:
-        s3_path (S3URI): S3 URI to check.
+        s3_path (S3Path): S3 URI to check.
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
         True if s3 path is a folder.
     """
     return is_object_prefix(
-        s3_path=S3URI.build(bucket_name=s3_path.bucket, key=s3_path.key_with_folder_suffix),
+        s3_path=S3Path.build(bucket_name=s3_path.bucket, key=s3_path.key_with_folder_suffix),
         **kwargs,
     )
 
 
-def is_folder_placeholder_object(s3_path: S3URI, **kwargs) -> bool:
+def is_folder_placeholder_object(s3_path: S3Path, **kwargs) -> bool:
     """Check if S3 Path is a "folder placeholder" object.
 
     A "folder placeholder" object is defined as an S3 object that:
@@ -555,7 +557,7 @@ def is_folder_placeholder_object(s3_path: S3URI, **kwargs) -> bool:
     For these purposes, we want to ignore such objects when considering the contents of a folder.
 
     Args:
-        s3_path (S3URI): S3 URI to check.
+        s3_path (S3Path): S3 URI to check.
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
@@ -576,7 +578,7 @@ def is_folder_placeholder_object(s3_path: S3URI, **kwargs) -> bool:
         ) from e
 
 
-def get_s3_path_collection_stats(*s3_paths: S3URI, **kwargs) -> Mapping[S3URI, S3PathStats]:
+def get_s3_path_collection_stats(*s3_paths: S3Path, **kwargs) -> Mapping[S3Path, S3PathStats]:
     return dict(
         zip(
             s3_paths,
@@ -585,11 +587,11 @@ def get_s3_path_collection_stats(*s3_paths: S3URI, **kwargs) -> Mapping[S3URI, S
     )
 
 
-def get_s3_path_stats(s3_path: S3URI, **kwargs) -> S3PathStats:
+def get_s3_path_stats(s3_path: S3Path, **kwargs) -> S3PathStats:
     """Get statistics for an S3 path including size, object count, and last modified time.
 
     Args:
-        s3_path (S3URI): Path to the file or prefix in S3.
+        s3_path (S3Path): Path to the file or prefix in S3.
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
@@ -626,7 +628,7 @@ def get_s3_path_stats(s3_path: S3URI, **kwargs) -> S3PathStats:
 
 
 def update_path_tags(
-    s3_path: S3URI,
+    s3_path: S3Path,
     tags: dict[str, str],
     mode: Literal["replace", "append", "delete"] = "append",
     recursive: bool = True,
@@ -645,7 +647,7 @@ def update_path_tags(
     its tags updated.
 
     Args:
-        s3_path (S3URI): S3 path or prefix to update tags for.
+        s3_path (S3Path): S3 path or prefix to update tags for.
         tags (Dict[str, str]): Tags to update.
         mode (Literal["replace", "append", "delete"]): Tag update mode. Defaults to "append".
         recursive (bool): Whether to update tags recursively for all objects under prefix.
@@ -688,8 +690,8 @@ def update_path_tags(
 
 
 def sync_paths(
-    source_path: Path | S3URI,
-    destination_path: Path | S3URI,
+    source_path: Path | S3Path,
+    destination_path: Path | S3Path,
     source_path_prefix: str | None = None,
     include: list[Pattern] | None = None,
     exclude: list[Pattern] | None = None,
@@ -702,7 +704,7 @@ def sync_paths(
 ) -> list[S3TransferResponse]:
     logger.info(f"Syncing {source_path} to {destination_path}")
 
-    source_path_key = source_path.key if isinstance(source_path, S3URI) else str(source_path)
+    source_path_key = source_path.key if isinstance(source_path, S3Path) else str(source_path)
     if not source_path_prefix:
         source_path_prefix = source_path_key
     elif not is_prefixed(source_path_key, source_path_prefix):
@@ -710,7 +712,7 @@ def sync_paths(
             f"The source path prefix '{source_path_prefix}' does not match "
             f"source path {source_path}"
         )
-    if isinstance(source_path, S3URI):
+    if isinstance(source_path, S3Path):
         nested_source_paths = list_s3_paths(
             s3_path=source_path.with_folder_suffix,
             include=include,
@@ -751,9 +753,9 @@ def sync_paths(
 
     if delete:
         logger.info("Sync: checking for files to delete following sync")
-        if isinstance(destination_path, S3URI):
+        if isinstance(destination_path, S3Path):
             unexpected_paths = set(list_s3_paths(destination_path, **kwargs)).difference(
-                [S3URI(_.request.destination_path) for _ in responses]
+                [S3Path(_.request.destination_path) for _ in responses]
             )
             logger.info(f"Sync: identified {len(unexpected_paths)} paths for deletion")
             for unexpected_path in unexpected_paths:
@@ -775,16 +777,16 @@ def sync_paths(
 
 
 def generate_transfer_request(
-    source_path: Path | S3URI,
-    destination_path: Path | S3URI,
+    source_path: Path | S3Path,
+    destination_path: Path | S3Path,
     source_path_prefix: str | None = None,
     extra_args: dict[str, Any] | None = None,
 ) -> S3TransferRequest:
     """Create an S3 transfer request.
 
     Args:
-        source_path (Union[Path, S3URI]): Source copy path.
-        destination_path (Union[Path, S3URI]): Destination copy path.
+        source_path (Union[Path, S3Path]): Source copy path.
+        destination_path (Union[Path, S3Path]): Destination copy path.
         source_path_prefix (Optional[str]): Optional prefix to remove from source path.
             Defaults to source path key.
         extra_args (Optional[Dict[str, Any]]): Extra arguments for the transfer.
@@ -798,7 +800,7 @@ def generate_transfer_request(
     """
     relative_source_path = ""
     if source_path_prefix:
-        source_key = source_path.key if isinstance(source_path, S3URI) else str(source_path)
+        source_key = source_path.key if isinstance(source_path, S3Path) else str(source_path)
 
         if not source_key.startswith(source_path_prefix):
             raise ValueError(
@@ -808,14 +810,14 @@ def generate_transfer_request(
             )
         relative_source_path = source_key[len(source_path_prefix) :]
 
-    if isinstance(destination_path, S3URI):
-        # This will be sanitized by S3URI class (removing double slashes)
-        new_destination_path = S3URI(destination_path + relative_source_path)
-        if isinstance(source_path, S3URI):
+    if isinstance(destination_path, S3Path):
+        # This will be sanitized by S3Path class (removing double slashes)
+        new_destination_path = S3Path(destination_path + relative_source_path)
+        if isinstance(source_path, S3Path):
             return S3CopyRequest(source_path, new_destination_path, extra_args=extra_args)
         else:
             return S3UploadRequest(source_path, new_destination_path, extra_args=extra_args)
-    elif isinstance(source_path, S3URI) and isinstance(destination_path, Path):
+    elif isinstance(source_path, S3Path) and isinstance(destination_path, Path):
         local_destination_path: Path = (
             Path(get_path_with_root(relative_source_path, destination_path))
             if relative_source_path
@@ -917,8 +919,8 @@ def _is_slow_down_exception(ex):
     reraise=True,
 )
 def copy_s3_object(
-    source_path: S3URI,
-    destination_path: S3URI,
+    source_path: S3Path,
+    destination_path: S3Path,
     extra_args: dict[str, Any] | None = None,
     transfer_config: TransferConfig | None = None,
     force: bool = True,
@@ -967,7 +969,7 @@ def copy_s3_object(
 
 
 def delete_s3_path(
-    s3_path: S3URI,
+    s3_path: S3Path,
     include: list[Pattern] | None = None,
     exclude: list[Pattern] | None = None,
     **kwargs,
@@ -975,7 +977,7 @@ def delete_s3_path(
     """Delete an S3 path (object or prefix).
 
     Args:
-        s3_path (S3URI): Path or key prefix to delete.
+        s3_path (S3Path): Path or key prefix to delete.
         include (Optional[List[Pattern]]): Patterns to include. Defaults to None.
         exclude (Optional[List[Pattern]]): Patterns to exclude. Defaults to None.
         **kwargs: Additional arguments passed to the S3 client.
@@ -985,11 +987,11 @@ def delete_s3_path(
     delete_s3_objects(s3_paths, **kwargs)
 
 
-def delete_s3_objects(s3_paths: list[S3URI], **kwargs):
+def delete_s3_objects(s3_paths: list[S3Path], **kwargs):
     """Delete a list of S3 objects.
 
     Args:
-        s3_paths (List[S3URI]): List of S3 paths to delete.
+        s3_paths (List[S3Path]): List of S3 paths to delete.
         **kwargs: Additional arguments passed to the S3 client.
     """
     logger.info(f"Found {len(s3_paths)} objects to delete.")
@@ -1015,8 +1017,8 @@ def delete_s3_objects(s3_paths: list[S3URI], **kwargs):
 
 
 def move_s3_path(
-    source_path: S3URI,
-    destination_path: S3URI,
+    source_path: S3Path,
+    destination_path: S3Path,
     include: list[Pattern] | None = None,
     exclude: list[Pattern] | None = None,
     extra_args: dict[str, Any] | None = None,
@@ -1028,8 +1030,8 @@ def move_s3_path(
     There is no explicit "move" S3 method, so we combine COPY + DELETE operations.
 
     Args:
-        source_path (S3URI): Source S3 path.
-        destination_path (S3URI): Destination S3 path.
+        source_path (S3Path): Source S3 path.
+        destination_path (S3Path): Destination S3 path.
         include (Optional[List[Pattern]]): Patterns to include. Defaults to None.
         exclude (Optional[List[Pattern]]): Patterns to exclude. Defaults to None.
         extra_args (Optional[Dict[str, Any]]): Extra arguments for the copy. Defaults to None.
@@ -1052,11 +1054,11 @@ def move_s3_path(
 
 
 def list_s3_paths(
-    s3_path: S3URI,
+    s3_path: S3Path,
     include: list[Pattern] | None = None,
     exclude: list[Pattern] | None = None,
     **kwargs,
-) -> list[S3URI]:
+) -> list[S3Path]:
     """List all S3 paths under a Key prefix (as defined by S3 path).
 
     Include/Exclude patterns are applied to the RELATIVE KEY PATH.
@@ -1079,7 +1081,7 @@ def list_s3_paths(
     | Y       | N       | Y       | N       | N      |
 
     Args:
-        s3_path (S3URI): The root key path under which to find objects.
+        s3_path (S3Path): The root key path under which to find objects.
         include (Optional[List[Pattern]]): Optional list of regex patterns on which
             to retain objects if matching any. Defaults to None.
         exclude (Optional[List[Pattern]]): Optional list of regex patterns on which
@@ -1100,14 +1102,14 @@ def list_s3_paths(
 
     paginator = s3.get_paginator("list_objects_v2")
 
-    s3_paths: list[S3URI] = []
+    s3_paths: list[S3Path] = []
     for response in paginator.paginate(Bucket=s3_path.bucket, Prefix=s3_path.key):
         for item in response.get("Contents", []):
             key = item.get("Key", "")
             relative_key = key[len(s3_path.key) :]
             if empty_include or any(match_results(relative_key, include)):  # type: ignore
                 if empty_exclude or (not any(match_results(relative_key, exclude))):  # type: ignore
-                    s3_paths.append(S3URI.build(bucket_name=s3_path.bucket, key=key))
+                    s3_paths.append(S3Path.build(bucket_name=s3_path.bucket, key=key))
     return s3_paths
 
 
@@ -1117,7 +1119,7 @@ class PresignedUrlAction(Enum):
 
 
 def generate_presigned_urls(
-    s3_paths: list[S3URI],
+    s3_paths: list[S3Path],
     action: PresignedUrlAction = PresignedUrlAction.READ,
     expires_in: int = 3600,
     **kwargs,
@@ -1125,7 +1127,7 @@ def generate_presigned_urls(
     """Generate pre-signed URLs for given S3 paths.
 
     Args:
-        s3_paths (List[S3URI]): List of S3 paths to generate URLs for.
+        s3_paths (List[S3Path]): List of S3 paths to generate URLs for.
         action (PresignedUrlAction): Desired action for presigned URL (READ or WRITE).
             Defaults to READ.
         expires_in (int): TTL of URL in seconds. Defaults to 3600.
@@ -1138,7 +1140,7 @@ def generate_presigned_urls(
 
 
 def generate_presigned_url(
-    s3_path: S3URI,
+    s3_path: S3Path,
     action: PresignedUrlAction = PresignedUrlAction.READ,
     expires_in: int = 3600,
     **kwargs,
@@ -1146,7 +1148,7 @@ def generate_presigned_url(
     """Generate a pre-signed URL for an S3 object.
 
     Args:
-        s3_path (S3URI): Intended S3 path of the presigned URL.
+        s3_path (S3Path): Intended S3 path of the presigned URL.
         action (PresignedUrlAction): Desired action for presigned URL (READ or WRITE).
             Defaults to READ.
         expires_in (int): TTL of URL in seconds. Defaults to 3600.
@@ -1166,8 +1168,8 @@ def generate_presigned_url(
 
 
 def should_sync(
-    source_path: Path | S3URI,
-    destination_path: Path | S3URI,
+    source_path: Path | S3Path,
+    destination_path: Path | S3Path,
     size_only: bool = False,
     **kwargs,
 ) -> bool:
@@ -1183,8 +1185,8 @@ def should_sync(
     - `size_only` is False and SRC ETag is different than DST
 
     Args:
-        source_path (Union[Path, S3URI]): Source path.
-        destination_path (Union[Path, S3URI]): Destination to transfer to.
+        source_path (Union[Path, S3Path]): Source path.
+        destination_path (Union[Path, S3Path]): Destination to transfer to.
         size_only (bool): If True, limits content comparison to size and date only.
             Defaults to False.
         **kwargs: Additional arguments passed to the S3 client.
@@ -1201,7 +1203,7 @@ def should_sync(
     multipart_chunk_size_bytes: int | None = None
     multipart_threshold_bytes: int | None = None
 
-    if isinstance(destination_path, S3URI) and is_object(destination_path):
+    if isinstance(destination_path, S3Path) and is_object(destination_path):
         dest_s3_object = get_object(destination_path, **kwargs)
         dest_last_modified = dest_s3_object.last_modified
         dest_size_bytes = dest_s3_object.content_length
@@ -1228,7 +1230,7 @@ def should_sync(
     else:
         return True
 
-    if isinstance(source_path, S3URI) and is_object(source_path):
+    if isinstance(source_path, S3Path) and is_object(source_path):
         src_s3_object = get_object(source_path, **kwargs)
         source_last_modified = src_s3_object.last_modified
         source_size_bytes = src_s3_object.content_length
@@ -1255,8 +1257,8 @@ def should_sync(
     else:
         raise ValueError(
             f"Cannot transfer, source path {source_path} does not exist! "
-            f"is s3={isinstance(source_path, S3URI)}, is local={isinstance(source_path, Path)} "
-            f"is object={isinstance(source_path, S3URI) and is_object(source_path, **kwargs)}, "
+            f"is s3={isinstance(source_path, S3Path)}, is local={isinstance(source_path, Path)} "
+            f"is object={isinstance(source_path, S3Path) and is_object(source_path, **kwargs)}, "
             f"is local exists={isinstance(source_path, Path) and source_path.exists()}, "
             f"type={type(source_path)}"
         )
@@ -1273,8 +1275,8 @@ def should_sync(
 
 
 def check_paths_in_sync(
-    source_path: Path | S3URI,
-    destination_path: Path | S3URI,
+    source_path: Path | S3Path,
+    destination_path: Path | S3Path,
     size_only: bool = False,
     ignore_folder_placeholder_objects: bool = True,
     allow_subset: bool = False,
@@ -1284,8 +1286,8 @@ def check_paths_in_sync(
     """Check whether source and destination paths are in sync.
 
     Args:
-        source_path (Union[Path, S3URI]): Source path.
-        destination_path (Union[Path, S3URI]): Destination path.
+        source_path (Union[Path, S3Path]): Source path.
+        destination_path (Union[Path, S3Path]): Destination path.
         size_only (bool): Limits content comparison to just size and date
             (no checksum/ETag). Defaults to False.
         ignore_folder_placeholder_objects (bool): Whether to ignore S3 folder
@@ -1303,7 +1305,7 @@ def check_paths_in_sync(
         True if paths are in sync, False otherwise.
     """
 
-    def _resolve_paths(path: Path | S3URI) -> list[Path | S3URI]:
+    def _resolve_paths(path: Path | S3Path) -> list[Path | S3Path]:
         if isinstance(path, Path):
             if path.is_dir():
                 return list(map(Path, sorted(find_paths(path, include_dirs=False))))
@@ -1322,15 +1324,15 @@ def check_paths_in_sync(
                     )
                 ]
 
-    def _find_relative_path(full_path: Path | S3URI, root_path: Path | S3URI) -> str:
+    def _find_relative_path(full_path: Path | S3Path, root_path: Path | S3Path) -> str:
         if isinstance(full_path, Path) and isinstance(root_path, Path):
             if full_path == root_path:
                 return ""
             # Adding the leading "/" to ensure we return the leading "/" in the relative path for
-            # files under a folder. This is to be consistent with S3URI behavior.
+            # files under a folder. This is to be consistent with S3Path behavior.
             relative_path = "/" + strip_path_root(full_path, root_path)
             return relative_path
-        elif isinstance(full_path, S3URI) and isinstance(root_path, S3URI):
+        elif isinstance(full_path, S3Path) and isinstance(root_path, S3Path):
             if full_path == root_path:
                 return ""
             # Stripping the "/" to ensure we return the leading "/" in the relative path for
@@ -1351,11 +1353,11 @@ def check_paths_in_sync(
     if len(source_paths) == 0:
         raise ValueError(f"Source path {source_path} does not exist")
 
-    stripped_source_path_to_path_map: dict[str, Path | S3URI] = {
+    stripped_source_path_to_path_map: dict[str, Path | S3Path] = {
         _find_relative_path(sp, source_path): sp for sp in source_paths
     }
 
-    stripped_destination_path_to_path_map: dict[str, Path | S3URI] = {
+    stripped_destination_path_to_path_map: dict[str, Path | S3Path] = {
         _find_relative_path(dp, destination_path): dp for dp in destination_paths
     }
 
@@ -1404,7 +1406,7 @@ def check_paths_in_sync(
 
 
 def update_s3_storage_class(
-    s3_path: S3URI,
+    s3_path: S3Path,
     target_storage_class: S3StorageClass,
 ) -> bool:
     """Transition an object (or objects) represented by an s3_path to a target storage class.
@@ -1413,7 +1415,7 @@ def update_s3_storage_class(
         This function needs to be called again if it returns False.
 
     Args:
-        s3_path (S3URI): The s3_path representing an S3 key or prefix whose object(s)
+        s3_path (S3Path): The s3_path representing an S3 key or prefix whose object(s)
             should have their storage class updated.
         target_storage_class (S3StorageClass): The target storage class.
 
@@ -1441,9 +1443,9 @@ def update_s3_storage_class(
 
     # 1. Iterate over all s3 paths under our s3_path and determine archive restores to be done.
     #    Also, start any storage class transitions that can be done.
-    paths_to_restore: list[S3URI] = []
-    paths_restoring: list[S3URI] = []
-    failed_transitions: list[S3URI] = []
+    paths_to_restore: list[S3Path] = []
+    paths_restoring: list[S3Path] = []
+    failed_transitions: list[S3Path] = []
     for p in s3_paths:
         run_path_transition: bool = False
         s3_obj = get_object(p)
@@ -1542,7 +1544,7 @@ def _get_prefix_last_modified(bucket_name: str, key_prefix: str, **kwargs) -> da
     return last_modified
 
 
-def determine_multipart_attributes(s3_path: S3URI, **kwargs) -> tuple[int | None, int | None]:
+def determine_multipart_attributes(s3_path: S3Path, **kwargs) -> tuple[int | None, int | None]:
     """Determine multipart upload chunk size and approximate threshold, if applicable.
 
     Multipart attributes are the following:
@@ -1560,7 +1562,7 @@ def determine_multipart_attributes(s3_path: S3URI, **kwargs) -> tuple[int | None
           Most importantly, must be between 5MB and 5GB.
 
     Args:
-        s3_path (S3URI): S3 object to check.
+        s3_path (S3Path): S3 object to check.
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:

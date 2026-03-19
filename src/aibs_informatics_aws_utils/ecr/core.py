@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
@@ -16,10 +16,9 @@ from typing import (
 
 import requests
 from aibs_informatics_core.collections import StrEnum, ValidatedStr
-from aibs_informatics_core.models.base import DataClassModel
-from aibs_informatics_core.utils.logging import LoggingMixin
+from aibs_informatics_core.models.base import PydanticBaseModel
 from botocore.exceptions import ClientError
-from dataclasses_json import LetterCase, config
+from pydantic import Field, PrivateAttr, model_validator
 
 from aibs_informatics_aws_utils.core import (
     AWSService,
@@ -203,45 +202,41 @@ class ECRLogin:
         return base64.b64encode(decoded_auth_token.encode()).decode()
 
 
-@dataclass
-class LifecyclePolicySelection(DataClassModel):
-    tag_status: Literal["tagged", "untagged", "any"] = field(
-        metadata=config(letter_case=LetterCase.CAMEL)
-    )
-    tag_prefix_list: list[str] = field(metadata=config(letter_case=LetterCase.CAMEL))
-    count_type: Literal["imageCountMoreThan", "sinceImagePushed"] = field(
-        metadata=config(letter_case=LetterCase.CAMEL)
-    )
-    count_number: int = field(metadata=config(letter_case=LetterCase.CAMEL))
-    count_unit: Literal["days"] | None = field(
-        default=None, metadata=config(letter_case=LetterCase.CAMEL)
-    )
+class LifecyclePolicySelection(PydanticBaseModel):
+    tag_status: Literal["tagged", "untagged", "any"]
+    tag_prefix_list: list[str] | None
+    count_type: Literal["imageCountMoreThan", "sinceImagePushed"]
+    count_number: int
+    count_unit: Literal["days"] | None = None
 
-    def __post_init__(self):
+    @model_validator(mode="after")
+    def _validate_fields(self):
         if self.count_type != "sinceImagePushed" and self.count_unit is not None:
             # https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html#lp_count_unit
             raise ValueError(f"Cannot specify 'countUnit' when countType={self.count_type}")
         if self.tag_status == "tagged" and not self.tag_prefix_list:
             # https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html#lp_tag_prefix_list
             raise ValueError(f"Must specify 'tagPrefixList' when tagStatus={self.tag_status}")
+        return self
+
+    def to_dict(self, **kwargs):
+        kwargs.setdefault("by_alias", True)
+        return super().to_dict(**kwargs)
 
 
-@dataclass
-class LifecyclePolicyAction(DataClassModel):
-    type: Literal["expire"] = field(
-        default="expire", metadata=config(letter_case=LetterCase.CAMEL)
-    )
+class LifecyclePolicyAction(PydanticBaseModel):
+    type: Literal["expire"] = "expire"
+
+    def to_dict(self, **kwargs):
+        kwargs.setdefault("by_alias", True)
+        return super().to_dict(**kwargs)
 
 
-@dataclass
-class LifecyclePolicyRule(DataClassModel):
-    rule_priority: int = field(metadata=config(letter_case=LetterCase.CAMEL))
-    description: str = field(metadata=config(letter_case=LetterCase.CAMEL))
-    selection: LifecyclePolicySelection = field(metadata=config(letter_case=LetterCase.CAMEL))
-    action: LifecyclePolicyAction = field(
-        default_factory=LifecyclePolicyAction,
-        metadata=config(letter_case=LetterCase.CAMEL),
-    )
+class LifecyclePolicyRule(PydanticBaseModel):
+    rule_priority: int = Field(serialization_alias="rulePriority", validation_alias="rulePriority")
+    description: str
+    selection: LifecyclePolicySelection
+    action: LifecyclePolicyAction = Field(default_factory=LifecyclePolicyAction)
 
     @classmethod
     def REMOVE_UNTAGGED(cls, rule_priority: int = 1, days: int = 14) -> "LifecyclePolicyRule":
@@ -255,15 +250,18 @@ class LifecyclePolicyRule(DataClassModel):
                 count_number=days,
                 count_unit="days",
             ),
-            action=LifecyclePolicyAction("expire"),
+            action=LifecyclePolicyAction(type="expire"),
         )
 
+    def to_dict(self, **kwargs):
+        kwargs.setdefault("by_alias", True)
+        return super().to_dict(**kwargs)
 
-@dataclass
-class LifecyclePolicy(DataClassModel):
+
+class LifecyclePolicy(PydanticBaseModel):
     rules: list[LifecyclePolicyRule]
 
-    def __post_init__(self):
+    def model_post_init(self, __context):
         self.rules = self.reprioritize_rules(self.rules, in_place=True)
 
     @staticmethod
@@ -293,7 +291,11 @@ class LifecyclePolicy(DataClassModel):
 
     @classmethod
     def from_rules(cls, *rules: LifecyclePolicyRule) -> "LifecyclePolicy":
-        return LifecyclePolicy(list(map(deepcopy, rules)))
+        return LifecyclePolicy(rules=list(map(deepcopy, rules)))
+
+    def to_dict(self, **kwargs):
+        kwargs.setdefault("by_alias", True)
+        return super().to_dict(**kwargs)
 
 
 class ResourceTag(TypedDict):
@@ -306,28 +308,40 @@ class TagMode(StrEnum):
     APPEND = "append"
 
 
-T = TypeVar("T", bound="ECRMixins")
+T = TypeVar("T", bound="ECRResourceBase")
 
 
-@dataclass
-class ECRMixins(LoggingMixin):
-    account_id: str
-    region: str
+class ECRResourceBase(PydanticBaseModel):
+    _client: ECRClient | None = PrivateAttr(default=None)
+    _logger: logging.Logger | None = PrivateAttr(default=None)
 
-    def __init__(self, account_id: str, region: str, client: ECRClient | None = None):
-        self.account_id = account_id
-        self.region = region
+    def __init__(self, *, client: ECRClient | None = None, **data) -> None:
+        super().__init__(**data)
         self._client = client
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self.model_dump() == other.model_dump()
+
+    def __hash__(self) -> int:
+        return hash(tuple(sorted(self.model_dump().items())))
+
+    @property
+    def logger(self) -> logging.Logger:
+        if self._logger is None:
+            self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
+        return self._logger
 
     @property
     def client(self) -> ECRClient:
         if self._client is None:
-            self._client = get_ecr_client(self.region)
+            self._client = get_ecr_client(getattr(self, "region"))
         return self._client
 
     @client.setter
     def client(self, value: ECRClient):
-        self._client = value  # pragma: no cover
+        self._client = value
 
     @property
     def uri(self) -> str:
@@ -338,26 +352,22 @@ class ECRMixins(LoggingMixin):
         raise NotImplementedError("")  # pragma: no cover
 
 
-@dataclass
-class ECRImage(ECRMixins, DataClassModel):
+class ECRImage(ECRResourceBase):
+    account_id: str
+    region: str
     repository_name: str
     image_digest: str
     # https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
-    image_manifest: str = field(default=None, repr=False)  # type: ignore[assignment]
+    _image_manifest: str | None = PrivateAttr(default=None)
 
-    def __init__(
-        self,
-        account_id: str,
-        region: str,
-        repository_name: str,
-        image_digest: str,
-        image_manifest: str | None = None,
-        client: ECRClient | None = None,
-    ):
-        super().__init__(account_id=account_id, region=region, client=client)
-        self.repository_name = repository_name
-        self.image_digest = image_digest
-        if image_manifest is None:
+    def __init__(self, *, image_manifest: str | None = None, **data):
+        super().__init__(**data)
+        self._image_manifest = image_manifest
+        self.image_manifest  # trigger validation of manifest if provided
+
+    @property
+    def image_manifest(self) -> str:
+        if self._image_manifest is None:
             response = self.client.batch_get_image(
                 repositoryName=self.repository_name,
                 registryId=self.account_id,
@@ -366,9 +376,8 @@ class ECRImage(ECRMixins, DataClassModel):
             if len(response["images"]) == 0 or "imageManifest" not in response["images"][0]:
                 raise ResourceNotFoundError(f"Could not resolve image manifest for {self.uri}")
 
-            self.image_manifest = response["images"][0]["imageManifest"]
-        else:
-            self.image_manifest = image_manifest
+            self._image_manifest = response["images"][0]["imageManifest"]
+        return self._image_manifest
 
     @property
     def image_pushed_at(self) -> datetime | None:
@@ -573,7 +582,10 @@ class ECRImage(ECRMixins, DataClassModel):
         )
 
 
-class ECRResource(ECRMixins, DataClassModel):
+class ECRResource(ECRResourceBase):
+    account_id: str
+    region: str
+
     @property
     def arn(self) -> str:
         return f"arn:aws:ecr:{self.region}:{self.account_id}"
@@ -617,19 +629,8 @@ class ECRResource(ECRMixins, DataClassModel):
         )
 
 
-@dataclass
 class ECRRepository(ECRResource):
     repository_name: str
-
-    def __init__(
-        self,
-        account_id: str,
-        region: str,
-        repository_name: str,
-        client: ECRClient | None = None,
-    ):
-        super().__init__(account_id=account_id, region=region, client=client)
-        self.repository_name = repository_name
 
     @property
     def arn(self) -> str:

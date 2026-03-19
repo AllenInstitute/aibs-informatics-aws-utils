@@ -287,7 +287,9 @@ class ConditionBaseTranslator:
 
     @classmethod
     def serialize_attribute(cls, attribute: AttributeBase) -> AttributeBaseExpression:
-        return AttributeBaseExpression(attribute.__class__.__name__, attribute.name)
+        return AttributeBaseExpression(
+            attr_class=attribute.__class__.__name__, attr_name=attribute.name
+        )
 
     @classmethod
     def serialize_condition(cls, condition: ConditionBase) -> ConditionBaseExpression:

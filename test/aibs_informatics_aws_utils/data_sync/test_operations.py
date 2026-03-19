@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 import moto
-from aibs_informatics_core.models.aws.s3 import S3URI
+from aibs_informatics_core.models.aws.s3 import S3Path
 from aibs_informatics_core.models.data_sync import RemoteToLocalConfig
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from pytest import mark
@@ -12,8 +12,8 @@ from aibs_informatics_aws_utils.s3 import get_s3_client, get_s3_resource, is_obj
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
 
-def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3URI:
-    return S3URI.build(bucket, key)
+def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3Path:
+    return S3Path.build(bucket, key)
 
 
 @moto.mock_aws
@@ -37,7 +37,7 @@ class OperationsTests(AwsBaseTest):
 
     def put_object(
         self, key: str, content: str, bucket_name: str | None = None, **kwargs
-    ) -> S3URI:
+    ) -> S3Path:
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
         self.s3_client.put_object(Bucket=bucket_name, Key=key, Body=content, **kwargs)
         return self.get_s3_path(key=key, bucket_name=bucket_name)
@@ -63,9 +63,9 @@ class OperationsTests(AwsBaseTest):
     def s3_resource(self):
         return get_s3_resource(region=self.DEFAULT_REGION)
 
-    def get_s3_path(self, key: str, bucket_name: str | None = None) -> S3URI:
+    def get_s3_path(self, key: str, bucket_name: str | None = None) -> S3Path:
         bucket_name = bucket_name or self.DEFAULT_BUCKET_NAME
-        return S3URI.build(bucket_name=bucket_name, key=key)
+        return S3Path.build(bucket_name=bucket_name, key=key)
 
     def client__list_objects_v2(self, **kwargs):
         if "Bucket" not in kwargs:
@@ -449,7 +449,7 @@ class OperationsTests(AwsBaseTest):
         assert not is_object(destination_path)
 
     def assertPathsEqual(
-        self, src_path: Path | S3URI, dst_path: Path | S3URI, expected_num_files: int
+        self, src_path: Path | S3Path, dst_path: Path | S3Path, expected_num_files: int
     ):
         is_src_local = isinstance(src_path, Path)
         is_dst_local = isinstance(dst_path, Path)

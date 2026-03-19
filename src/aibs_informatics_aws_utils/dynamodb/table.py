@@ -1,16 +1,19 @@
 import functools
+import warnings
 from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
 from typing import (
     Any,
     Generic,
     Literal,
+    TypeAlias,
     TypeVar,
     cast,
     overload,
 )
 
 from aibs_informatics_core.env import EnvBase
+from aibs_informatics_core.exceptions import ValidationError
 from aibs_informatics_core.models.db import (
     DBIndex,
     DBModel,
@@ -259,10 +262,21 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
 
     @classmethod
     def build_entry(cls, item: dict[str, Any], **kwargs) -> DB_MODEL:
-        return cls.get_db_model_cls().from_dict(item, **kwargs)
+        model_cls = cls.get_db_model_cls()
+        return cast(DB_MODEL, model_cls.from_dict(item, **kwargs))
 
     @classmethod
-    def build_item(cls, entry: DB_MODEL, **kwargs) -> dict[str, Any]:
+    def build_item(cls, entry: DB_MODEL, partial: bool = False, **kwargs) -> dict[str, Any]:
+        if partial:
+            warnings.warn(
+                "Deprecation Warning: partial=True is deprecated and will be removed in a future "
+                "release. Please use the 'partial_model' method of your DBModel class to create "
+                "a partial model class and use that as the DB_MODEL type parameter for your "
+                "DynamoDBTable subclass.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        # kwargs.setdefault("exclude_unset", partial)
         entry_dict = entry.to_dict(**kwargs)
         return convert_floats_to_decimals(entry_dict)
 
@@ -340,11 +354,10 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
     def batch_get(
         self,
         keys: (
-            list[DynamoDBKey]
-            | list[DynamoDBItemValue]
-            | list[tuple[DynamoDBItemValue, DynamoDBItemValue]]
+            Sequence[DynamoDBKey]
+            | Sequence[DynamoDBItemValue]
+            | Sequence[tuple[DynamoDBItemValue, DynamoDBItemValue]]
         ),
-        partial: bool = False,
         ignore_missing: bool = False,
     ) -> list[DB_MODEL]:
         """Batch get items from a DynamoDB table by providing a list of keys.
@@ -357,7 +370,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
                 - **a tuple of partition and sort key value**
                 - **a dictionary of attribute:value**
 
-            partial: Whether partial values are allowed. Defaults to False.
             ignore_missing: If true, suppress errors for keys that are not found.
                 Defaults to False.
 
@@ -380,7 +392,7 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
             }.difference((_[index.key_name], _.get(index.sort_key_name or "")) for _ in items)
 
             raise DBReadException(f"Could not find items for {missing_keys}")
-        entries = [self.build_entry(_, partial=partial) for _ in items]
+        entries = [self.build_entry(_) for _ in items]
         return entries
 
     def query(
@@ -392,7 +404,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         consistent_read: bool = False,
         expect_non_empty: bool = False,
         expect_unique: bool = False,
-        allow_partial: bool = False,
     ) -> list[DB_MODEL]:
         """Query a DynamoDB table by providing a DBIndex, partition_key, optional sort_key, and optional filter conditions.
 
@@ -417,7 +428,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
             expect_unique: Whether the result of the query is expected to
                 return AT MOST one result. An error will be raised if expect_unique=True and MORE
                 than 1 result was returned for the query.
-            allow_partial: Whether to allow partial entries. Defaults to False.
 
         Returns:
             A list of database model entries where partition_key/sort_key and
@@ -463,9 +473,7 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
                 key_condition_expression=key_condition_expression,
                 filter_expression=filter_expression,
             )
-        entries = [self.build_entry(_, partial=True) for _ in items]
-        if not allow_partial:
-            entries = self._fill_values(entries)
+        entries = self._fill_values(items)
         return entries
 
     def scan(
@@ -475,7 +483,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         consistent_read: bool = False,
         expect_non_empty: bool = False,
         expect_unique: bool = False,
-        allow_partial: bool = False,
     ) -> list[DB_MODEL]:
         """Scan a DynamoDB table by providing a DBIndex and optional filter conditions.
 
@@ -491,7 +498,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
             expect_unique: Whether the result of the scan is expected to
                 return AT MOST one result. An error will be raised if expect_unique=True and MORE
                 than 1 result was returned for the scan.
-            allow_partial: Whether to allow partial entries. Defaults to False.
 
         Returns:
             A list of database model entries where filter conditions are satisfied.
@@ -526,9 +532,7 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
                 query_result=items,
                 filter_expression=filter_expression,
             )
-        entries = [self.build_entry(_, partial=True) for _ in items]
-        if not allow_partial:
-            entries = self._fill_values(entries)
+        entries = self._fill_values(items)
         return entries
 
     def smart_query(
@@ -537,7 +541,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
         consistent_read: bool = False,
         expect_non_empty: bool = False,
         expect_unique: bool = False,
-        allow_partial: bool = False,
         allow_scan: bool = True,
         **kw_filters: Any,
     ) -> list[DB_MODEL]:
@@ -557,8 +560,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
             expect_unique (bool):
                 Whether the result of the query/scan is expected to return AT MOST one result.
                 An error will be raised if expect_unique=True and MORE than 1 result was returned.
-            allow_partial (bool):
-                Whether to allow partial entries. Defaults to False.
             allow_scan (bool):
                 Whether to allow a scan operation if no partition key is found in the filters.
                 Defaults to True.
@@ -590,7 +591,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
                 consistent_read=consistent_read,
                 expect_non_empty=expect_non_empty,
                 expect_unique=expect_unique,
-                allow_partial=allow_partial,
             )
         else:
             if not allow_scan:
@@ -606,7 +606,6 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
                 consistent_read=consistent_read,
                 expect_non_empty=expect_non_empty,
                 expect_unique=expect_unique,
-                allow_partial=allow_partial,
             )
 
     # --------------------------------------------------------------------------
@@ -851,25 +850,30 @@ class DynamoDBTable(LoggingMixin, Generic[DB_MODEL, DB_INDEX]):
             filter_expression = functools.reduce(lambda a, b: a & b, filters)
         return filter_expression
 
-    def _fill_values(self, entries: list[DB_MODEL]) -> list[DB_MODEL]:
-        entry_index_is_partial = [(_, i, _.is_partial()) for i, _ in enumerate(entries)]
-        entry_index_is_partial__complete = [_ for _ in entry_index_is_partial if not _[-1]]
-        entry_index_is_partial__partials = [_ for _ in entry_index_is_partial if _[-1]]
+    def _fill_values(self, items: Sequence[dict[str, Any]]) -> list[DB_MODEL]:
+        HashableKey: TypeAlias = tuple[tuple[str, DynamoDBPrimaryKeyItemValue], ...]
 
-        filled_entries = self.batch_get(
-            [self.build_key_from_entry(entry) for entry, _, _ in entry_index_is_partial__partials]
-        )
-        entry_index_is_partial__filled = [
-            (filled_entry, i, filled_entry.is_partial())
-            for filled_entry, (_, i, _) in zip(filled_entries, entry_index_is_partial__partials)
-        ]
-        return [
-            entry
-            for (entry, _, _) in sorted(
-                entry_index_is_partial__complete + entry_index_is_partial__filled,
-                key=lambda _: _[1],
-            )
-        ]
+        db_model_cls = self.get_db_model_cls()
+        filled_entries: list[DB_MODEL | None] = [None] * len(items)
+        partial_keys: list[DynamoDBKey] = []
+        key_to_index: dict[HashableKey, int] = {}
+
+        for i, item in enumerate(items):
+            try:
+                filled_entries[i] = db_model_cls.from_dict(item)
+            except ValidationError:
+                key = self.build_key_from_item(item)
+                partial_keys.append(key)
+                key_to_index[tuple(sorted(key.items()))] = i  # type: ignore[arg-type]
+
+        if partial_keys:
+            for refetched in self.batch_get(partial_keys):
+                refetched_key = self.build_key_from_item(refetched.to_dict())
+                hk = tuple(sorted(refetched_key.items()))
+                if hk in key_to_index:
+                    filled_entries[key_to_index[hk]] = refetched  # type: ignore[index]
+
+        return cast(list[DB_MODEL], filled_entries)
 
     def execute_partiql_statement(self, statement: str) -> Sequence:
         return execute_partiql_statement(statement=statement)
