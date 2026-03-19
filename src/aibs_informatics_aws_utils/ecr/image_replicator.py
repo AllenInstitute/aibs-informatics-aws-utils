@@ -1,9 +1,10 @@
 import re
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 import requests
 from aibs_informatics_core.utils.logging import LoggingMixin
 from botocore.exceptions import ClientError
+from pydantic import Field
 
 from aibs_informatics_aws_utils.core import get_client_error_code
 from aibs_informatics_aws_utils.ecr.core import ECRImage, ECRRepository
@@ -15,21 +16,16 @@ else:
     ECRClient = object
     LayerTypeDef = dict
 
-
-from dataclasses import dataclass, field
-
-from aibs_informatics_core.models.base.model import SchemaModel
+from aibs_informatics_core.models.base import PydanticBaseModel
 
 
-@dataclass
-class ReplicateImageRequest(SchemaModel):
+class ReplicateImageRequest(PydanticBaseModel):
     source_image: ECRImage
     destination_repository: ECRRepository
-    destination_image_tags: List[str] = field(default_factory=list)
+    destination_image_tags: list[str] = Field(default_factory=list)
 
 
-@dataclass
-class ReplicateImageResponse(SchemaModel):
+class ReplicateImageResponse(PydanticBaseModel):
     destination_image: ECRImage
 
 
@@ -48,7 +44,7 @@ class ECRImageReplicator(LoggingMixin):
         self,
         source_image: ECRImage,
         destination_repository: ECRRepository,
-        destination_image_tags: Optional[List[str]] = None,
+        destination_image_tags: list[str] | None = None,
     ) -> ECRImage:
         """Copies the source image into the destination repository.
 
@@ -130,7 +126,7 @@ class ECRImageReplicator(LoggingMixin):
         self,
         source_image: ECRImage,
         destination_repository: ECRRepository,
-        destination_image_tags: Optional[List[str]] = None,
+        destination_image_tags: list[str] | None = None,
     ) -> ECRImage:
         """Put image manifest and tags for an image.
 
@@ -163,7 +159,6 @@ class ECRImageReplicator(LoggingMixin):
             image_manifest=source_image.image_manifest,
             client=destination_repository.client,
         )
-        dest_image.client = destination_repository.client
         try:
             dest_image.put_image(None)
             if tags:
@@ -202,7 +197,7 @@ class ECRImageReplicator(LoggingMixin):
         self,
         source_repository: ECRRepository,
         destination_repository: ECRRepository,
-        layers: List[LayerTypeDef],
+        layers: list[LayerTypeDef],
         check_if_exists: bool = True,
     ):
         """Upload image layers of the source image to the destination repository.
@@ -362,7 +357,7 @@ class ECRImageReplicator(LoggingMixin):
         http_response = requests.request(
             "GET",
             download_url,
-            headers={"Range": "bytes={}-{}".format(part_first_byte, part_last_byte)},
+            headers={"Range": f"bytes={part_first_byte}-{part_last_byte}"},
             stream=False,
         )
 
@@ -419,7 +414,7 @@ class ECRImageReplicator(LoggingMixin):
 
     def _get_missing_layers(
         self, client: ECRClient, repository_name: str, put_image_error: ClientError
-    ) -> List[LayerTypeDef]:
+    ) -> list[LayerTypeDef]:
         """Gets missing layers from a ClientError while putting image.
 
         Args:

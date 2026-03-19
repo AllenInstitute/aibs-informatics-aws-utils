@@ -9,13 +9,11 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 import pytz
 from aibs_informatics_core.models.aws.efs import EFSPath
-from aibs_informatics_core.models.aws.s3 import S3URI
-from aibs_informatics_core.models.base import CustomAwareDateTime, custom_field
-from aibs_informatics_core.models.base.model import SchemaModel
+from aibs_informatics_core.models.aws.s3 import S3Path
+from aibs_informatics_core.models.base import AwareIsoDateTime, PydanticBaseModel
 from aibs_informatics_core.utils.logging import get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from aibs_informatics_core.utils.time import BEGINNING_OF_TIME
@@ -29,11 +27,10 @@ logger = get_logger(__name__)
 SEP = "/"
 
 
-@dataclass
-class PathStats(SchemaModel):
-    size_bytes: int = custom_field()
-    object_count: int = custom_field()
-    last_modified: datetime = custom_field(mm_field=CustomAwareDateTime())
+class PathStats(PydanticBaseModel):
+    size_bytes: int
+    object_count: int
+    last_modified: AwareIsoDateTime
 
 
 @dataclass(order=True)
@@ -52,8 +49,8 @@ class Node:
     """
 
     path_part: str
-    parent: Optional["Node"] = field(default=None)
-    children: Dict[str, "Node"] = field(default_factory=dict)
+    parent: Node | None = field(default=None)
+    children: dict[str, Node] = field(default_factory=dict)
     size_bytes: int = field(default=0)
     object_count: int = field(default=0)
     last_modified: datetime = field(default=BEGINNING_OF_TIME)
@@ -101,7 +98,7 @@ class Node:
         return not (len(self.children) < 1)
 
     def add_object(self, path: str, size: int, last_modified: datetime):
-        def _add_object(node: Node, path: Optional[str]):
+        def _add_object(node: Node, path: str | None):
             node._update_stats(size=size, last_modified=last_modified)
             if path is None:
                 return
@@ -116,13 +113,13 @@ class Node:
         # TODO: Right now, we cannot support non-folder prefixes
         _add_object(self, path.lstrip(SEP))
 
-    def get(self, key: str) -> Optional["Node"]:
+    def get(self, key: str) -> Node | None:
         try:
             return self[key]
         except KeyError:
             return None
 
-    def list_nodes(self) -> List["Node"]:
+    def list_nodes(self) -> list[Node]:
         nodes = [self]
         for _, n in self.children.items():
             nodes.extend(n.list_nodes())
@@ -135,7 +132,7 @@ class Node:
         if self.last_modified < last_modified:
             self.last_modified = last_modified
 
-    def __getitem__(self, key: str) -> "Node":
+    def __getitem__(self, key: str) -> Node:
         _self = self
         for key_part in key.split(SEP):
             # Only access if value is not empty string
@@ -170,10 +167,10 @@ class BaseFileSystem:
 
     def partition(
         self,
-        size_bytes_limit: Optional[int] = None,
-        object_count_limit: Optional[int] = None,
+        size_bytes_limit: int | None = None,
+        object_count_limit: int | None = None,
         raise_error_if_criteria_not_met: bool = False,
-    ) -> List[Node]:
+    ) -> list[Node]:
         """Partitions the root tree folder structure into a list of nodes.
 
         Partitioning is guided by constraints by size and object count.
@@ -195,7 +192,7 @@ class BaseFileSystem:
         unchecked_nodes = {self.node}
         size_bytes_exceeding_obj_nodes = []
 
-        partitioned_nodes: List[Node] = []
+        partitioned_nodes: list[Node] = []
         logger.info(
             f"Partitioning nodes with size_bytes_limit={size_bytes_limit} "
             f"and object_count_limit={object_count_limit}"
@@ -266,7 +263,7 @@ class LocalFileSystem(BaseFileSystem):
                     raise ose
 
     @classmethod
-    def from_path(cls, path: Union[str, Path], **kwargs) -> LocalFileSystem:
+    def from_path(cls, path: str | Path, **kwargs) -> LocalFileSystem:
         local_path = Path(path)
         local_root = LocalFileSystem(path=local_path)
         local_root.refresh(**kwargs)
@@ -281,7 +278,7 @@ class EFSFileSystem(LocalFileSystem):
         return Node(path_part=self.efs_path)
 
     @classmethod
-    def from_path(cls, path: Union[str, Path], **kwargs) -> EFSFileSystem:
+    def from_path(cls, path: str | Path, **kwargs) -> EFSFileSystem:
         if isinstance(path, str) and EFSPath.is_valid(path):
             efs_path = EFSPath(path)
             local_path = get_local_path(efs_path=efs_path)
@@ -323,14 +320,14 @@ class S3FileSystem(BaseFileSystem):
 
     @classmethod
     def from_path(cls, path: str, **kwargs) -> S3FileSystem:
-        s3_path = S3URI(path)
+        s3_path = S3Path(path)
         s3_root = S3FileSystem(bucket=s3_path.bucket, key=s3_path.key)
         s3_root.refresh(**kwargs)
         return s3_root
 
 
-def get_file_system(path: Union[str, Path]) -> BaseFileSystem:
-    if isinstance(path, str) and S3URI.is_valid(path):
+def get_file_system(path: str | Path) -> BaseFileSystem:
+    if isinstance(path, str) and S3Path.is_valid(path):
         return S3FileSystem.from_path(path)
     elif isinstance(path, str) and EFSPath.is_valid(path):
         return EFSFileSystem.from_path(path)

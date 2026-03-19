@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from aibs_informatics_core.models.aws.dynamodb import (
     AttributeBaseExpression,
@@ -115,7 +115,7 @@ def test__ExpressionComponents__from_condition(
     ],
 )
 def test__UpdateExpressionComponents__from_dict(
-    attributes: Dict[str, Any],
+    attributes: dict[str, Any],
     expected: UpdateExpressionComponents,
     expected_serialized_values: dict,
 ):
@@ -188,7 +188,7 @@ def test__ExpressionComponents__fix_collisions(
             ConditionBaseExpression(
                 format="{0} {operator} {1}",
                 operator="=",
-                values=[AttributeBaseExpression("Key", "k1"), "s1"],
+                values=[AttributeBaseExpression(attr_class="Key", attr_name="k1"), "s1"],
             ),
             does_not_raise(),
             id="KEY.EQ Condition",
@@ -198,7 +198,7 @@ def test__ExpressionComponents__fix_collisions(
             ConditionBaseExpression(
                 format="{0} {operator} {1}",
                 operator="=",
-                values=[AttributeBaseExpression("Attr", "a1"), 1],
+                values=[AttributeBaseExpression(attr_class="Attr", attr_name="a1"), 1],
             ),
             does_not_raise(),
             id="ATTR.EQ Condition",
@@ -237,7 +237,7 @@ def test__ExpressionComponents__fix_collisions(
     ],
 )
 def test__ConditionBaseTranslator__serialize_condition(
-    condition: ConditionBase, expression: Optional[ConditionBaseExpression], raises_error
+    condition: ConditionBase, expression: ConditionBaseExpression | None, raises_error
 ):
     with raises_error:
         actual = ConditionBaseTranslator.serialize_condition(condition)
@@ -253,7 +253,7 @@ def test__ConditionBaseTranslator__serialize_condition(
             ConditionBaseExpression(
                 format="{0} {operator} {1}",
                 operator="=",
-                values=[AttributeBaseExpression("Key", "k1"), "s1"],
+                values=[AttributeBaseExpression(attr_class="Key", attr_name="k1"), "s1"],
             ),
             Key("k1").eq("s1"),
             does_not_raise(),
@@ -269,7 +269,7 @@ def test__ConditionBaseTranslator__serialize_condition(
             ConditionBaseExpression(
                 format="{0} {operator} {1}",
                 operator="=",
-                values=[AttributeBaseExpression("Attr", "a1"), 1],
+                values=[AttributeBaseExpression(attr_class="Attr", attr_name="a1"), 1],
             ),
             Attr("a1").eq(1),
             does_not_raise(),
@@ -299,8 +299,8 @@ def test__ConditionBaseTranslator__serialize_condition(
     ],
 )
 def test__ConditionBaseTranslator__deserialize_condition(
-    expression: Union[str, ConditionBaseExpression],
-    condition: Optional[ConditionBase],
+    expression: str | ConditionBaseExpression,
+    condition: ConditionBase | None,
     raises_error,
 ):
     with raises_error:

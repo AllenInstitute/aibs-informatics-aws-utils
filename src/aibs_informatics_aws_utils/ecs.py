@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from botocore.exceptions import ClientError
 
@@ -22,7 +22,7 @@ get_ecs_client = AWSService.ECS.get_client
 
 
 def ecs_describe_container_instances(
-    container_instances: List[str], cluster: str, **kwargs
+    container_instances: list[str], cluster: str, **kwargs
 ) -> DescribeContainerInstancesResponseTypeDef:
     """Describe ECS container instances.
 

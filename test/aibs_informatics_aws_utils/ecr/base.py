@@ -1,7 +1,7 @@
 import hashlib
 import json
 import uuid
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING
 
 import boto3
 import moto
@@ -39,7 +39,7 @@ class ECRTestBase(AwsBaseTest):
     def ecr(self):
         return boto3.client("ecr", region_name=self.REGION)
 
-    def construct_image_digest(self, value: Optional[str] = None) -> str:
+    def construct_image_digest(self, value: str | None = None) -> str:
         value = value or str(uuid.uuid4())
         return f"sha256:{hashlib.sha256(value.encode()).hexdigest()}"
 
@@ -60,7 +60,7 @@ class ECRTestBase(AwsBaseTest):
 
     def construct_image_manifest(
         self,
-        layer_sizes: List[int] = None,
+        layer_sizes: list[int] = None,
         config_size: int = 123,
         config_digest: str = None,
     ) -> str:
@@ -88,7 +88,7 @@ class ECRTestBase(AwsBaseTest):
         self,
         repository_name: str,
         image_id: ImageIdentifierTypeDef,
-        image_manifest: Union[str, dict] = None,
+        image_manifest: str | dict = None,
     ) -> ImageTypeDef:
         if image_manifest is None:
             image_manifest = self.construct_image_manifest([123])
@@ -117,14 +117,16 @@ class ECRTestBase(AwsBaseTest):
             registryId=self.ACCOUNT_ID,
             tags=[_ for _ in repository_tags],
         )
-        return ECRRepository(self.ACCOUNT_ID, self.REGION, repository_name)
+        return ECRRepository(
+            account_id=self.ACCOUNT_ID, region=self.REGION, repository_name=repository_name
+        )
 
     def put_image(
         self,
         repository_name: str,
-        image_manifest: Optional[str] = None,
-        image_digest: Optional[str] = None,
-        image_tag: Optional[str] = None,
+        image_manifest: str | None = None,
+        image_digest: str | None = None,
+        image_tag: str | None = None,
         seed: int = 123,
     ) -> ECRImage:
         image_digest = image_digest or self.construct_image_digest(str(seed))

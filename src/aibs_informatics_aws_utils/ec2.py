@@ -17,17 +17,12 @@ import json
 import logging
 import re
 from collections import defaultdict
+from collections.abc import Sequence
 from functools import reduce
 from typing import (
     TYPE_CHECKING,
-    Dict,
-    List,
     Literal,
     Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -75,17 +70,17 @@ get_ec2_resource = AWSService.EC2.get_resource
 logger = logging.getLogger(__name__)
 
 N = TypeVar("N", int, float)
-RawRange = Union[None, N, Tuple[Optional[N], Optional[N]]]
+RawRange = Union[None, N, tuple[Optional[N], Optional[N]]]
 
 
 def normalize_range(
-    raw_range: Union[None, N, Tuple[Optional[N], Optional[N]]],
-    min_limit: Optional[N] = None,
-    max_limit: Optional[N] = None,
+    raw_range: None | N | tuple[N | None, N | None],
+    min_limit: N | None = None,
+    max_limit: N | None = None,
     raise_on_invalid: bool = True,
     treat_single_value_as_max: bool = False,
-    num_type: Type[N] = int,
-) -> Tuple[Optional[N], Optional[N]]:
+    num_type: type[N] = int,
+) -> tuple[N | None, N | None]:
     """Normalize a range of numbers to a tuple of (lower_limit, upper_limit)
 
     Args:
@@ -139,7 +134,7 @@ def normalize_range(
         raise TypeError(f"Limit must be a number or a tuple of numbers, got {type(raw_range)}")
 
 
-def instance_type_sort_key(instance_type: str) -> Tuple[str, int, int]:
+def instance_type_sort_key(instance_type: str) -> tuple[str, int, int]:
     """Converts Instance Type into sort key (family, size rank, factor)
 
     Size Rank:
@@ -214,7 +209,7 @@ def describe_regions():
     return ec2.describe_regions(AllRegions=False)["Regions"]
 
 
-def get_regions() -> List[str]:
+def get_regions() -> list[str]:
     """Gets all available regions
 
     Returns:
@@ -228,8 +223,8 @@ def get_regions() -> List[str]:
 
 
 def describe_availability_zones(
-    regions: Optional[List[str]] = None, all_regions: bool = False
-) -> List[AvailabilityZoneTypeDef]:
+    regions: list[str] | None = None, all_regions: bool = False
+) -> list[AvailabilityZoneTypeDef]:
     """Describe availability zones
 
     Args:
@@ -264,8 +259,8 @@ def describe_availability_zones(
 
 
 def get_availability_zones(
-    regions: Optional[List[str]] = None, all_regions: bool = False
-) -> List[str]:
+    regions: list[str] | None = None, all_regions: bool = False
+) -> list[str]:
     """Gets a list of availability zones
 
     Args:
@@ -285,10 +280,10 @@ def get_availability_zones(
 
 
 def describe_instance_type_offerings(
-    instance_types: Optional[List[str]] = None,
-    regions: Optional[List[str]] = None,
-    availability_zones: Optional[List[str]] = None,
-) -> List[InstanceTypeOfferingTypeDef]:
+    instance_types: list[str] | None = None,
+    regions: list[str] | None = None,
+    availability_zones: list[str] | None = None,
+) -> list[InstanceTypeOfferingTypeDef]:
     """Describe instance type offerings
 
     Args:
@@ -308,7 +303,7 @@ def describe_instance_type_offerings(
         kwargs["LocationType"] = "region"
         kwargs["Filters"] = [dict(Name="location", Values=regions)]
     elif availability_zones is not None:
-        regions = list(set([az[:-1] for az in availability_zones]))
+        regions = list({az[:-1] for az in availability_zones})
         kwargs["LocationType"] = "availability-zone"
         kwargs["Filters"] = [dict(Name="location", Values=availability_zones)]
 
@@ -327,9 +322,9 @@ def describe_instance_type_offerings(
 
 
 def describe_instance_types(
-    instance_types: Optional[List[InstanceTypeType]] = None,
-    filters: Optional[Union[Dict[str, List[str]], List[Tuple[str, List[str]]]]] = None,
-) -> List[InstanceTypeInfoTypeDef]:
+    instance_types: list[InstanceTypeType] | None = None,
+    filters: dict[str, list[str]] | list[tuple[str, list[str]]] | None = None,
+) -> list[InstanceTypeInfoTypeDef]:
     """Describe instance types
 
     Args:
@@ -359,15 +354,15 @@ def describe_instance_types(
 
 
 def describe_instance_types_by_props(
-    architectures: Optional[List[Literal["arm64", "i386", "x86_64"]]] = None,
-    vcpu_limits: Optional[RawRange] = None,
-    memory_limits: Optional[RawRange] = None,
-    gpu_limits: Optional[RawRange] = None,
-    on_demand_support: Optional[bool] = None,
-    spot_support: Optional[bool] = None,
-    regions: Optional[List[str]] = None,
-    availability_zones: Optional[List[str]] = None,
-) -> List[InstanceTypeInfoTypeDef]:
+    architectures: list[Literal["arm64", "i386", "x86_64"]] | None = None,
+    vcpu_limits: RawRange | None = None,
+    memory_limits: RawRange | None = None,
+    gpu_limits: RawRange | None = None,
+    on_demand_support: bool | None = None,
+    spot_support: bool | None = None,
+    regions: list[str] | None = None,
+    availability_zones: list[str] | None = None,
+) -> list[InstanceTypeInfoTypeDef]:
     """Describe instance types by properties of those instance types
 
     Args:
@@ -391,7 +386,7 @@ def describe_instance_types_by_props(
             the specified filters
     """
 
-    filters: List[Tuple[str, List[str]]] = []
+    filters: list[tuple[str, list[str]]] = []
 
     if architectures is not None:
         filters.append(("processor-info.supported-architecture", architectures))  # type: ignore[arg-type]
@@ -442,9 +437,9 @@ def describe_instance_types_by_props(
 
 
 def get_instance_types_by_az(
-    regions: Optional[List[str]] = None,
-    availability_zones: Optional[List[str]] = None,
-) -> Dict[str, List[str]]:
+    regions: list[str] | None = None,
+    availability_zones: list[str] | None = None,
+) -> dict[str, list[str]]:
     """Get the instance types available in each availability zone
 
     Results are combined regions and availability zones.
@@ -467,7 +462,7 @@ def get_instance_types_by_az(
 
     offerings = describe_instance_type_offerings(availability_zones=availability_zones)
 
-    az_instance_types: Dict[str, Set[str]] = defaultdict(set)
+    az_instance_types: dict[str, set[str]] = defaultdict(set)
 
     for offering in offerings:
         az_instance_types[offering["Location"]].add(offering["InstanceType"])
@@ -476,8 +471,8 @@ def get_instance_types_by_az(
 
 
 def get_common_instance_types(
-    regions: Optional[List[str]] = None, availability_zones: Optional[List[str]] = None
-) -> List[str]:
+    regions: list[str] | None = None, availability_zones: list[str] | None = None
+) -> list[str]:
     """Get the common instance types across a list of regions or availability zones
 
     Args:
@@ -506,9 +501,9 @@ def get_common_instance_types(
 
 def get_instance_types_spot_price(
     region: str,
-    instance_types: Optional[List[InstanceTypeType]] = None,
-    product_descriptions: Optional[Sequence[str]] = ("Linux/UNIX",),
-) -> Dict[InstanceTypeType, float]:
+    instance_types: list[InstanceTypeType] | None = None,
+    product_descriptions: Sequence[str] | None = ("Linux/UNIX",),
+) -> dict[InstanceTypeType, float]:
     """Get the current spot price for a list of instance types
 
     Args:
@@ -534,7 +529,7 @@ def get_instance_types_spot_price(
         for _ in response["SpotPriceHistory"]
     ]
 
-    spot_history_by_instance_type: Dict[InstanceTypeType, SpotPriceTypeDef] = {}
+    spot_history_by_instance_type: dict[InstanceTypeType, SpotPriceTypeDef] = {}
     for spot_price in spot_history:
         if (
             "InstanceType" not in spot_price

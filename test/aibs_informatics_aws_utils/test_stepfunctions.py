@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 from aibs_informatics_core.env import EnvBase
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
@@ -11,7 +11,7 @@ from aibs_informatics_aws_utils.exceptions import (
     InvalidAmazonResourceNameError,
     ResourceNotFoundError,
 )
-from aibs_informatics_aws_utils.stepfn import (
+from aibs_informatics_aws_utils.stepfunctions import (
     ExecutionArn,
     StateMachineArn,
     build_execution_name,
@@ -65,7 +65,7 @@ else:
         ),
     ],
 )
-def test_StateMachineArn_validation(arn: str, expected: Tuple[str, ...], raises_error):
+def test_StateMachineArn_validation(arn: str, expected: tuple[str, ...], raises_error):
     region, account, state_machine_name = expected
     with raises_error:
         sm_arn = StateMachineArn(arn)
@@ -104,7 +104,7 @@ def test_StateMachineArn_validation(arn: str, expected: Tuple[str, ...], raises_
         ),
     ],
 )
-def test_ExecutionArn_validation(arn: str, expected: Tuple[str, ...], raises_error):
+def test_ExecutionArn_validation(arn: str, expected: tuple[str, ...], raises_error):
     region, account, state_machine_name, exec_name = expected
     with raises_error:
         exec_arn = ExecutionArn(arn)
@@ -134,12 +134,12 @@ class StepFnTests(AwsBaseTest):
         self._sfn = get_sfn_client(region=self.DEFAULT_REGION)
 
         self._get_sfn_client = self.create_patch(
-            "aibs_informatics_aws_utils.stepfn.get_sfn_client", autospec=SFNClient
+            "aibs_informatics_aws_utils.stepfunctions.get_sfn_client", autospec=SFNClient
         )
         self._get_sfn_client.return_value = self._sfn
 
         self._get_account_id = self.create_patch(
-            "aibs_informatics_aws_utils.stepfn.get_account_id"
+            "aibs_informatics_aws_utils.stepfunctions.get_account_id"
         )
         self._get_account_id.return_value = self.ACCOUNT_ID
 

@@ -1,5 +1,4 @@
 import urllib.parse
-from typing import Optional
 
 from aibs_informatics_core.utils.logging import get_logger
 
@@ -14,7 +13,7 @@ get_logs_client = AWSService.LOGS.get_client
 def build_log_stream_url(
     log_group_name: str,
     log_stream_name: str,
-    region: Optional[str] = None,
+    region: str | None = None,
 ) -> str:
     """Build a CloudWatch Logs console URL for a log stream.
 

@@ -1,11 +1,10 @@
 import json
-from dataclasses import dataclass
 from unittest import mock
 
 import boto3
 import moto
 import requests
-from aibs_informatics_core.models.base import DataClassModel
+from aibs_informatics_core.models.base import PydanticBaseModel
 from pytest import raises
 
 from aibs_informatics_aws_utils.lambda_ import (
@@ -117,8 +116,7 @@ class LambdaTests(AwsBaseTest):
             get_lambda_function_url("@#$#$@#$@#$")
 
 
-@dataclass
-class _DummyModel(DataClassModel):
+class _DummyModel(PydanticBaseModel):
     str_value: str
     int_value: int
 

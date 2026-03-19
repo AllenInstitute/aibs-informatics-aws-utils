@@ -10,7 +10,7 @@ __all__ = [
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 from aibs_informatics_core.utils.tools.dicttools import remove_null_values
 from botocore.exceptions import ClientError
@@ -52,10 +52,10 @@ def _is_throttling_exception(ex):
     reraise=True,
 )
 def list_efs_file_systems(
-    file_system_id: Optional[str] = None,
-    name: Optional[str] = None,
-    tags: Optional[Dict[str, str]] = None,
-) -> List[FileSystemDescriptionTypeDef]:
+    file_system_id: str | None = None,
+    name: str | None = None,
+    tags: dict[str, str] | None = None,
+) -> list[FileSystemDescriptionTypeDef]:
     """List EFS file systems.
 
     You can filter on id, name and tags.
@@ -72,7 +72,7 @@ def list_efs_file_systems(
     efs = get_efs_client()
     paginator = efs.get_paginator("describe_file_systems")
 
-    file_systems: List[FileSystemDescriptionTypeDef] = []
+    file_systems: list[FileSystemDescriptionTypeDef] = []
     paginator_kwargs = remove_null_values(dict(FileSystemId=file_system_id))
     for results in paginator.paginate(**paginator_kwargs):  # type: ignore
         for fs in results["FileSystems"]:
@@ -87,9 +87,9 @@ def list_efs_file_systems(
 
 
 def get_efs_file_system(
-    file_system_id: Optional[str] = None,
-    name: Optional[str] = None,
-    tags: Optional[Dict[str, str]] = None,
+    file_system_id: str | None = None,
+    name: str | None = None,
+    tags: dict[str, str] | None = None,
 ) -> FileSystemDescriptionTypeDef:
     """Get EFS file system.
 
@@ -128,13 +128,13 @@ def get_efs_file_system(
     reraise=True,
 )
 def list_efs_access_points(
-    access_point_id: Optional[str] = None,
-    access_point_name: Optional[str] = None,
-    access_point_tags: Optional[Dict[str, str]] = None,
-    file_system_id: Optional[str] = None,
-    file_system_name: Optional[str] = None,
-    file_system_tags: Optional[Dict[str, str]] = None,
-) -> List[AccessPointDescriptionTypeDef]:
+    access_point_id: str | None = None,
+    access_point_name: str | None = None,
+    access_point_tags: dict[str, str] | None = None,
+    file_system_id: str | None = None,
+    file_system_name: str | None = None,
+    file_system_tags: dict[str, str] | None = None,
+) -> list[AccessPointDescriptionTypeDef]:
     """List EFS access points.
 
     You can filter on id, name and tags for both access point and file system.
@@ -154,7 +154,7 @@ def list_efs_access_points(
     """
     efs = get_efs_client()
 
-    file_system_ids: List[str] = []
+    file_system_ids: list[str] = []
     if file_system_id:
         file_system_ids.append(file_system_id)
     elif file_system_name or file_system_tags:
@@ -163,7 +163,7 @@ def list_efs_access_points(
         )
         file_system_ids.extend(map(lambda _: _["FileSystemId"], file_systems))
 
-    access_points: List[AccessPointDescriptionTypeDef] = []
+    access_points: list[AccessPointDescriptionTypeDef] = []
 
     if access_point_id or not file_system_ids:
         response = efs.describe_access_points(
@@ -183,7 +183,7 @@ def list_efs_access_points(
                 response = efs.describe_access_points(FileSystemId=fs_id, NextToken=next_token)
                 access_points.extend(response["AccessPoints"])
 
-    filtered_access_points: List[AccessPointDescriptionTypeDef] = []
+    filtered_access_points: list[AccessPointDescriptionTypeDef] = []
 
     for ap in access_points:
         if access_point_name and ap.get("Name") != access_point_name:
@@ -198,12 +198,12 @@ def list_efs_access_points(
 
 
 def get_efs_access_point(
-    access_point_id: Optional[str] = None,
-    access_point_name: Optional[str] = None,
-    access_point_tags: Optional[Dict[str, str]] = None,
-    file_system_id: Optional[str] = None,
-    file_system_name: Optional[str] = None,
-    file_system_tags: Optional[Dict[str, str]] = None,
+    access_point_id: str | None = None,
+    access_point_name: str | None = None,
+    access_point_tags: dict[str, str] | None = None,
+    file_system_id: str | None = None,
+    file_system_name: str | None = None,
+    file_system_tags: dict[str, str] | None = None,
 ) -> AccessPointDescriptionTypeDef:
     """Get EFS access point.
 

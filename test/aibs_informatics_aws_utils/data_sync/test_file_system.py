@@ -1,13 +1,13 @@
 import errno
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Mapping, Optional, Set, Tuple, Union
 from unittest import mock
 
 import pytz
 from aibs_informatics_core.models.aws.efs import EFSPath
-from aibs_informatics_core.models.aws.s3 import S3URI, S3PathStats
+from aibs_informatics_core.models.aws.s3 import S3Path, S3PathStats
 from aibs_informatics_core.utils.time import get_current_time
 from aibs_informatics_core.utils.tools.strtools import removeprefix
 
@@ -24,8 +24,8 @@ from test.aibs_informatics_aws_utils.efs.base import EFSTestsBase
 from test.base import BaseTest
 
 
-def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3URI:
-    return S3URI.build(bucket, key)
+def any_s3_uri(bucket: str = "bucket", key: str = "key") -> S3Path:
+    return S3Path.build(bucket, key)
 
 
 class NodeTests(BaseTest):
@@ -93,9 +93,7 @@ class LocalFileSystemTests(BaseTest):
     def setUp(self) -> None:
         super().setUp()
 
-    def create_local_file_system(
-        self, file_stats_map: Mapping[Union[Path, str], Tuple[int]]
-    ) -> Path:
+    def create_local_file_system(self, file_stats_map: Mapping[Path | str, tuple[int]]) -> Path:
         root_file_system = self.tmp_path()
         for relative_path, (size,) in file_stats_map.items():
             full_path = root_file_system / relative_path
@@ -260,10 +258,10 @@ class LocalFileSystemTests(BaseTest):
 
     def assertLocalFileSystem_partition(
         self,
-        file_stats_map: Mapping[Union[Path, str], Tuple[int]],
-        expected_node_paths: Set[str],
-        size_bytes_limit: Optional[int] = None,
-        object_count_limit: Optional[int] = None,
+        file_stats_map: Mapping[Path | str, tuple[int]],
+        expected_node_paths: set[str],
+        size_bytes_limit: int | None = None,
+        object_count_limit: int | None = None,
     ):
         local_path = self.create_local_file_system(file_stats_map=file_stats_map)
         local_root = LocalFileSystem.from_path(str(local_path))
@@ -281,8 +279,8 @@ class EFSFileSystemTests(EFSTestsBase):
         detect_mount_points.cache_clear()
 
     def setUpEFSFileSystem(
-        self, name: str, access_point_path: Optional[Union[str, Path]] = None
-    ) -> Tuple[Path, EFSPath]:
+        self, name: str, access_point_path: str | Path | None = None
+    ) -> tuple[Path, EFSPath]:
         mount_point_path = self.tmp_path()
         file_system_id = self.create_file_system()
         if access_point_path is not None:
@@ -324,9 +322,7 @@ class EFSFileSystemTests(EFSTestsBase):
         efs_node_paths = {node.path for node in efs_nodes}
         assert efs_node_paths == {f"{efs_path}/X", f"{efs_path}/Y"}
 
-    def populate_file_system(
-        self, path: Path, file_stats_map: Mapping[Union[Path, str], Tuple[int]]
-    ):
+    def populate_file_system(self, path: Path, file_stats_map: Mapping[Path | str, tuple[int]]):
         for relative_path, (size,) in file_stats_map.items():
             full_path = path / relative_path
             full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -356,7 +352,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
         self.mock_get_s3_resource.return_value = self.mock_s3_resource
 
-    def mock_bucket(self, s3_paths_stats: Mapping[S3URI, S3PathStats]):
+    def mock_bucket(self, s3_paths_stats: Mapping[S3Path, S3PathStats]):
         mock_bucket = mock.MagicMock()
         mock_bucket.objects = mock.MagicMock()
 
@@ -381,9 +377,9 @@ class S3FileSystemTests(AwsBaseTest):
         last_modified: datetime = None,
         key_prefix: str = None,
         bucket_name: str = None,
-    ) -> Tuple[S3URI, S3PathStats]:
+    ) -> tuple[S3Path, S3PathStats]:
         return (
-            S3URI.build(
+            S3Path.build(
                 bucket_name=bucket_name or self.BUCKET_NAME,
                 key=f"{key_prefix or self.KEY_PREFIX}{key_suffix}",
             ),
@@ -395,7 +391,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
 
     def test__partition__partitions_by_size__partitions_single_object(self):
-        s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
         last_modified = get_current_time()
         self.assertS3FileSystem_partition(
             s3_root_uri=s3_root_uri,
@@ -409,7 +405,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
 
     def test__partition__partitions_by_size__partitions_to_object_level(self):
-        s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
         last_modified = get_current_time()
         self.assertS3FileSystem_partition(
             s3_root_uri=s3_root_uri,
@@ -429,7 +425,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
 
     # def test__partition__partitions_by_size__partitions_to_object_level__key_no_sep(self):
-    #     s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX_NO_SEP)
+    #     s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX_NO_SEP)
     #     last_modified = get_current_time()
     #     self.assertS3Root_partition(
     #         s3_root_uri=s3_root_uri,
@@ -449,7 +445,7 @@ class S3FileSystemTests(AwsBaseTest):
     #     )
 
     def test__partition__partitions_by_size__eats_error_obj_too_large(self):
-        s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
         last_modified = get_current_time()
         self.assertS3FileSystem_partition(
             s3_root_uri=s3_root_uri,
@@ -466,7 +462,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
 
     def test__partition__partitions_by_size__partitions_at_top_level(self):
-        s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
         last_modified = get_current_time()
         self.assertS3FileSystem_partition(
             s3_root_uri=s3_root_uri,
@@ -484,7 +480,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
 
     def test__partition__partitions_by_size__partitions_at_varying_levels(self):
-        s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
         last_modified = get_current_time()
         self.assertS3FileSystem_partition(
             s3_root_uri=s3_root_uri,
@@ -503,7 +499,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
 
     def test__partition__partitions_by_size__partitions_at_varying_levels_case_2(self):
-        s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
         last_modified = get_current_time()
         self.assertS3FileSystem_partition(
             s3_root_uri=s3_root_uri,
@@ -523,7 +519,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
 
     def test__partition__partitions_by_count__partitions_at_varying_levels(self):
-        s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
         last_modified = get_current_time()
         self.assertS3FileSystem_partition(
             s3_root_uri=s3_root_uri,
@@ -543,7 +539,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
 
     def test__partition__partitions_by_size_and_count__partitions_at_varying_levels(self):
-        s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
         last_modified = get_current_time()
         self.assertS3FileSystem_partition(
             s3_root_uri=s3_root_uri,
@@ -565,7 +561,7 @@ class S3FileSystemTests(AwsBaseTest):
         )
 
     def test__partition__partitions_by_size__no_partitioning_required(self):
-        s3_root_uri = S3URI.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
         last_modified = get_current_time()
         self.assertS3FileSystem_partition(
             s3_root_uri=s3_root_uri,
@@ -583,11 +579,11 @@ class S3FileSystemTests(AwsBaseTest):
 
     def assertS3FileSystem_partition(
         self,
-        s3_root_uri: S3URI,
-        key_stats_map: Dict[str, S3PathStats],
-        expected_s3_node_keys: Set[str],
-        size_bytes_limit: Optional[int] = None,
-        object_count_limit: Optional[int] = None,
+        s3_root_uri: S3Path,
+        key_stats_map: dict[str, S3PathStats],
+        expected_s3_node_keys: set[str],
+        size_bytes_limit: int | None = None,
+        object_count_limit: int | None = None,
     ):
         s3_paths_stats = dict(
             [

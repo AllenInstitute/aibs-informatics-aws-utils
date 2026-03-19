@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional, Union
 
 from aibs_informatics_core.models.aws.efs import EFSPath
 
@@ -62,15 +61,15 @@ class EFSPathTests(EFSTestsBase):
     def get_fs_id(self, fs_name: str) -> str:
         return self.create_file_system(fs_name)
 
-    def get_efs_path(self, path: Union[str, Path], fs_name: str) -> EFSPath:
+    def get_efs_path(self, path: str | Path, fs_name: str) -> EFSPath:
         fs_id = self.get_fs_id(fs_name)
         return EFSPath.build(resource_id=fs_id, path=path)
 
     def get_mount_point(
         self,
-        mount_point: Optional[Union[Path, str]] = None,
-        access_point_name: Optional[str] = None,
-        access_point_path: Optional[Union[Path, str]] = None,
+        mount_point: Path | str | None = None,
+        access_point_name: str | None = None,
+        access_point_path: Path | str | None = None,
     ) -> MountPointConfiguration:
         file_system = self.create_file_system()
         if access_point_name:

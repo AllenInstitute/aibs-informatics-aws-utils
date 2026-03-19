@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Optional, Type
 
 from aibs_informatics_core.utils.json import DecimalEncoder
 from botocore.exceptions import ClientError
@@ -15,7 +14,7 @@ get_sqs_client = AWSService.SQS.get_client
 get_sqs_resource = AWSService.SQS.get_resource
 
 
-def delete_from_queue(queue_name: str, receipt_handle: str, region: Optional[str] = None):
+def delete_from_queue(queue_name: str, receipt_handle: str, region: str | None = None):
     """Delete a message from an SQS queue.
 
     Args:
@@ -69,9 +68,9 @@ def send_to_dispatch_queue(payload: dict, env_base: str):
 def send_sqs_message(
     queue_name: str,
     payload: dict,
-    message_deduplication_id: Optional[str] = None,
-    message_group_id: Optional[str] = None,
-    payload_json_encoder: Type[json.JSONEncoder] = DecimalEncoder,
+    message_deduplication_id: str | None = None,
+    message_group_id: str | None = None,
+    payload_json_encoder: type[json.JSONEncoder] = DecimalEncoder,
 ) -> str:
     """Send a message to an SQS queue by providing a queue name
 

@@ -1,10 +1,11 @@
 import logging
 import mimetypes
+from collections.abc import Sequence
 from email.mime.multipart import MIMEMultipart
 from email.mime.nonmultipart import MIMENonMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any
 
 from aibs_informatics_core.models.email_address import EmailAddress
 from botocore.exceptions import ClientError
@@ -46,7 +47,7 @@ logger = logging.getLogger(__name__)
 get_ses_client = AWSService.SES.get_client
 
 
-def verify_email_identity(email_address: str) -> Dict[str, Any]:  # no type def?
+def verify_email_identity(email_address: str) -> dict[str, Any]:  # no type def?
     """Send a verification email to an email address.
 
     Initiates the email verification process for SES. The recipient will
@@ -124,8 +125,8 @@ def send_email(request: SendEmailRequestTypeDef) -> SendEmailResponseTypeDef:
 
 
 def send_simple_email(
-    source: Union[str, EmailAddress],
-    to_addresses: Sequence[Union[str, EmailAddress]],
+    source: str | EmailAddress,
+    to_addresses: Sequence[str | EmailAddress],
     subject: str,
     body: str = "",
 ) -> SendEmailResponseTypeDef:
@@ -174,11 +175,11 @@ def send_raw_email(request: SendRawEmailRequestTypeDef) -> SendRawEmailResponseT
 
 
 def send_email_with_attachment(
-    source: Union[str, EmailAddress],
-    to_addresses: Sequence[Union[str, EmailAddress]],
+    source: str | EmailAddress,
+    to_addresses: Sequence[str | EmailAddress],
     subject: str,
-    body: Union[str, MIMEText] = "",
-    attachments_paths: Optional[List[Path]] = None,
+    body: str | MIMEText = "",
+    attachments_paths: list[Path] | None = None,
 ) -> SendRawEmailResponseTypeDef:
     """Send an email with attachments using SES.
 
