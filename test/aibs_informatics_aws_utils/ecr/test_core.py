@@ -679,6 +679,21 @@ class ECRImageTests(ECRTestBase):
         with self.assertRaises(HTTPError):
             image.get_image_config()
 
+    def test__from_dict__with_valid_dict(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+
+        image_dict = {
+            "account_id": self.ACCOUNT_ID,
+            "region": self.REGION,
+            "repository_name": repo.repository_name,
+            "image_digest": image.image_digest,
+            "image_manifest": image.image_manifest,
+        }
+
+        actual = ECRImage.from_dict(image_dict)
+        self.assertEqual(actual, image)
+
 
 @moto.mock_aws
 class ECRRegistryTests(ECRTestBase):
