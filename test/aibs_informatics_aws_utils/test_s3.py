@@ -521,7 +521,7 @@ class S3Tests(AwsBaseTest):
         download_s3_path(s3_empty_prefix, local_path / "empty_prefix")
         download_s3_path(s3_not_empty, local_path / "not_empty")
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AWSError):
             download_s3_path(s3_not_empty_prefix, local_path / "not_empty_prefix")
 
     def test__download_s3_path__handles_nested_trailing_slash_objects(self):
@@ -536,7 +536,7 @@ class S3Tests(AwsBaseTest):
         local_path = self.tmp_path()
         download_s3_path(s3_empty_prefix, local_path / "empty_prefix")
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AWSError):
             download_s3_path(s3_not_empty_prefix, local_path / "not_empty_prefix")
 
     def test__copy_s3_object__handles_same_path(self):

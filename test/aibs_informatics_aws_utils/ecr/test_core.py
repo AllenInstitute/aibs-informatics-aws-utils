@@ -694,6 +694,51 @@ class ECRImageTests(ECRTestBase):
         actual = ECRImage.from_dict(image_dict)
         self.assertEqual(actual, image)
 
+    def test__to_dict__with_image_manifest_included(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+
+        expected_dict = {
+            "account_id": self.ACCOUNT_ID,
+            "region": self.REGION,
+            "repository_name": repo.repository_name,
+            "image_digest": image.image_digest,
+            "image_manifest": image.image_manifest,
+        }
+
+        actual_dict = image.to_dict()
+        self.assertEqual(actual_dict, expected_dict)
+
+    def test__to_dict__with_image_manifest_fetched(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+        reconstructed_image = ECRImage(
+            account_id=self.ACCOUNT_ID,
+            region=self.REGION,
+            repository_name=image.repository_name,
+            image_digest=image.image_digest,
+            client=self.ecr,
+        )
+
+        expected_dict = {
+            "account_id": self.ACCOUNT_ID,
+            "region": self.REGION,
+            "repository_name": repo.repository_name,
+            "image_digest": image.image_digest,
+            "image_manifest": image.image_manifest,
+        }
+
+        actual_dict = reconstructed_image.to_dict()
+        self.assertEqual(actual_dict, expected_dict)
+
+    def test__from_dict_to_dict__round_trip(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+
+        image_dict = image.to_dict()
+        reconstructed_image = ECRImage.from_dict(image_dict)
+        self.assertEqual(reconstructed_image, image)
+
 
 @moto.mock_aws
 class ECRRegistryTests(ECRTestBase):

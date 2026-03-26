@@ -35,7 +35,7 @@ class SNSTests(AwsBaseTest):
             )
 
     def test__publish__fails_if_no_target_specified(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AWSError):
             publish(
                 topic_arn=None,
                 message="test_message",
