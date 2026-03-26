@@ -36,7 +36,7 @@ class EmptyQueryResultException(DBQueryResultException):
 # --------------------------------------------------------------------------
 
 
-class AWSError(ValueError):
+class AWSError(Exception):
     """AWS related Exception"""
 
 
