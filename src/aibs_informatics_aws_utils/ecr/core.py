@@ -9,7 +9,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
-    Self,
     TypedDict,
     TypeVar,
     cast,
@@ -22,6 +21,7 @@ from botocore.exceptions import ClientError
 from pydantic import (
     Field,
     PrivateAttr,
+    model_serializer,
     model_validator,
 )
 
@@ -317,23 +317,8 @@ T = TypeVar("T", bound="ECRResourceBase")
 
 
 class ECRResourceBase(PydanticBaseModel):
-    client: ECRClient = Field(default=None, exclude=True)  # type: ignore
-    # _client: ECRClient | None = PrivateAttr(default=None)
+    client: "ECRClient | None" = Field(default=None, exclude=True)
     _logger: logging.Logger | None = PrivateAttr(default=None)
-
-    # def __init__(self, *, client: ECRClient | None = None, **data) -> None:
-    #     super().__init__(**data)
-    #     self._client = client
-
-    # @property
-    # def client(self) -> ECRClient:
-    #     if self._client is None:
-    #         self._client = get_ecr_client(getattr(self, "region"))
-    #     return self._client
-
-    # @client.setter
-    # def client(self, value: ECRClient):
-    #     self._client = value
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, type(self)):
@@ -346,13 +331,9 @@ class ECRResourceBase(PydanticBaseModel):
     @model_validator(mode="before")
     @classmethod
     def _validate_client(cls, data: Any) -> Any:
-        if "client" in data and data["client"] is not None:
-            if not isinstance(data["client"], ECRClient):
-                raise TypeError(f"client must be of type ECRClient, got {type(data['client'])}")
-        elif data.get("client") is None:
+        if data.get("client") is None:
             data["client"] = get_ecr_client(region=data.get("region"))
         return data
-
 
     @property
     def logger(self) -> logging.Logger:
@@ -375,13 +356,36 @@ class ECRImage(ECRResourceBase):
     repository_name: str
     image_digest: str
     # https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
-    image_manifest: str = Field(default=None)  # type: ignore[assignment]
+    _image_manifest: str | None = PrivateAttr(default=None)
 
-    @model_validator(mode="after")
-    def model_validator_validate_image_manifest(self) -> Self:
-        if self.image_manifest is None:
-            self.image_manifest = self.fetch_image_manifest()
-        return self
+    def __init__(
+        self,
+        *,
+        account_id: str,
+        region: str,
+        repository_name: str,
+        image_digest: str,
+        image_manifest: str | None = None,
+        client: ECRClient | None = None,
+    ) -> None:
+        super().__init__(
+            account_id=account_id,
+            region=region,
+            repository_name=repository_name,
+            image_digest=image_digest,
+            client=client,
+        )
+        self._image_manifest = image_manifest
+
+    @property
+    def image_manifest(self) -> str:
+        if self._image_manifest is None:
+            self._image_manifest = self.fetch_image_manifest()
+        return self._image_manifest
+
+    @image_manifest.setter
+    def image_manifest(self, value: str) -> None:
+        self._image_manifest = value
 
     def fetch_image_manifest(self) -> str:
         response = self.client.batch_get_image(
@@ -586,6 +590,38 @@ class ECRImage(ECRResourceBase):
             repository_name=repo_name,
             image_digest=image_digest,
         )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return (
+            self.account_id == other.account_id
+            and self.region == other.region
+            and self.repository_name == other.repository_name
+            and self.image_digest == other.image_digest
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.account_id, self.region, self.repository_name, self.image_digest))
+
+    @model_serializer(mode="wrap")
+    def _serialize_with_manifest(self, handler) -> dict[str, Any]:
+        d = handler(self)
+        if self._image_manifest is not None:
+            d["image_manifest"] = self._image_manifest
+        return d
+
+    @classmethod
+    def from_dict(cls, data, **kwargs) -> "ECRImage":
+        if isinstance(data, dict):
+            data = dict(data)  # avoid mutating the input
+            image_manifest = data.pop("image_manifest", None)
+        else:
+            image_manifest = None
+        instance = super().from_dict(data, **kwargs)
+        if image_manifest is not None:
+            instance._image_manifest = image_manifest
+        return instance
 
     def __repr__(self) -> str:
         return (
