@@ -317,8 +317,11 @@ T = TypeVar("T", bound="ECRResourceBase")
 
 
 class ECRResourceBase(PydanticBaseModel):
-    client: "ECRClient | None" = Field(default=None, exclude=True)
     _logger: logging.Logger | None = PrivateAttr(default=None)
+
+    def __init__(self, client: ECRClient | None = None, **data: Any) -> None:
+        super().__init__(**data)
+        self._client = client
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, type(self)):
@@ -334,6 +337,12 @@ class ECRResourceBase(PydanticBaseModel):
         if data.get("client") is None:
             data["client"] = get_ecr_client(region=data.get("region"))
         return data
+
+    @property
+    def client(self) -> ECRClient:
+        if self._client is None:
+            self._client = get_ecr_client(region=getattr(self, "region", None))
+        return cast(ECRClient, self._client)
 
     @property
     def logger(self) -> logging.Logger:
@@ -368,14 +377,21 @@ class ECRImage(ECRResourceBase):
         image_manifest: str | None = None,
         client: ECRClient | None = None,
     ) -> None:
-        super().__init__(
-            account_id=account_id,
-            region=region,
-            repository_name=repository_name,
-            image_digest=image_digest,
-            client=client,
+        super().__init__(  # type: ignore[call-arg]
+            account_id=account_id, # pyright: ignore[reportCallIssue]
+            region=region, # pyright: ignore[reportCallIssue]
+            repository_name=repository_name, # pyright: ignore[reportCallIssue]
+            image_digest=image_digest, # pyright: ignore[reportCallIssue]
+            client=client,  # type: ignore[arg-type]
         )
         self._image_manifest = image_manifest
+
+    @model_serializer(mode="wrap")
+    def _serialize_with_manifest(self, handler) -> dict[str, Any]:
+        d = handler(self)
+        if self._image_manifest is not None:
+            d["image_manifest"] = self._image_manifest
+        return d
 
     @property
     def image_manifest(self) -> str:
@@ -603,25 +619,6 @@ class ECRImage(ECRResourceBase):
 
     def __hash__(self) -> int:
         return hash((self.account_id, self.region, self.repository_name, self.image_digest))
-
-    @model_serializer(mode="wrap")
-    def _serialize_with_manifest(self, handler) -> dict[str, Any]:
-        d = handler(self)
-        if self._image_manifest is not None:
-            d["image_manifest"] = self._image_manifest
-        return d
-
-    @classmethod
-    def from_dict(cls, data, **kwargs) -> "ECRImage":
-        if isinstance(data, dict):
-            data = dict(data)  # avoid mutating the input
-            image_manifest = data.pop("image_manifest", None)
-        else:
-            image_manifest = None
-        instance = super().from_dict(data, **kwargs)
-        if image_manifest is not None:
-            instance._image_manifest = image_manifest
-        return instance
 
     def __repr__(self) -> str:
         return (
