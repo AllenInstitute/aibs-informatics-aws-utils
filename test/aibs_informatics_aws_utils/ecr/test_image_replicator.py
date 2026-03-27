@@ -62,15 +62,6 @@ class ECRImageReplicatorTestsStubbing(AwsBaseTest):
         }
         stubber.add_response("put_image", {}, expected_params3)
 
-        # Stub the batch_get_image call invoked in the destination ECRImage constructor
-        expected_params_batch_get = {
-            "repositoryName": "destination-repo",
-            "registryId": "222222222222",
-            "imageIds": [{"imageDigest": "sha256:" + "1234" * 16}],
-        }
-        response_batch_get = {"images": [{"imageManifest": manifest}]}
-        stubber.add_response("batch_get_image", response_batch_get, expected_params_batch_get)
-
         stubber.activate()
 
         # Create dummy source image and destination repository with client passed in at init

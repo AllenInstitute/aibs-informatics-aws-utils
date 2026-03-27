@@ -60,9 +60,9 @@ class ECRTestBase(AwsBaseTest):
 
     def construct_image_manifest(
         self,
-        layer_sizes: list[int] = None,
+        layer_sizes: list[int] | None = None,
         config_size: int = 123,
-        config_digest: str = None,
+        config_digest: str | None = None,
     ) -> str:
         return json.dumps(
             {
@@ -88,7 +88,7 @@ class ECRTestBase(AwsBaseTest):
         self,
         repository_name: str,
         image_id: ImageIdentifierTypeDef,
-        image_manifest: str | dict = None,
+        image_manifest: str | dict | None = None,
     ) -> ImageTypeDef:
         if image_manifest is None:
             image_manifest = self.construct_image_manifest([123])
@@ -105,7 +105,7 @@ class ECRTestBase(AwsBaseTest):
         )
 
     def construct_image_identifier(
-        self, image_digest: str = None, image_tag: str = None
+        self, image_digest: str | None = None, image_tag: str | None = None
     ) -> ImageIdentifierTypeDef:
         return ImageIdentifierTypeDef(
             remove_null_values(dict(imageDigest=image_digest, imageTag=image_tag))

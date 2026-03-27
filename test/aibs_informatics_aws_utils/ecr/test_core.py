@@ -569,13 +569,14 @@ class ECRImageTests(ECRTestBase):
 
     def test__init__without_manifest__fails_to_resolve_image_details_from_ecr(self):
         repo = self.create_repository("repository_name")
+        ecr_image = ECRImage(
+            account_id=self.ACCOUNT_ID,
+            region=self.US_WEST_2,
+            repository_name=repo.repository_name,
+            image_digest=self.construct_image_digest("1234"),
+        )
         with self.assertRaises(ResourceNotFoundError):
-            ECRImage(
-                account_id=self.ACCOUNT_ID,
-                region=self.US_WEST_2,
-                repository_name=repo.repository_name,
-                image_digest=self.construct_image_digest("1234"),
-            )
+            _ = ecr_image.image_manifest
 
     def test__from_uri__with_image_digest_succeeds(self):
         repo = self.create_repository("repository_name")
@@ -693,6 +694,75 @@ class ECRImageTests(ECRTestBase):
 
         actual = ECRImage.from_dict(image_dict)
         self.assertEqual(actual, image)
+
+    def test__to_dict__with_image_manifest_included(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+
+        expected_dict = {
+            "account_id": self.ACCOUNT_ID,
+            "region": self.REGION,
+            "repository_name": repo.repository_name,
+            "image_digest": image.image_digest,
+            "image_manifest": image.image_manifest,
+        }
+
+        actual_dict = image.to_dict()
+        self.assertEqual(actual_dict, expected_dict)
+
+    def test__to_dict__with_image_manifest_fetched(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+        reconstructed_image = ECRImage(
+            account_id=self.ACCOUNT_ID,
+            region=self.REGION,
+            repository_name=image.repository_name,
+            image_digest=image.image_digest,
+            client=self.ecr,
+        )
+
+        # Trigger lazy fetch of manifest
+        _ = reconstructed_image.image_manifest
+
+        expected_dict = {
+            "account_id": self.ACCOUNT_ID,
+            "region": self.REGION,
+            "repository_name": repo.repository_name,
+            "image_digest": image.image_digest,
+            "image_manifest": image.image_manifest,
+        }
+
+        actual_dict = reconstructed_image.to_dict()
+        self.assertEqual(actual_dict, expected_dict)
+
+    def test__to_dict__without_image_manifest_fetched(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+        reconstructed_image = ECRImage(
+            account_id=self.ACCOUNT_ID,
+            region=self.REGION,
+            repository_name=image.repository_name,
+            image_digest=image.image_digest,
+            client=self.ecr,
+        )
+
+        expected_dict = {
+            "account_id": self.ACCOUNT_ID,
+            "region": self.REGION,
+            "repository_name": repo.repository_name,
+            "image_digest": image.image_digest,
+        }
+
+        actual_dict = reconstructed_image.to_dict()
+        self.assertEqual(actual_dict, expected_dict)
+
+    def test__from_dict_to_dict__round_trip(self):
+        repo = self.create_repository("repository_name")
+        image = self.put_image(repo.repository_name, image_tag="latest")
+
+        image_dict = image.to_dict()
+        reconstructed_image = ECRImage.from_dict(image_dict)
+        self.assertEqual(reconstructed_image, image)
 
 
 @moto.mock_aws

@@ -18,7 +18,12 @@ import requests
 from aibs_informatics_core.collections import StrEnum, ValidatedStr
 from aibs_informatics_core.models.base import PydanticBaseModel
 from botocore.exceptions import ClientError
-from pydantic import Field, PrivateAttr, model_validator
+from pydantic import (
+    Field,
+    PrivateAttr,
+    model_serializer,
+    model_validator,
+)
 
 from aibs_informatics_aws_utils.core import (
     AWSService,
@@ -315,7 +320,7 @@ class ECRResourceBase(PydanticBaseModel):
     _client: ECRClient | None = PrivateAttr(default=None)
     _logger: logging.Logger | None = PrivateAttr(default=None)
 
-    def __init__(self, *, client: ECRClient | None = None, **data) -> None:
+    def __init__(self, client: ECRClient | None = None, **data: Any) -> None:
         super().__init__(**data)
         self._client = client
 
@@ -328,20 +333,16 @@ class ECRResourceBase(PydanticBaseModel):
         return hash(tuple(sorted(self.model_dump().items())))
 
     @property
+    def client(self) -> ECRClient:
+        if self._client is None:
+            self._client = get_ecr_client(region=getattr(self, "region", None))
+        return cast(ECRClient, self._client)
+
+    @property
     def logger(self) -> logging.Logger:
         if self._logger is None:
             self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
         return self._logger
-
-    @property
-    def client(self) -> ECRClient:
-        if self._client is None:
-            self._client = get_ecr_client(getattr(self, "region"))
-        return self._client
-
-    @client.setter
-    def client(self, value: ECRClient):
-        self._client = value
 
     @property
     def uri(self) -> str:
@@ -360,24 +361,52 @@ class ECRImage(ECRResourceBase):
     # https://distribution.github.io/distribution/spec/manifest-v2-2/#image-manifest-field-descriptions
     _image_manifest: str | None = PrivateAttr(default=None)
 
-    def __init__(self, *, image_manifest: str | None = None, **data):
-        super().__init__(**data)
+    def __init__(
+        self,
+        *,
+        account_id: str,
+        region: str,
+        repository_name: str,
+        image_digest: str,
+        image_manifest: str | None = None,
+        client: ECRClient | None = None,
+    ) -> None:
+        super().__init__(  # type: ignore[call-arg]
+            account_id=account_id,  # pyright: ignore[reportCallIssue]
+            region=region,  # pyright: ignore[reportCallIssue]
+            repository_name=repository_name,  # pyright: ignore[reportCallIssue]
+            image_digest=image_digest,  # pyright: ignore[reportCallIssue]
+            client=client,  # type: ignore[arg-type]
+        )
         self._image_manifest = image_manifest
-        self.image_manifest  # trigger validation of manifest if provided
+
+    @model_serializer(mode="wrap")
+    def _serialize_with_manifest(self, handler) -> dict[str, Any]:
+        d = handler(self)
+        if self._image_manifest is not None:
+            d["image_manifest"] = self._image_manifest
+        return d
 
     @property
     def image_manifest(self) -> str:
         if self._image_manifest is None:
-            response = self.client.batch_get_image(
-                repositoryName=self.repository_name,
-                registryId=self.account_id,
-                imageIds=[ImageIdentifierTypeDef(imageDigest=self.image_digest)],
-            )
-            if len(response["images"]) == 0 or "imageManifest" not in response["images"][0]:
-                raise ResourceNotFoundError(f"Could not resolve image manifest for {self.uri}")
-
-            self._image_manifest = response["images"][0]["imageManifest"]
+            self._image_manifest = self.fetch_image_manifest()
         return self._image_manifest
+
+    @image_manifest.setter
+    def image_manifest(self, value: str) -> None:
+        self._image_manifest = value
+
+    def fetch_image_manifest(self) -> str:
+        response = self.client.batch_get_image(
+            repositoryName=self.repository_name,
+            registryId=self.account_id,
+            imageIds=[ImageIdentifierTypeDef(imageDigest=self.image_digest)],
+        )
+        if len(response["images"]) == 0 or "imageManifest" not in response["images"][0]:
+            raise ResourceNotFoundError(f"Could not resolve image manifest for {self.uri}")
+
+        return response["images"][0]["imageManifest"]
 
     @property
     def image_pushed_at(self) -> datetime | None:
@@ -571,6 +600,19 @@ class ECRImage(ECRResourceBase):
             repository_name=repo_name,
             image_digest=image_digest,
         )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return (
+            self.account_id == other.account_id
+            and self.region == other.region
+            and self.repository_name == other.repository_name
+            and self.image_digest == other.image_digest
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.account_id, self.region, self.repository_name, self.image_digest))
 
     def __repr__(self) -> str:
         return (
