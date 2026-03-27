@@ -317,6 +317,7 @@ T = TypeVar("T", bound="ECRResourceBase")
 
 
 class ECRResourceBase(PydanticBaseModel):
+    _client: ECRClient | None = PrivateAttr(default=None)
     _logger: logging.Logger | None = PrivateAttr(default=None)
 
     def __init__(self, client: ECRClient | None = None, **data: Any) -> None:
@@ -330,13 +331,6 @@ class ECRResourceBase(PydanticBaseModel):
 
     def __hash__(self) -> int:
         return hash(tuple(sorted(self.model_dump().items())))
-
-    @model_validator(mode="before")
-    @classmethod
-    def _validate_client(cls, data: Any) -> Any:
-        if data.get("client") is None:
-            data["client"] = get_ecr_client(region=data.get("region"))
-        return data
 
     @property
     def client(self) -> ECRClient:
@@ -378,10 +372,10 @@ class ECRImage(ECRResourceBase):
         client: ECRClient | None = None,
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
-            account_id=account_id, # pyright: ignore[reportCallIssue]
-            region=region, # pyright: ignore[reportCallIssue]
-            repository_name=repository_name, # pyright: ignore[reportCallIssue]
-            image_digest=image_digest, # pyright: ignore[reportCallIssue]
+            account_id=account_id,  # pyright: ignore[reportCallIssue]
+            region=region,  # pyright: ignore[reportCallIssue]
+            repository_name=repository_name,  # pyright: ignore[reportCallIssue]
+            image_digest=image_digest,  # pyright: ignore[reportCallIssue]
             client=client,  # type: ignore[arg-type]
         )
         self._image_manifest = image_manifest
