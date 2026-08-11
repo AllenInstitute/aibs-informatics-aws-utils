@@ -991,6 +991,34 @@ class ECRRepositoryTests(ECRTestBase):
         images = repo.get_images()
         self.assertListEqual(images, [image2, image1])
 
+    def test__get_images__paginates_batch_get_image_requests(self):
+        repo = self.create_repository("batch_get_image_test_repo")
+        images = [
+            self.put_image(repo.repository_name, image_tag=f"v{i}", seed=1000 + i)
+            for i in range(101)
+        ]
+
+        real_batch_get_image = repo.client.batch_get_image
+        batch_get_calls: list[list[dict]] = []
+
+        def batch_get_image_side_effect(**kwargs):
+            batch_get_calls.append(kwargs["imageIds"])
+            self.assertLessEqual(len(kwargs["imageIds"]), 100)
+            return real_batch_get_image(**kwargs)
+
+        with mock.patch.object(
+            repo.client, "batch_get_image", side_effect=batch_get_image_side_effect
+        ):
+            fetched_images = repo.get_images()
+
+        self.assertEqual(len(fetched_images), 101)
+        self.assertEqual(
+            {image.image_digest for image in fetched_images},
+            {image.image_digest for image in images},
+        )
+        self.assertEqual(len(batch_get_calls), 2)
+        self.assertTrue(all(len(chunk) <= 100 for chunk in batch_get_calls))
+
     def test__get_image__returns_image_from_digest(self):
         repo = self.create_repository("repository_name")
         image = self.put_image(repo.repository_name, image_tag="latest")
