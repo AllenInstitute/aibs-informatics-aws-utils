@@ -817,11 +817,19 @@ class ECRRepository(ECRResource):
             return []
 
         # Call 2: batch_get_image
-        response: BatchGetImageResponseTypeDef = self.client.batch_get_image(
-            repositoryName=self.repository_name,
-            registryId=self.account_id,
-            imageIds=[ImageIdentifierTypeDef(imageDigest=digest) for digest in image_digests],
-        )
+        # BatchGetImage supports only up to 100 imageIds per request, so paginate in chunks.
+        # We can't use the `client.get_paginator` because
+        # self.client.can_paginate("batch_get_image") returns False
+        response: dict[str, list] = {"images": [], "failures": []}
+        for start in range(0, len(image_digests), 100):
+            image_id_chunk = image_digests[start : start + 100]
+            chunk_response: BatchGetImageResponseTypeDef = self.client.batch_get_image(
+                repositoryName=self.repository_name,
+                registryId=self.account_id,
+                imageIds=[ImageIdentifierTypeDef(imageDigest=digest) for digest in image_id_chunk],
+            )
+            response["images"].extend(chunk_response.get("images", []))
+            response["failures"].extend(chunk_response.get("failures", []))
 
         # Next we consolidate the results, ensuring that the image manifests
         # are all the same. If an image digest has differing manifests,
