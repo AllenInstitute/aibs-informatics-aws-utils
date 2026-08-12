@@ -63,7 +63,7 @@ release = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aibs-informatics-core", specifier = ">=1.0.1,<2" },
+    { name = "aibs-informatics-core", git = "https://github.com/AllenInstitute/aibs-informatics-core.git?branch=feature%2FOCSDV-453-demand-execution-filters" },
     { name = "boto3", specifier = "~=1.35" },
     { name = "tenacity", specifier = "~=9.0" },
 ]
@@ -116,8 +116,8 @@ release = [
 
 [[package]]
 name = "aibs-informatics-core"
-version = "1.0.1"
-source = { registry = "https://pypi.org/simple" }
+version = "1.0.6"
+source = { git = "https://github.com/AllenInstitute/aibs-informatics-core.git?branch=feature%2FOCSDV-453-demand-execution-filters#d621cd20deaeb5fea6e5f09f7ff5d434293a2e11" }
 dependencies = [
     { name = "pathlib-abc" },
     { name = "pydantic" },
@@ -126,11 +126,8 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "stringcase" },
+    { name = "typing-extensions" },
     { name = "typing-inspect" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/67/50502d4e175a65b77e911b0556c95b971758de26a14bc14f16bf6dd8a72f/aibs_informatics_core-1.0.1.tar.gz", hash = "sha256:162055cff5866a96b8ca39f6d6afc28fcdd29ccdf45e256924b76cc920a54db3", size = 73051, upload-time = "2026-03-18T23:15:52.902Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/18/95/a0e929feabeb3d5d3da8f7c615db8fa591da058bc85ec979e6491739ed3a/aibs_informatics_core-1.0.1-py3-none-any.whl", hash = "sha256:f475e946f14bf50695e340db7555ebb1abe9fa269a16e52644c091d3a01ef1e3", size = 91583, upload-time = "2026-03-18T23:15:51.393Z" },
 ]
 
 [[package]]
@@ -1029,6 +1026,7 @@ wheels = [
 name = "griffelib"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/06/eccbd311c9e2b3ca45dbc063b93134c57a1ccc7607c5e545264ad092c4a9/griffelib-2.0.0.tar.gz", hash = "sha256:e504d637a089f5cab9b5daf18f7645970509bf4f53eda8d79ed71cce8bd97934", size = 166312, upload-time = "2026-03-23T21:06:55.954Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4d/51/c936033e16d12b627ea334aaaaf42229c37620d0f15593456ab69ab48161/griffelib-2.0.0-py3-none-any.whl", hash = "sha256:01284878c966508b6d6f1dbff9b6fa607bc062d8261c5c7253cb285b06422a7f", size = 142004, upload-time = "2026-02-09T19:09:40.561Z" },
 ]
