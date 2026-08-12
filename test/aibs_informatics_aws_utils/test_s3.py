@@ -320,9 +320,7 @@ class S3Tests(AwsBaseTest):
         self.assertListEqual(list_s3_paths(sub_prefix, include=pattern), [])
 
         # Passing the original root back in restores the intended behavior.
-        self.assertListEqual(
-            list_s3_paths(sub_prefix, include=pattern, filter_root=root), [bam]
-        )
+        self.assertListEqual(list_s3_paths(sub_prefix, include=pattern, filter_root=root), [bam])
 
     def test__is_folder__is_object__is_object_prefix__is_folder_placeholder_object__work(self):
         ## Setup
