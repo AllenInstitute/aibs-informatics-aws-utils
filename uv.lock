@@ -63,7 +63,7 @@ release = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aibs-informatics-core", git = "https://github.com/AllenInstitute/aibs-informatics-core.git?branch=feature%2FOCSDV-453-demand-execution-filters" },
+    { name = "aibs-informatics-core", specifier = "~=1.1" },
     { name = "boto3", specifier = "~=1.35" },
     { name = "tenacity", specifier = "~=9.0" },
 ]
@@ -116,8 +116,8 @@ release = [
 
 [[package]]
 name = "aibs-informatics-core"
-version = "1.0.6"
-source = { git = "https://github.com/AllenInstitute/aibs-informatics-core.git?branch=feature%2FOCSDV-453-demand-execution-filters#d621cd20deaeb5fea6e5f09f7ff5d434293a2e11" }
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pathlib-abc" },
     { name = "pydantic" },
@@ -128,6 +128,10 @@ dependencies = [
     { name = "stringcase" },
     { name = "typing-extensions" },
     { name = "typing-inspect" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7d/11/9dc03e0dd7133f0dea4b534192ec6c135ee1559b6bd769e9a51f8cabe13e/aibs_informatics_core-1.1.0.tar.gz", hash = "sha256:98682e737515aeed4cb471ead3b42b414cba93fa2a95f6f3040f2f991795dd89", size = 81604, upload-time = "2026-08-14T04:30:24.413Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/bc/7cc5203a52b98bffe671069969bfe3ea96c671f4bb0967518d2bd2ec7bbd/aibs_informatics_core-1.1.0-py3-none-any.whl", hash = "sha256:8627ebc4a6ab30516c54d7fbf25635636be10120714df8d335d346880ba654ce", size = 100816, upload-time = "2026-08-14T04:30:22.924Z" },
 ]
 
 [[package]]

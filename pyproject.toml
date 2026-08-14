@@ -20,11 +20,7 @@ requires-python = ">=3.11"
 
 dependencies = [
     "boto3~=1.35",
-    # TODO(OCSDV-452): raise this floor to the R1 release of aibs-informatics-core
-    # (the release carrying DataSyncFilterConfig + utils.filters) and drop the
-    # [tool.uv.sources] override below. The current bound would happily resolve an
-    # older core lacking DataSyncFilterConfig and fail at import time inside a Batch job.
-    "aibs-informatics-core>=1.0.1,<2",
+    "aibs-informatics-core~=1.1",
     "tenacity~=9.0",
 ]
 
@@ -87,21 +83,6 @@ Repository = "https://github.com/AllenInstitute/aibs-informatics-aws-utils/"
 
 [tool.uv]
 default-groups = ["dev", "lint", "docs"]
-
-# TEMPORARY -- REMOVE BEFORE MERGE (OCSDV-452)
-# ---------------------------------------------------------------------------
-# This repo's changes depend on aibs-informatics-core R1 (PR-A: DataSyncFilterConfig,
-# DataSyncTask.filter_config/filter_root, DataSyncConfig.delete, and
-# aibs_informatics_core.utils.filters), which is not published yet. Until it is,
-# resolve core from the branch the R1 work lives on so CI can run.
-#
-# `tool.uv.sources` is uv-only metadata: setuptools ignores it, so the published
-# wheel still carries the plain `aibs-informatics-core>=...,<2` requirement above.
-#
-# Once R1 publishes: delete this block, raise the floor above to the R1 version,
-# and re-run `uv lock`.
-[tool.uv.sources]
-aibs-informatics-core = { git = "https://github.com/AllenInstitute/aibs-informatics-core.git", branch = "feature/OCSDV-453-demand-execution-filters" }
 
 # -----------------------------------------------------------------------------
 ##  Pyright Configurations
