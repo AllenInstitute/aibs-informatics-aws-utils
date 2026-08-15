@@ -4,7 +4,7 @@ import logging
 import math
 import os
 from collections import defaultdict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from enum import Enum
@@ -1139,14 +1139,18 @@ def list_s3_paths(
 
     paginator = s3.get_paginator("list_objects_v2")
 
-    s3_paths: list[S3Path] = []
-    for response in paginator.paginate(Bucket=s3_path.bucket, Prefix=s3_path.key):
-        for item in response.get("Contents", []):
-            key = item.get("Key", "")
-            s3_paths.append(S3Path.build(bucket_name=s3_path.bucket, key=key))
+    def iter_listed_paths() -> Iterator[S3Path]:
+        for response in paginator.paginate(Bucket=s3_path.bucket, Prefix=s3_path.key):
+            for item in response.get("Contents", []):
+                yield S3Path.build(bucket_name=s3_path.bucket, key=item.get("Key", ""))
 
+    # Streamed into `filter_paths` rather than collected into a list first, so a
+    # filtered listing never materializes the objects it is about to discard --
+    # these prefixes run to millions of objects. `filter_paths` compiles the
+    # patterns once and keeps only what matches, so this stays a single pass.
+    # `S3FileSystem.refresh` walks S3 the same way for the same reason.
     return filter_paths(
-        s3_paths,
+        iter_listed_paths(),
         root=filter_root if filter_root is not None else s3_path,
         include=include,
         exclude=exclude,
