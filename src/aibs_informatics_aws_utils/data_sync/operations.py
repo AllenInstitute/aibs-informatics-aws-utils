@@ -31,6 +31,7 @@ from aibs_informatics_core.utils.logging import LoggingMixin, get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from botocore.client import Config
 
+from aibs_informatics_aws_utils.data_sync._filters import extract_filter_patterns
 from aibs_informatics_aws_utils.efs import get_local_path
 from aibs_informatics_aws_utils.s3 import (
     TransferConfig,
@@ -91,11 +92,12 @@ class DataSyncOperations(LoggingMixin):
                 key=destination_path.key_with_folder_suffix,
             )
         self.logger.info(f"Uploading local content from {source_path} -> {destination_path}")
+        include, exclude = extract_filter_patterns(filter_config)
         sync_paths(
             source_path=source_path,
             destination_path=destination_path,
-            include=filter_config.include_patterns if filter_config else None,
-            exclude=filter_config.exclude_patterns if filter_config else None,
+            include=include,
+            exclude=exclude,
             filter_root=filter_root,
             transfer_config=self.s3_transfer_config,
             config=self.botocore_config,
@@ -111,8 +113,8 @@ class DataSyncOperations(LoggingMixin):
             transferred_paths = filter_paths(
                 find_all_paths(source_path, include_dirs=False),
                 root=filter_root if filter_root is not None else str(source_path),
-                include=filter_config.include_patterns if filter_config else None,
-                exclude=filter_config.exclude_patterns if filter_config else None,
+                include=include,
+                exclude=exclude,
             )
             result.files_transferred = len(transferred_paths)
             result.bytes_transferred = sum(get_path_size_bytes(Path(p)) for p in transferred_paths)
@@ -161,6 +163,8 @@ class DataSyncOperations(LoggingMixin):
 
             _sync_paths = sync_paths_with_lock
 
+        include, exclude = extract_filter_patterns(filter_config)
+
         remote_to_local_config = self.config.remote_to_local_config
         if source_is_object and remote_to_local_config.use_custom_tmp_dir:
             # If our source is an s3 object (not prefix) and we want to use custom object
@@ -184,8 +188,8 @@ class DataSyncOperations(LoggingMixin):
                 _sync_paths(
                     source_path=source_path,
                     destination_path=tmp_destination_path,
-                    include=filter_config.include_patterns if filter_config else None,
-                    exclude=filter_config.exclude_patterns if filter_config else None,
+                    include=include,
+                    exclude=exclude,
                     filter_root=filter_root,
                     transfer_config=self.s3_transfer_config,
                     config=self.botocore_config,
@@ -200,8 +204,8 @@ class DataSyncOperations(LoggingMixin):
             _sync_paths(
                 source_path=source_path,
                 destination_path=destination_path,
-                include=filter_config.include_patterns if filter_config else None,
-                exclude=filter_config.exclude_patterns if filter_config else None,
+                include=include,
+                exclude=exclude,
                 filter_root=filter_root,
                 transfer_config=self.s3_transfer_config,
                 config=self.botocore_config,
@@ -295,12 +299,13 @@ class DataSyncOperations(LoggingMixin):
             else:
                 return DataSyncResult()
 
+        include, exclude = extract_filter_patterns(filter_config)
         sync_paths(
             source_path=source_path,
             destination_path=destination_path,
             source_path_prefix=source_path_prefix,
-            include=filter_config.include_patterns if filter_config else None,
-            exclude=filter_config.exclude_patterns if filter_config else None,
+            include=include,
+            exclude=exclude,
             filter_root=filter_root,
             transfer_config=self.s3_transfer_config,
             config=self.botocore_config,

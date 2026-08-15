@@ -21,6 +21,7 @@ from aibs_informatics_core.utils.os_operations import find_all_paths
 from aibs_informatics_core.utils.time import BEGINNING_OF_TIME
 from aibs_informatics_core.utils.tools.strtools import removeprefix
 
+from aibs_informatics_aws_utils.data_sync._filters import extract_filter_patterns
 from aibs_informatics_aws_utils.efs import get_efs_path, get_local_path
 from aibs_informatics_aws_utils.s3 import get_s3_resource
 
@@ -290,12 +291,13 @@ class LocalFileSystem(BaseFileSystem):
         self.node = self.initialize_node()
         all_paths = find_all_paths(self.path, include_dirs=False, include_files=True)
         self.total_objects_seen = len(all_paths)
+        include, exclude = extract_filter_patterns(filter_config)
         paths_to_visit = deque(
             filter_paths(
                 all_paths,
                 root=self.resolve_filter_root(filter_root),
-                include=filter_config.include_patterns if filter_config else None,
-                exclude=filter_config.exclude_patterns if filter_config else None,
+                include=include,
+                exclude=exclude,
             )
         )
         while paths_to_visit:
@@ -405,8 +407,7 @@ class S3FileSystem(BaseFileSystem):
         bucket = s3.Bucket(self.bucket)
 
         resolved_filter_root = self.resolve_filter_root(filter_root)
-        include = filter_config.include_patterns if filter_config else None
-        exclude = filter_config.exclude_patterns if filter_config else None
+        include, exclude = extract_filter_patterns(filter_config)
 
         # Filtering happens in-loop rather than via `list_s3_paths` so that a
         # filtered prefix is still walked in a single streaming pass -- these
