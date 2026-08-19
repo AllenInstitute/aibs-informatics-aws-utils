@@ -156,7 +156,7 @@ class Node:
 @dataclass  # type: ignore[misc] # mypy #5374
 class BaseFileSystem:
     node: Node = field(init=False)
-    #: Number of objects encountered during the last :meth:`refresh`, counted
+    #: Number of objects encountered during the last `refresh`, counted
     #: *before* include/exclude filters are applied. The tree itself only holds
     #: the kept objects, so this is the only way to tell "the source was empty"
     #: apart from "the filters matched nothing" -- which is what the prepare
@@ -183,7 +183,7 @@ class BaseFileSystem:
         Args:
             filter_config: Optional include/exclude filters. When given, only
                 matching objects contribute to the tree -- and therefore to the
-                sizes that :meth:`partition` bins on.
+                sizes that `partition` bins on.
             filter_root: Root that patterns are matched relative to. Defaults to
                 this file system's own root. The distributed sync workflow splits
                 a sync into sub-requests rooted at sub-prefixes, and those must
@@ -194,7 +194,7 @@ class BaseFileSystem:
 
     @property
     def kept_objects(self) -> int:
-        """Number of objects retained by the last :meth:`refresh`."""
+        """Number of objects retained by the last `refresh`."""
         return self.node.object_count
 
     @abstractmethod

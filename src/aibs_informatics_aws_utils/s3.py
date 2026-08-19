@@ -706,7 +706,7 @@ def sync_paths(
     """Sync the contents of a source path to a destination path.
 
     Include/exclude patterns follow the shared contract in
-    :mod:`aibs_informatics_core.utils.filters`: regexes matched with
+    `aibs_informatics_core.utils.filters`: regexes matched with
     ``fullmatch`` against the path relative to ``filter_root``, with exclude
     winning over include. The same helper is applied to both the S3 and the
     local source branch, so a pattern behaves identically either side.
@@ -1111,7 +1111,7 @@ def list_s3_paths(
     """List all S3 paths under a Key prefix (as defined by S3 path).
 
     Include/exclude patterns follow the shared contract in
-    :mod:`aibs_informatics_core.utils.filters`: they are regular expressions
+    `aibs_informatics_core.utils.filters`: they are regular expressions
     matched with ``fullmatch`` against the path *relative to the filter root*,
     and exclude wins over include.
 

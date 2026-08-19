@@ -1,6 +1,6 @@
-"""Internal helpers for unpacking :class:`DataSyncFilterConfig` at call sites.
+"""Internal helpers for unpacking `DataSyncFilterConfig` at call sites.
 
-Lives in its own module rather than in :mod:`.file_system` or :mod:`.operations`
+Lives in its own module rather than in `file_system` or `operations`
 so both can use it: ``data_sync/__init__`` imports from both of those, so a
 helper hosted in either would have to be imported across them.
 """
