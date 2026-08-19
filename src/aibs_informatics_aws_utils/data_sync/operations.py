@@ -10,6 +10,7 @@ from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3KeyPrefix, S3Path
 from aibs_informatics_core.models.data_sync import (
     DataSyncConfig,
+    DataSyncFilterConfig,
     DataSyncRequest,
     DataSyncResult,
     DataSyncTask,
@@ -25,10 +26,12 @@ from aibs_informatics_core.utils.file_operations import (
     move_path,
     remove_path,
 )
+from aibs_informatics_core.utils.filters import filter_paths
 from aibs_informatics_core.utils.logging import LoggingMixin, get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from botocore.client import Config
 
+from aibs_informatics_aws_utils.data_sync._filters import extract_filter_patterns
 from aibs_informatics_aws_utils.efs import get_local_path
 from aibs_informatics_aws_utils.s3 import (
     TransferConfig,
@@ -66,7 +69,13 @@ class DataSyncOperations(LoggingMixin):
     def botocore_config(self) -> Config:
         return get_botocore_config(max_pool_connections=self.config.max_concurrency)
 
-    def sync_local_to_s3(self, source_path: LocalPath, destination_path: S3Path) -> DataSyncResult:
+    def sync_local_to_s3(
+        self,
+        source_path: LocalPath,
+        destination_path: S3Path,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
+    ) -> DataSyncResult:
         source_path = self.sanitize_local_path(source_path)
         if not source_path.exists():
             if self.config.fail_if_missing:
@@ -83,24 +92,43 @@ class DataSyncOperations(LoggingMixin):
                 key=destination_path.key_with_folder_suffix,
             )
         self.logger.info(f"Uploading local content from {source_path} -> {destination_path}")
+        include, exclude = extract_filter_patterns(filter_config)
         sync_paths(
             source_path=source_path,
             destination_path=destination_path,
+            include=include,
+            exclude=exclude,
+            filter_root=filter_root,
             transfer_config=self.s3_transfer_config,
             config=self.botocore_config,
             force=self.config.force,
             size_only=self.config.size_only,
-            delete=True,
+            delete=self.config.delete,
         )
         result = DataSyncResult()
         if self.config.include_detailed_response:
-            result.files_transferred = len(find_all_paths(source_path, include_dirs=False))
-            result.bytes_transferred = get_path_size_bytes(source_path)
+            # Counted over the *filtered* source. Measuring the whole source here
+            # would report everything the caller pointed at rather than what the
+            # sync actually moved, which with filters is usually far less.
+            transferred_paths = filter_paths(
+                find_all_paths(source_path, include_dirs=False),
+                root=filter_root if filter_root is not None else str(source_path),
+                include=include,
+                exclude=exclude,
+            )
+            result.files_transferred = len(transferred_paths)
+            result.bytes_transferred = sum(get_path_size_bytes(Path(p)) for p in transferred_paths)
         if not self.config.retain_source_data:
             remove_path(source_path)
         return result
 
-    def sync_s3_to_local(self, source_path: S3Path, destination_path: LocalPath) -> DataSyncResult:
+    def sync_s3_to_local(
+        self,
+        source_path: S3Path,
+        destination_path: LocalPath,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
+    ) -> DataSyncResult:
         self.logger.info(f"Downloading s3 content from {source_path} -> {destination_path}")
         start_time = datetime.now(tz=timezone.utc)
         destination_path = self.sanitize_local_path(destination_path)
@@ -135,6 +163,8 @@ class DataSyncOperations(LoggingMixin):
 
             _sync_paths = sync_paths_with_lock
 
+        include, exclude = extract_filter_patterns(filter_config)
+
         remote_to_local_config = self.config.remote_to_local_config
         if source_is_object and remote_to_local_config.use_custom_tmp_dir:
             # If our source is an s3 object (not prefix) and we want to use custom object
@@ -158,6 +188,9 @@ class DataSyncOperations(LoggingMixin):
                 _sync_paths(
                     source_path=source_path,
                     destination_path=tmp_destination_path,
+                    include=include,
+                    exclude=exclude,
+                    filter_root=filter_root,
                     transfer_config=self.s3_transfer_config,
                     config=self.botocore_config,
                     force=self.config.force,
@@ -171,11 +204,14 @@ class DataSyncOperations(LoggingMixin):
             _sync_paths(
                 source_path=source_path,
                 destination_path=destination_path,
+                include=include,
+                exclude=exclude,
+                filter_root=filter_root,
                 transfer_config=self.s3_transfer_config,
                 config=self.botocore_config,
                 force=self.config.force,
                 size_only=self.config.size_only,
-                delete=True,
+                delete=self.config.delete,
             )
 
         self.logger.info(f"Updating last modified time on local files to at least {start_time}")
@@ -195,10 +231,34 @@ class DataSyncOperations(LoggingMixin):
         return result
 
     def sync_local_to_local(
-        self, source_path: LocalPath, destination_path: LocalPath
+        self,
+        source_path: LocalPath,
+        destination_path: LocalPath,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
     ) -> DataSyncResult:
         source_path = self.sanitize_local_path(source_path)
         destination_path = self.sanitize_local_path(destination_path)
+
+        # TODO: implement include/exclude filtering for local -> local sync.
+        #   Unlike the other three directions, this one does not go through
+        #   `sync_paths`; it delegates to `copy_path`/`move_path`, which copy a
+        #   tree wholesale and take no patterns. Supporting filters here means
+        #   either teaching those helpers about patterns or walking the source
+        #   and transferring file by file. Until then, reject a filtered request
+        #   rather than quietly copying everything: a warning about ignored
+        #   filters is easy to lose in Batch job logs, and the outcome it warns
+        #   about -- data the caller explicitly excluded, copied anyway -- is the
+        #   exact failure this feature exists to prevent. Unfiltered
+        #   local -> local sync is unaffected.
+        if filter_config is not None and (filter_config.include or filter_config.exclude):
+            raise ValueError(
+                f"Include/exclude filters are not supported for local -> local sync "
+                f"({source_path} -> {destination_path}). "
+                f"Got include={filter_config.include}, exclude={filter_config.exclude}. "
+                f"Remove the filters or route the transfer through S3."
+            )
+
         self.logger.info(f"Copying local content from {source_path} -> {destination_path}")
         start_time = datetime.now(tz=timezone.utc)
 
@@ -227,6 +287,8 @@ class DataSyncOperations(LoggingMixin):
         source_path: S3Path,
         destination_path: S3Path,
         source_path_prefix: S3KeyPrefix | None = None,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
     ) -> DataSyncResult:
         self.logger.info(f"Syncing s3 content from {source_path} -> {destination_path}")
 
@@ -240,15 +302,19 @@ class DataSyncOperations(LoggingMixin):
             else:
                 return DataSyncResult()
 
+        include, exclude = extract_filter_patterns(filter_config)
         sync_paths(
             source_path=source_path,
             destination_path=destination_path,
             source_path_prefix=source_path_prefix,
+            include=include,
+            exclude=exclude,
+            filter_root=filter_root,
             transfer_config=self.s3_transfer_config,
             config=self.botocore_config,
             force=self.config.force,
             size_only=self.config.size_only,
-            delete=True,
+            delete=self.config.delete,
         )
         if not self.config.retain_source_data:
             delete_s3_path(s3_path=source_path)
@@ -265,28 +331,38 @@ class DataSyncOperations(LoggingMixin):
         source_path: LocalPath | S3Path,
         destination_path: LocalPath | S3Path,
         source_path_prefix: str | None = None,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
     ) -> DataSyncResult:
         if isinstance(source_path, S3Path) and isinstance(destination_path, S3Path):
             return self.sync_s3_to_s3(
                 source_path=source_path,
                 destination_path=destination_path,
                 source_path_prefix=S3KeyPrefix(source_path_prefix) if source_path_prefix else None,
+                filter_config=filter_config,
+                filter_root=filter_root,
             )
 
         elif isinstance(source_path, S3Path):
             return self.sync_s3_to_local(
                 source_path=source_path,
                 destination_path=cast(LocalPath, destination_path),
+                filter_config=filter_config,
+                filter_root=filter_root,
             )
         elif isinstance(destination_path, S3Path):
             return self.sync_local_to_s3(
                 source_path=cast(LocalPath, source_path),
                 destination_path=destination_path,
+                filter_config=filter_config,
+                filter_root=filter_root,
             )
         else:
             return self.sync_local_to_local(
                 source_path=source_path,
                 destination_path=destination_path,
+                filter_config=filter_config,
+                filter_root=filter_root,
             )
 
     def sync_task(self, task: DataSyncTask) -> DataSyncResult:
@@ -294,6 +370,8 @@ class DataSyncOperations(LoggingMixin):
             source_path=task.source_path,
             destination_path=task.destination_path,
             source_path_prefix=task.source_path_prefix,
+            filter_config=task.filter_config,
+            filter_root=task.filter_root,
         )
 
     @classmethod
@@ -319,8 +397,11 @@ def sync_data(
     source_path: S3Path | LocalPath,
     destination_path: S3Path | LocalPath,
     source_path_prefix: str | None = None,
+    filter_config: DataSyncFilterConfig | None = None,
+    filter_root: str | None = None,
     max_concurrency: int = 10,
     retain_source_data: bool = True,
+    delete: bool = True,
     require_lock: bool = False,
     force: bool = False,
     size_only: bool = False,
@@ -328,12 +409,41 @@ def sync_data(
     remote_to_local_config: RemoteToLocalConfig | None = None,
     include_detailed_response: bool = False,
 ):
+    """Sync data from a source path to a destination path.
+
+    Args:
+        source_path: Path to sync data from.
+        destination_path: Path to sync data to.
+        source_path_prefix: Optional S3 key prefix scoping the source.
+        filter_config: Optional include/exclude filters describing what to move.
+            Not supported for local -> local syncs, which warn and copy in full.
+        filter_root: Root that filter patterns are matched relative to. Defaults
+            to the source path; set explicitly when syncing a sub-prefix of the
+            root the patterns were written against.
+        max_concurrency: Maximum number of concurrent transfer operations.
+        retain_source_data: Whether to keep source data after syncing.
+        delete: Whether to delete destination paths absent from the (filtered)
+            source. Note that this combines destructively with ``filter_config``
+            -- see ``DataSyncConfig.delete``.
+        require_lock: Whether to acquire a lock on the destination path.
+        force: Whether to transfer regardless of existing destination content.
+        size_only: Whether to compare only file sizes when deciding to transfer.
+        fail_if_missing: Whether to raise if the source path does not exist.
+        remote_to_local_config: Options specific to remote-to-local syncs.
+        include_detailed_response: Whether to compute detailed transfer metrics.
+
+    Returns:
+        The sync result.
+    """
     request = DataSyncRequest(
         source_path=source_path,
         destination_path=destination_path,
         source_path_prefix=S3KeyPrefix(source_path_prefix) if source_path_prefix else None,
+        filter_config=filter_config,
+        filter_root=filter_root,
         max_concurrency=max_concurrency,
         retain_source_data=retain_source_data,
+        delete=delete,
         require_lock=require_lock,
         force=force,
         size_only=size_only,

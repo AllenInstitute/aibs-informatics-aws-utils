@@ -8,6 +8,7 @@ from unittest import mock
 import pytz
 from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3Path, S3PathStats
+from aibs_informatics_core.models.data_sync import DataSyncFilterConfig
 from aibs_informatics_core.utils.time import get_current_time
 from aibs_informatics_core.utils.tools.strtools import removeprefix
 
@@ -16,6 +17,7 @@ from aibs_informatics_aws_utils.data_sync.file_system import (
     LocalFileSystem,
     Node,
     S3FileSystem,
+    get_file_system,
 )
 from aibs_informatics_aws_utils.efs import MountPointConfiguration
 from aibs_informatics_aws_utils.efs.mount_point import detect_mount_points
@@ -271,6 +273,128 @@ class LocalFileSystemTests(BaseTest):
         local_node_paths = {removeprefix(node.path, f"{local_path}/") for node in local_nodes}
 
         self.assertSetEqual(expected_node_paths, local_node_paths)
+
+    def test__refresh__filters__tree_holds_only_kept_paths(self):
+        local_path = self.create_local_file_system(
+            {"A/keep.bam": (5,), "A/drop.txt": (7,), "B/keep.bam": (3,)}
+        )
+        local_root = LocalFileSystem.from_path(
+            str(local_path), filter_config=DataSyncFilterConfig(include=r".*\.bam")
+        )
+
+        self.assertEqual(local_root.node.object_count, 2)
+        self.assertEqual(local_root.node.size_bytes, 8)
+        self.assertIsNone(local_root.node["A"].get("drop.txt"))
+
+    def test__refresh__filters__total_objects_seen_counts_pre_filter(self):
+        local_path = self.create_local_file_system(
+            {"A/keep.bam": (5,), "A/drop.txt": (7,), "B/drop.txt": (3,)}
+        )
+        local_root = LocalFileSystem.from_path(
+            str(local_path), filter_config=DataSyncFilterConfig(include=r".*\.bam")
+        )
+
+        # The whole point of the counter: 3 objects were there, filters kept 1.
+        # Without it a zero-match filter is indistinguishable from an empty source.
+        self.assertEqual(local_root.total_objects_seen, 3)
+        self.assertEqual(local_root.kept_objects, 1)
+
+    def test__refresh__filters__zero_matches_distinguishable_from_empty_source(self):
+        populated = self.create_local_file_system({"A/x.txt": (5,)})
+        empty = self.tmp_path()
+
+        no_match = LocalFileSystem.from_path(
+            str(populated), filter_config=DataSyncFilterConfig(include=r".*\.bam")
+        )
+        empty_fs = LocalFileSystem.from_path(str(empty))
+
+        self.assertEqual(no_match.kept_objects, 0)
+        self.assertEqual(empty_fs.kept_objects, 0)
+        self.assertEqual(no_match.total_objects_seen, 1)
+        self.assertEqual(empty_fs.total_objects_seen, 0)
+
+    def test__refresh__filters__exclude_wins_over_include(self):
+        local_path = self.create_local_file_system({"A/x.bam": (5,), "A/y.bam": (7,)})
+        local_root = LocalFileSystem.from_path(
+            str(local_path),
+            filter_config=DataSyncFilterConfig(include=r".*\.bam", exclude=r"A/y\.bam"),
+        )
+
+        self.assertEqual(local_root.kept_objects, 1)
+        self.assertEqual(local_root.node.size_bytes, 5)
+
+    def test__refresh__filters__patterns_are_relative_and_fullmatched(self):
+        local_path = self.create_local_file_system({"sample/x.bam": (5,), "other/y.bam": (7,)})
+
+        # Relative to the root -- `find_paths` used to match the full absolute
+        # path here, so a root-relative pattern like this matched nothing.
+        relative = LocalFileSystem.from_path(
+            str(local_path), filter_config=DataSyncFilterConfig(include=r"sample/.*")
+        )
+        self.assertEqual(relative.node.size_bytes, 5)
+
+        # Fullmatch -- a bare fragment does not match.
+        fragment = LocalFileSystem.from_path(
+            str(local_path), filter_config=DataSyncFilterConfig(include=r"sample")
+        )
+        self.assertEqual(fragment.kept_objects, 0)
+
+    def test__partition__filters__bins_on_kept_bytes_not_total(self):
+        """The property the entire distributed speedup depends on.
+
+        If `partition` binned on unfiltered sizes, a request for a small slice of
+        a large prefix would produce bins sized for the whole prefix and every
+        batch job would run nearly empty.
+        """
+        local_path = self.create_local_file_system(
+            {"A/keep.bam": (4,), "A/drop.txt": (100,), "B/keep.bam": (4,), "B/drop.txt": (100,)}
+        )
+
+        unfiltered = LocalFileSystem.from_path(str(local_path))
+        filtered = LocalFileSystem.from_path(
+            str(local_path), filter_config=DataSyncFilterConfig(include=r".*\.bam")
+        )
+
+        self.assertEqual(unfiltered.node.size_bytes, 208)
+        self.assertEqual(filtered.node.size_bytes, 8)
+
+        # 8 kept bytes fit under the limit, so the filtered tree needs no split
+        # at all, while the unfiltered one is driven down to object level.
+        limit = 10
+        filtered_nodes = filtered.partition(size_bytes_limit=limit)
+        unfiltered_nodes = unfiltered.partition(size_bytes_limit=limit)
+
+        self.assertSetEqual(
+            {removeprefix(node.path, f"{local_path}/") for node in filtered_nodes}, {""}
+        )
+        self.assertGreater(len(unfiltered_nodes), len(filtered_nodes))
+        for node in filtered_nodes:
+            self.assertLessEqual(node.size_bytes, limit)
+
+    def test__partition__filters__respects_explicit_filter_root(self):
+        local_path = self.create_local_file_system({"sampleA/x.bam": (4,), "sampleA/y.txt": (9,)})
+        sub_path = local_path / "sampleA"
+
+        # Patterns written against `local_path` but the sync rooted at `sampleA/`:
+        # without the anchor they match nothing, with it they behave as written.
+        filter_config = DataSyncFilterConfig(include=r"sampleA/.*\.bam")
+
+        unanchored = LocalFileSystem.from_path(str(sub_path), filter_config=filter_config)
+        self.assertEqual(unanchored.node.size_bytes, 0)
+
+        anchored = LocalFileSystem.from_path(
+            str(sub_path), filter_config=filter_config, filter_root=str(local_path)
+        )
+        self.assertEqual(anchored.node.size_bytes, 4)
+
+    def test__get_file_system__passes_filters_through(self):
+        local_path = self.create_local_file_system({"A/keep.bam": (5,), "A/drop.txt": (7,)})
+        fs = get_file_system(
+            str(local_path), filter_config=DataSyncFilterConfig(include=r".*\.bam")
+        )
+
+        self.assertIsInstance(fs, LocalFileSystem)
+        self.assertEqual(fs.node.size_bytes, 5)
 
 
 class EFSFileSystemTests(EFSTestsBase):
@@ -575,6 +699,162 @@ class S3FileSystemTests(AwsBaseTest):
             size_bytes_limit=10,
             object_count_limit=10,
             expected_s3_node_keys={f"{self.KEY_PREFIX}"},
+        )
+
+    def test__refresh__filters__tree_holds_only_kept_objects(self):
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        last_modified = get_current_time()
+        self.setUpMockBucket(
+            s3_root_uri,
+            {
+                "A/keep.bam": S3PathStats(last_modified, 5, 1),
+                "A/drop.txt": S3PathStats(last_modified, 7, 1),
+                "B/keep.bam": S3PathStats(last_modified, 3, 1),
+            },
+        )
+
+        s3_root = S3FileSystem.from_path(
+            s3_root_uri, filter_config=DataSyncFilterConfig(include=r".*\.bam")
+        )
+
+        self.assertEqual(s3_root.node.object_count, 2)
+        self.assertEqual(s3_root.node.size_bytes, 8)
+        self.assertIsNone(s3_root.node["A"].get("drop.txt"))
+
+    def test__refresh__filters__total_objects_seen_counts_pre_filter(self):
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        last_modified = get_current_time()
+        self.setUpMockBucket(
+            s3_root_uri,
+            {
+                "A/keep.bam": S3PathStats(last_modified, 5, 1),
+                "A/drop.txt": S3PathStats(last_modified, 7, 1),
+                "B/drop.txt": S3PathStats(last_modified, 3, 1),
+            },
+        )
+
+        s3_root = S3FileSystem.from_path(
+            s3_root_uri, filter_config=DataSyncFilterConfig(include=r".*\.bam")
+        )
+
+        self.assertEqual(s3_root.total_objects_seen, 3)
+        self.assertEqual(s3_root.kept_objects, 1)
+
+    def test__refresh__filters__zero_matches_still_reports_objects_seen(self):
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        last_modified = get_current_time()
+        self.setUpMockBucket(s3_root_uri, {"A/x.txt": S3PathStats(last_modified, 5, 1)})
+
+        s3_root = S3FileSystem.from_path(
+            s3_root_uri, filter_config=DataSyncFilterConfig(include=r".*\.bam")
+        )
+
+        self.assertEqual(s3_root.kept_objects, 0)
+        self.assertEqual(s3_root.total_objects_seen, 1)
+
+    def test__refresh__filters__exclude_wins_over_include(self):
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        last_modified = get_current_time()
+        self.setUpMockBucket(
+            s3_root_uri,
+            {
+                "A/x.bam": S3PathStats(last_modified, 5, 1),
+                "A/y.bam": S3PathStats(last_modified, 7, 1),
+            },
+        )
+
+        s3_root = S3FileSystem.from_path(
+            s3_root_uri,
+            filter_config=DataSyncFilterConfig(include=r".*\.bam", exclude=r"A/y\.bam"),
+        )
+
+        self.assertEqual(s3_root.kept_objects, 1)
+        self.assertEqual(s3_root.node.size_bytes, 5)
+
+    def test__refresh__filters__patterns_are_fullmatched(self):
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        last_modified = get_current_time()
+        self.setUpMockBucket(s3_root_uri, {"A/x.bam": S3PathStats(last_modified, 5, 1)})
+
+        fragment = S3FileSystem.from_path(
+            s3_root_uri, filter_config=DataSyncFilterConfig(include=r"A")
+        )
+        self.assertEqual(fragment.kept_objects, 0)
+
+        full = S3FileSystem.from_path(
+            s3_root_uri, filter_config=DataSyncFilterConfig(include=r"A/.*")
+        )
+        self.assertEqual(full.kept_objects, 1)
+
+    def test__partition__filters__bins_on_kept_bytes_not_total(self):
+        """The property the entire distributed speedup depends on."""
+        s3_root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        last_modified = get_current_time()
+        self.setUpMockBucket(
+            s3_root_uri,
+            {
+                "A/keep.bam": S3PathStats(last_modified, 4, 1),
+                "A/drop.txt": S3PathStats(last_modified, 100, 1),
+                "B/keep.bam": S3PathStats(last_modified, 4, 1),
+                "B/drop.txt": S3PathStats(last_modified, 100, 1),
+            },
+        )
+
+        unfiltered = S3FileSystem.from_path(s3_root_uri)
+        filtered = S3FileSystem.from_path(
+            s3_root_uri, filter_config=DataSyncFilterConfig(include=r".*\.bam")
+        )
+
+        self.assertEqual(unfiltered.node.size_bytes, 208)
+        self.assertEqual(filtered.node.size_bytes, 8)
+
+        limit = 10
+        filtered_nodes = filtered.partition(size_bytes_limit=limit)
+        unfiltered_nodes = unfiltered.partition(size_bytes_limit=limit)
+
+        # Kept bytes fit in one bin; the unfiltered tree is driven to object level.
+        self.assertSetEqual({node.path for node in filtered_nodes}, {self.KEY_PREFIX})
+        self.assertGreater(len(unfiltered_nodes), len(filtered_nodes))
+        for node in filtered_nodes:
+            self.assertLessEqual(node.size_bytes, limit)
+
+    def test__refresh__filters__respects_explicit_filter_root(self):
+        """A sub-request rooted at a sub-prefix still honors the original patterns."""
+        root_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=self.KEY_PREFIX)
+        sub_uri = S3Path.build(bucket_name=self.BUCKET_NAME, key=f"{self.KEY_PREFIX}sampleA/")
+        last_modified = get_current_time()
+        self.setUpMockBucket(
+            root_uri,
+            {
+                "sampleA/x.bam": S3PathStats(last_modified, 4, 1),
+                "sampleA/y.txt": S3PathStats(last_modified, 9, 1),
+            },
+        )
+
+        filter_config = DataSyncFilterConfig(include=r"sampleA/.*\.bam")
+
+        unanchored = S3FileSystem.from_path(sub_uri, filter_config=filter_config)
+        self.assertEqual(unanchored.node.size_bytes, 0)
+
+        anchored = S3FileSystem.from_path(
+            sub_uri, filter_config=filter_config, filter_root=str(root_uri)
+        )
+        self.assertEqual(anchored.node.size_bytes, 4)
+
+    def setUpMockBucket(self, s3_root_uri: S3Path, key_stats_map: Mapping[str, S3PathStats]):
+        self.mock_bucket(
+            s3_paths_stats=dict(
+                [
+                    self.get_s3_path_and_stats(
+                        key_suffix=key,
+                        size=stats.size_bytes,
+                        last_modified=stats.last_modified,
+                        bucket_name=s3_root_uri.bucket,
+                        key_prefix=self.KEY_PREFIX,
+                    )
+                    for key, stats in key_stats_map.items()
+                ]
+            )
         )
 
     def assertS3FileSystem_partition(

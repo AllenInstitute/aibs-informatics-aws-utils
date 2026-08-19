@@ -4,14 +4,13 @@ import logging
 import math
 import os
 from collections import defaultdict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from enum import Enum
 from functools import lru_cache
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from re import Pattern
 from tempfile import NamedTemporaryFile
 from typing import (
     TYPE_CHECKING,
@@ -39,6 +38,7 @@ from aibs_informatics_core.utils.file_operations import (
     remove_path,
     strip_path_root,
 )
+from aibs_informatics_core.utils.filters import Patterns, filter_paths
 from aibs_informatics_core.utils.json import JSON
 from aibs_informatics_core.utils.logging import get_logger
 from aibs_informatics_core.utils.multiprocessing import parallel_starmap
@@ -693,8 +693,9 @@ def sync_paths(
     source_path: Path | S3Path,
     destination_path: Path | S3Path,
     source_path_prefix: str | None = None,
-    include: list[Pattern] | None = None,
-    exclude: list[Pattern] | None = None,
+    include: Patterns = None,
+    exclude: Patterns = None,
+    filter_root: str | None = None,
     extra_args: dict[str, Any] | None = None,
     transfer_config: TransferConfig | None = None,
     force: bool = False,
@@ -702,6 +703,37 @@ def sync_paths(
     delete: bool = False,
     **kwargs,
 ) -> list[S3TransferResponse]:
+    """Sync the contents of a source path to a destination path.
+
+    Include/exclude patterns follow the shared contract in
+    `aibs_informatics_core.utils.filters`: regexes matched with
+    ``fullmatch`` against the path relative to ``filter_root``, with exclude
+    winning over include. The same helper is applied to both the S3 and the
+    local source branch, so a pattern behaves identically either side.
+
+    Args:
+        source_path (Union[Path, S3Path]): Path to sync from.
+        destination_path (Union[Path, S3Path]): Path to sync to.
+        source_path_prefix (Optional[str]): Optional prefix stripped from source
+            paths when computing destination paths. Defaults to the source path.
+        include (Patterns): Optional regex pattern(s) of files to sync.
+        exclude (Patterns): Optional regex pattern(s) of files not to sync.
+        filter_root (Optional[str]): Root that patterns are matched relative to.
+            Defaults to ``source_path``. Callers syncing a sub-prefix of the root
+            the patterns were written against must set this explicitly.
+        extra_args (Optional[Dict[str, Any]]): Extra arguments for the transfers.
+        transfer_config (Optional[TransferConfig]): Transfer configuration.
+        force (bool): Whether to transfer regardless of destination content.
+        size_only (bool): Whether to compare only sizes when deciding to transfer.
+        delete (bool): Whether to delete destination paths absent from the
+            (filtered) source. Note that filters narrow what counts as "the
+            source", so with filters this deletes destination files the filters
+            exclude. See ``DataSyncConfig.delete``.
+        **kwargs: Additional arguments passed to the S3 client.
+
+    Returns:
+        List of transfer responses.
+    """
     logger.info(f"Syncing {source_path} to {destination_path}")
 
     source_path_key = source_path.key if isinstance(source_path, S3Path) else str(source_path)
@@ -717,18 +749,30 @@ def sync_paths(
             s3_path=source_path.with_folder_suffix,
             include=include,
             exclude=exclude,
+            filter_root=filter_root,
             **kwargs,
         )
         if is_object(source_path, **kwargs) and source_path not in nested_source_paths:
-            nested_source_paths.insert(0, source_path)
+            # A source that is itself an object is filtered against the same root as
+            # everything else, rather than being unconditionally included.
+            if filter_paths(
+                [source_path],
+                root=filter_root if filter_root is not None else source_path.with_folder_suffix,
+                include=include,
+                exclude=exclude,
+            ):
+                nested_source_paths.insert(0, source_path)
     else:
+        # Listed unfiltered and then filtered through the shared helper, so that the
+        # anchor is `filter_root` rather than always the source path. `find_paths`
+        # would anchor at its own `root` argument.
         nested_source_paths = [
             Path(p)  # type: ignore
-            for p in find_paths(
-                root=source_path,
-                include_dirs=False,
-                includes=include,  # type: ignore
-                excludes=exclude,  # type: ignore
+            for p in filter_paths(
+                find_paths(root=source_path, include_dirs=False),
+                root=filter_root if filter_root is not None else source_path,
+                include=include,
+                exclude=exclude,
             )
         ]
 
@@ -970,16 +1014,18 @@ def copy_s3_object(
 
 def delete_s3_path(
     s3_path: S3Path,
-    include: list[Pattern] | None = None,
-    exclude: list[Pattern] | None = None,
+    include: Patterns = None,
+    exclude: Patterns = None,
     **kwargs,
 ):
     """Delete an S3 path (object or prefix).
 
     Args:
         s3_path (S3Path): Path or key prefix to delete.
-        include (Optional[List[Pattern]]): Patterns to include. Defaults to None.
-        exclude (Optional[List[Pattern]]): Patterns to exclude. Defaults to None.
+        include (Patterns): Patterns to include, matched relative to ``s3_path``.
+            Defaults to None.
+        exclude (Patterns): Patterns to exclude, matched relative to ``s3_path``.
+            Defaults to None.
         **kwargs: Additional arguments passed to the S3 client.
     """
     logger.info(f"Deleting S3 path {s3_path}")
@@ -1019,8 +1065,8 @@ def delete_s3_objects(s3_paths: list[S3Path], **kwargs):
 def move_s3_path(
     source_path: S3Path,
     destination_path: S3Path,
-    include: list[Pattern] | None = None,
-    exclude: list[Pattern] | None = None,
+    include: Patterns = None,
+    exclude: Patterns = None,
     extra_args: dict[str, Any] | None = None,
     transfer_config: TransferConfig | None = None,
     **kwargs,
@@ -1032,8 +1078,10 @@ def move_s3_path(
     Args:
         source_path (S3Path): Source S3 path.
         destination_path (S3Path): Destination S3 path.
-        include (Optional[List[Pattern]]): Patterns to include. Defaults to None.
-        exclude (Optional[List[Pattern]]): Patterns to exclude. Defaults to None.
+        include (Patterns): Patterns to include, matched relative to
+            ``source_path``. Defaults to None.
+        exclude (Patterns): Patterns to exclude, matched relative to
+            ``source_path``. Defaults to None.
         extra_args (Optional[Dict[str, Any]]): Extra arguments for the copy. Defaults to None.
         transfer_config (Optional[TransferConfig]): Transfer configuration. Defaults to None.
         **kwargs: Additional arguments passed to the S3 client.
@@ -1055,62 +1103,58 @@ def move_s3_path(
 
 def list_s3_paths(
     s3_path: S3Path,
-    include: list[Pattern] | None = None,
-    exclude: list[Pattern] | None = None,
+    include: Patterns = None,
+    exclude: Patterns = None,
+    filter_root: str | None = None,
     **kwargs,
 ) -> list[S3Path]:
     """List all S3 paths under a Key prefix (as defined by S3 path).
 
-    Include/Exclude patterns are applied to the RELATIVE KEY PATH.
+    Include/exclude patterns follow the shared contract in
+    `aibs_informatics_core.utils.filters`: they are regular expressions
+    matched with ``fullmatch`` against the path *relative to the filter root*,
+    and exclude wins over include.
 
-    Logic for how the include/exclude patterns are applied:
-
-    - **include/exclude**: pattern provided? Y/N
-    - **I/E Match**: If pattern provided, does S3 relative Key match? Y/N
-
-    | include | I Match | exclude | E Match | Append? |
-    |---------|---------|---------|---------|--------|
-    | N       | -       | N       | -       | Y      |
-    | Y       | Y       | N       | -       | Y      |
-    | Y       | N       | N       | -       | N      |
-    | N       | -       | Y       | Y       | N      |
-    | N       | -       | Y       | N       | Y      |
-    | Y       | Y       | Y       | Y       | N      |
-    | Y       | N       | Y       | Y       | N      |
-    | Y       | Y       | Y       | N       | Y      |
-    | Y       | N       | Y       | N       | N      |
+    The filter root defaults to ``s3_path`` -- i.e. patterns are written against
+    the listing root, which is what a caller listing a prefix expects. A caller
+    that lists a *sub*-prefix of the prefix the patterns were written against
+    (as the distributed sync workflow does, splitting ``s3://b/run1/`` into
+    sub-requests rooted at ``s3://b/run1/sampleA/``) must pass ``filter_root``
+    explicitly, or patterns anchored at the original root silently stop matching.
 
     Args:
         s3_path (S3Path): The root key path under which to find objects.
-        include (Optional[List[Pattern]]): Optional list of regex patterns on which
-            to retain objects if matching any. Defaults to None.
-        exclude (Optional[List[Pattern]]): Optional list of regex patterns on which
-            to filter out objects if matching any. Defaults to None.
+        include (Patterns): Optional regex pattern(s) on which to retain objects
+            if matching any. Defaults to None (retain everything).
+        exclude (Patterns): Optional regex pattern(s) on which to filter out
+            objects if matching any. Takes precedence over ``include``.
+        filter_root (Optional[str]): Root that patterns are matched relative to.
+            Defaults to ``s3_path``.
         **kwargs: Additional arguments passed to the S3 client.
 
     Returns:
         List of S3 paths under root that satisfy filters.
     """
-
-    empty_include = (include is None) or (not any(include))
-    empty_exclude = (exclude is None) or (not any(exclude))
-
     s3 = get_s3_client(**kwargs)
-
-    def match_results(value: str, patterns: list[Pattern]) -> list[bool]:
-        return [_.match(value) is not None for _ in patterns]
 
     paginator = s3.get_paginator("list_objects_v2")
 
-    s3_paths: list[S3Path] = []
-    for response in paginator.paginate(Bucket=s3_path.bucket, Prefix=s3_path.key):
-        for item in response.get("Contents", []):
-            key = item.get("Key", "")
-            relative_key = key[len(s3_path.key) :]
-            if empty_include or any(match_results(relative_key, include)):  # type: ignore
-                if empty_exclude or (not any(match_results(relative_key, exclude))):  # type: ignore
-                    s3_paths.append(S3Path.build(bucket_name=s3_path.bucket, key=key))
-    return s3_paths
+    def iter_listed_paths() -> Iterator[S3Path]:
+        for response in paginator.paginate(Bucket=s3_path.bucket, Prefix=s3_path.key):
+            for item in response.get("Contents", []):
+                yield S3Path.build(bucket_name=s3_path.bucket, key=item.get("Key", ""))
+
+    # Streamed into `filter_paths` rather than collected into a list first, so a
+    # filtered listing never materializes the objects it is about to discard --
+    # these prefixes run to millions of objects. `filter_paths` compiles the
+    # patterns once and keeps only what matches, so this stays a single pass.
+    # `S3FileSystem.refresh` walks S3 the same way for the same reason.
+    return filter_paths(
+        iter_listed_paths(),
+        root=filter_root if filter_root is not None else s3_path,
+        include=include,
+        exclude=exclude,
+    )
 
 
 class PresignedUrlAction(Enum):

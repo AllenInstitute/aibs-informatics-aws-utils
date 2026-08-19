@@ -14,11 +14,14 @@ import pytz
 from aibs_informatics_core.models.aws.efs import EFSPath
 from aibs_informatics_core.models.aws.s3 import S3Path
 from aibs_informatics_core.models.base import AwareIsoDateTime, PydanticBaseModel
+from aibs_informatics_core.models.data_sync import DataSyncFilterConfig
+from aibs_informatics_core.utils.filters import filter_paths, path_matches_filters
 from aibs_informatics_core.utils.logging import get_logger
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from aibs_informatics_core.utils.time import BEGINNING_OF_TIME
 from aibs_informatics_core.utils.tools.strtools import removeprefix
 
+from aibs_informatics_aws_utils.data_sync._filters import extract_filter_patterns
 from aibs_informatics_aws_utils.efs import get_efs_path, get_local_path
 from aibs_informatics_aws_utils.s3 import get_s3_resource
 
@@ -153,6 +156,13 @@ class Node:
 @dataclass  # type: ignore[misc] # mypy #5374
 class BaseFileSystem:
     node: Node = field(init=False)
+    #: Number of objects encountered during the last `refresh`, counted
+    #: *before* include/exclude filters are applied. The tree itself only holds
+    #: the kept objects, so this is the only way to tell "the source was empty"
+    #: apart from "the filters matched nothing" -- which is what the prepare
+    #: handler needs in order to fail a typo'd pattern loudly rather than
+    #: launching Batch jobs against an empty input set.
+    total_objects_seen: int = field(init=False, default=0)
 
     def __post_init__(self):
         self.node = self.initialize_node()
@@ -162,7 +172,41 @@ class BaseFileSystem:
         raise NotImplementedError()
 
     @abstractmethod
-    def refresh(self, **kwargs):
+    def refresh(
+        self,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
+        **kwargs,
+    ):
+        """Rebuild the tree, optionally keeping only the paths that pass filters.
+
+        Args:
+            filter_config: Optional include/exclude filters. When given, only
+                matching objects contribute to the tree -- and therefore to the
+                sizes that `partition` bins on.
+            filter_root: Root that patterns are matched relative to. Defaults to
+                this file system's own root. The distributed sync workflow splits
+                a sync into sub-requests rooted at sub-prefixes, and those must
+                pass the *original* root here or patterns stop matching.
+            **kwargs: Additional arguments passed to the underlying client.
+        """
+        raise NotImplementedError()
+
+    @property
+    def kept_objects(self) -> int:
+        """Number of objects retained by the last `refresh`."""
+        return self.node.object_count
+
+    @abstractmethod
+    def resolve_filter_root(self, filter_root: str | None) -> str:
+        """Resolve the root that filter patterns are matched relative to.
+
+        Args:
+            filter_root: Explicit root, or None to use this file system's own root.
+
+        Returns:
+            The root to relativize paths against.
+        """
         raise NotImplementedError()
 
     def partition(
@@ -235,9 +279,27 @@ class LocalFileSystem(BaseFileSystem):
     def initialize_node(self) -> Node:
         return Node(path_part=self.path.as_posix())
 
-    def refresh(self, **kwargs):
+    def resolve_filter_root(self, filter_root: str | None) -> str:
+        return filter_root if filter_root is not None else str(self.path)
+
+    def refresh(
+        self,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
+        **kwargs,
+    ):
         self.node = self.initialize_node()
-        paths_to_visit = deque(find_all_paths(self.path, include_dirs=False, include_files=True))
+        all_paths = find_all_paths(self.path, include_dirs=False, include_files=True)
+        self.total_objects_seen = len(all_paths)
+        include, exclude = extract_filter_patterns(filter_config)
+        paths_to_visit = deque(
+            filter_paths(
+                all_paths,
+                root=self.resolve_filter_root(filter_root),
+                include=include,
+                exclude=exclude,
+            )
+        )
         while paths_to_visit:
             path = paths_to_visit.popleft()
             try:
@@ -263,10 +325,16 @@ class LocalFileSystem(BaseFileSystem):
                     raise ose
 
     @classmethod
-    def from_path(cls, path: str | Path, **kwargs) -> LocalFileSystem:
+    def from_path(
+        cls,
+        path: str | Path,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
+        **kwargs,
+    ) -> LocalFileSystem:
         local_path = Path(path)
         local_root = LocalFileSystem(path=local_path)
-        local_root.refresh(**kwargs)
+        local_root.refresh(filter_config=filter_config, filter_root=filter_root, **kwargs)
         return local_root
 
 
@@ -277,8 +345,22 @@ class EFSFileSystem(LocalFileSystem):
     def initialize_node(self) -> Node:
         return Node(path_part=self.efs_path)
 
+    def resolve_filter_root(self, filter_root: str | None) -> str:
+        # The paths being filtered are local mount paths, but a caller upstream
+        # (e.g. the prepare handler) naturally expresses the filter root as the
+        # EFS path it was given. Translate so patterns anchor where they should.
+        if filter_root is not None and EFSPath.is_valid(filter_root):
+            return str(get_local_path(efs_path=EFSPath(filter_root)))
+        return super().resolve_filter_root(filter_root)
+
     @classmethod
-    def from_path(cls, path: str | Path, **kwargs) -> EFSFileSystem:
+    def from_path(
+        cls,
+        path: str | Path,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
+        **kwargs,
+    ) -> EFSFileSystem:
         if isinstance(path, str) and EFSPath.is_valid(path):
             efs_path = EFSPath(path)
             local_path = get_local_path(efs_path=efs_path)
@@ -287,7 +369,7 @@ class EFSFileSystem(LocalFileSystem):
             efs_path = get_efs_path(local_path=local_path)
 
         efs_root = EFSFileSystem(path=local_path, efs_path=efs_path)
-        efs_root.refresh(**kwargs)
+        efs_root.refresh(filter_config=filter_config, filter_root=filter_root, **kwargs)
         return efs_root
 
 
@@ -306,12 +388,40 @@ class S3FileSystem(BaseFileSystem):
     def initialize_node(self) -> Node:
         return Node(path_part=self.key)
 
-    def refresh(self, **kwargs):
+    @property
+    def s3_path(self) -> S3Path:
+        return S3Path.build(bucket_name=self.bucket, key=self.key)
+
+    def resolve_filter_root(self, filter_root: str | None) -> str:
+        return filter_root if filter_root is not None else str(self.s3_path)
+
+    def refresh(
+        self,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
+        **kwargs,
+    ):
         self.node = self.initialize_node()
+        self.total_objects_seen = 0
         s3 = get_s3_resource(**kwargs)
         bucket = s3.Bucket(self.bucket)
 
+        resolved_filter_root = self.resolve_filter_root(filter_root)
+        include, exclude = extract_filter_patterns(filter_config)
+
+        # Filtering happens in-loop rather than via `list_s3_paths` so that a
+        # filtered prefix is still walked in a single streaming pass -- these
+        # prefixes run to millions of objects and we never want the full listing
+        # materialized just to throw most of it away.
         for obj in bucket.objects.filter(Prefix=self.key):
+            self.total_objects_seen += 1
+            if not path_matches_filters(
+                S3Path.build(bucket_name=self.bucket, key=obj.key),
+                root=resolved_filter_root,
+                include=include,
+                exclude=exclude,
+            ):
+                continue
             self.node.add_object(
                 path=removeprefix(obj.key, self.key),
                 size=obj.size,
@@ -319,17 +429,41 @@ class S3FileSystem(BaseFileSystem):
             )
 
     @classmethod
-    def from_path(cls, path: str, **kwargs) -> S3FileSystem:
+    def from_path(
+        cls,
+        path: str,
+        filter_config: DataSyncFilterConfig | None = None,
+        filter_root: str | None = None,
+        **kwargs,
+    ) -> S3FileSystem:
         s3_path = S3Path(path)
         s3_root = S3FileSystem(bucket=s3_path.bucket, key=s3_path.key)
-        s3_root.refresh(**kwargs)
+        s3_root.refresh(filter_config=filter_config, filter_root=filter_root, **kwargs)
         return s3_root
 
 
-def get_file_system(path: str | Path) -> BaseFileSystem:
+def get_file_system(
+    path: str | Path,
+    filter_config: DataSyncFilterConfig | None = None,
+    filter_root: str | None = None,
+) -> BaseFileSystem:
+    """Build the file system tree appropriate to the given path.
+
+    Args:
+        path: An S3 path, EFS path, or local path.
+        filter_config: Optional include/exclude filters restricting the tree to
+            matching objects.
+        filter_root: Root that patterns are matched relative to. Defaults to
+            ``path``.
+
+    Returns:
+        The refreshed file system.
+    """
     if isinstance(path, str) and S3Path.is_valid(path):
-        return S3FileSystem.from_path(path)
+        return S3FileSystem.from_path(path, filter_config=filter_config, filter_root=filter_root)
     elif isinstance(path, str) and EFSPath.is_valid(path):
-        return EFSFileSystem.from_path(path)
+        return EFSFileSystem.from_path(path, filter_config=filter_config, filter_root=filter_root)
     else:
-        return LocalFileSystem.from_path(path)
+        return LocalFileSystem.from_path(
+            path, filter_config=filter_config, filter_root=filter_root
+        )

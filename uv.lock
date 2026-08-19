@@ -63,7 +63,7 @@ release = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aibs-informatics-core", specifier = ">=1.0.1,<2" },
+    { name = "aibs-informatics-core", specifier = "~=1.1" },
     { name = "boto3", specifier = "~=1.35" },
     { name = "tenacity", specifier = "~=9.0" },
 ]
@@ -116,7 +116,7 @@ release = [
 
 [[package]]
 name = "aibs-informatics-core"
-version = "1.0.1"
+version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pathlib-abc" },
@@ -126,11 +126,12 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "stringcase" },
+    { name = "typing-extensions" },
     { name = "typing-inspect" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/67/50502d4e175a65b77e911b0556c95b971758de26a14bc14f16bf6dd8a72f/aibs_informatics_core-1.0.1.tar.gz", hash = "sha256:162055cff5866a96b8ca39f6d6afc28fcdd29ccdf45e256924b76cc920a54db3", size = 73051, upload-time = "2026-03-18T23:15:52.902Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/11/9dc03e0dd7133f0dea4b534192ec6c135ee1559b6bd769e9a51f8cabe13e/aibs_informatics_core-1.1.0.tar.gz", hash = "sha256:98682e737515aeed4cb471ead3b42b414cba93fa2a95f6f3040f2f991795dd89", size = 81604, upload-time = "2026-08-14T04:30:24.413Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/18/95/a0e929feabeb3d5d3da8f7c615db8fa591da058bc85ec979e6491739ed3a/aibs_informatics_core-1.0.1-py3-none-any.whl", hash = "sha256:f475e946f14bf50695e340db7555ebb1abe9fa269a16e52644c091d3a01ef1e3", size = 91583, upload-time = "2026-03-18T23:15:51.393Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/bc/7cc5203a52b98bffe671069969bfe3ea96c671f4bb0967518d2bd2ec7bbd/aibs_informatics_core-1.1.0-py3-none-any.whl", hash = "sha256:8627ebc4a6ab30516c54d7fbf25635636be10120714df8d335d346880ba654ce", size = 100816, upload-time = "2026-08-14T04:30:22.924Z" },
 ]
 
 [[package]]
@@ -1029,6 +1030,7 @@ wheels = [
 name = "griffelib"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/06/eccbd311c9e2b3ca45dbc063b93134c57a1ccc7607c5e545264ad092c4a9/griffelib-2.0.0.tar.gz", hash = "sha256:e504d637a089f5cab9b5daf18f7645970509bf4f53eda8d79ed71cce8bd97934", size = 166312, upload-time = "2026-03-23T21:06:55.954Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4d/51/c936033e16d12b627ea334aaaaf42229c37620d0f15593456ab69ab48161/griffelib-2.0.0-py3-none-any.whl", hash = "sha256:01284878c966508b6d6f1dbff9b6fa607bc062d8261c5c7253cb285b06422a7f", size = 142004, upload-time = "2026-02-09T19:09:40.561Z" },
 ]

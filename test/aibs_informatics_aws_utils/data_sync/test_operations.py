@@ -3,7 +3,7 @@ from pathlib import Path
 
 import moto
 from aibs_informatics_core.models.aws.s3 import S3Path
-from aibs_informatics_core.models.data_sync import RemoteToLocalConfig
+from aibs_informatics_core.models.data_sync import DataSyncFilterConfig, RemoteToLocalConfig
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from pytest import mark
 
@@ -447,6 +447,276 @@ class OperationsTests(AwsBaseTest):
             source_path=source_path, destination_path=destination_path, fail_if_missing=False
         )
         assert not is_object(destination_path)
+
+    # -----------------------------------------------------------------------
+    # include/exclude filtering (OCSDV-452)
+    # -----------------------------------------------------------------------
+
+    def test__sync_data__s3_to_s3__filtered__moves_only_matching_objects(self):
+        self.setUpBucket()
+        source_path = self.get_s3_path("source/path/")
+        destination_path = self.get_s3_path("destination/path/")
+        self.put_object("source/path/sampleA/reads.bam", "hello")
+        self.put_object("source/path/sampleA/notes.txt", "did you hear me")
+
+        result = sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(include=r".*\.bam"),
+            include_detailed_response=True,
+        )
+
+        self.assertSetEqual(
+            {p.key for p in list_s3_paths(destination_path)},
+            {"destination/path/sampleA/reads.bam"},
+        )
+        self.assertEqual(result.files_transferred, 1)
+        self.assertEqual(result.bytes_transferred, 5)
+
+    def test__sync_data__s3_to_s3__filtered__exclude_wins_over_include(self):
+        self.setUpBucket()
+        source_path = self.get_s3_path("source/path/")
+        destination_path = self.get_s3_path("destination/path/")
+        self.put_object("source/path/a.bam", "hello")
+        self.put_object("source/path/b.bam", "hello")
+
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(include=r".*\.bam", exclude=r"b\.bam"),
+        )
+
+        self.assertSetEqual(
+            {p.key for p in list_s3_paths(destination_path)}, {"destination/path/a.bam"}
+        )
+
+    def test__sync_data__s3_to_s3__filtered__filter_root_anchors_patterns(self):
+        """A sub-request rooted at a sub-prefix honors patterns from the original root."""
+        self.setUpBucket()
+        root_path = self.get_s3_path("source/path/")
+        source_path = self.get_s3_path("source/path/sampleA/")
+        destination_path = self.get_s3_path("destination/path/")
+        self.put_object("source/path/sampleA/reads.bam", "hello")
+        self.put_object("source/path/sampleA/notes.txt", "did you hear me")
+
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(include=r"sampleA/.*\.bam"),
+            filter_root=str(root_path),
+        )
+
+        self.assertSetEqual(
+            {p.key for p in list_s3_paths(destination_path)}, {"destination/path/reads.bam"}
+        )
+
+    def test__sync_data__s3_to_local__filtered__downloads_only_matching_objects(self):
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = self.get_s3_path("source/path/")
+        destination_path = fs / "destination"
+        self.put_object("source/path/sampleA/reads.bam", "hello")
+        self.put_object("source/path/sampleA/notes.txt", "did you hear me")
+
+        result = sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(include=r".*\.bam"),
+            include_detailed_response=True,
+        )
+
+        self.assertSetEqual(
+            {
+                str(p)[len(str(destination_path)) :].lstrip("/")
+                for p in find_all_paths(destination_path, False)
+            },
+            {"sampleA/reads.bam"},
+        )
+        self.assertEqual(result.files_transferred, 1)
+        self.assertEqual(result.bytes_transferred, 5)
+
+    def test__sync_data__s3_to_local__filtered__filter_root_anchors_patterns(self):
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        root_path = self.get_s3_path("source/path/")
+        source_path = self.get_s3_path("source/path/sampleA/")
+        destination_path = fs / "destination"
+        self.put_object("source/path/sampleA/reads.bam", "hello")
+        self.put_object("source/path/sampleA/notes.txt", "did you hear me")
+
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(include=r"sampleA/.*\.bam"),
+            filter_root=str(root_path),
+        )
+
+        self.assertSetEqual(
+            {Path(p).name for p in find_all_paths(destination_path, False)}, {"reads.bam"}
+        )
+
+    def test__sync_data__local_to_s3__filtered__uploads_only_matching_files(self):
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = fs / "source"
+        destination_path = self.get_s3_path("destination/path/")
+        self.put_file(source_path / "sampleA" / "reads.bam", "hello")
+        self.put_file(source_path / "sampleA" / "notes.txt", "did you hear me")
+
+        result = sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(include=r".*\.bam"),
+            include_detailed_response=True,
+        )
+
+        self.assertSetEqual(
+            {p.key for p in list_s3_paths(destination_path)},
+            {"destination/path/sampleA/reads.bam"},
+        )
+        # Regression: these were computed over the UNFILTERED source, and so
+        # reported 2 files / 20 bytes for a sync that moved 1 file / 5 bytes.
+        self.assertEqual(result.files_transferred, 1)
+        self.assertEqual(result.bytes_transferred, 5)
+
+    def test__sync_data__local_to_s3__filtered__patterns_are_relative_to_source(self):
+        """`find_paths` matched the full absolute path, so this pattern matched nothing."""
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        source_path = fs / "source"
+        destination_path = self.get_s3_path("destination/path/")
+        self.put_file(source_path / "sample" / "reads.bam", "hello")
+        self.put_file(source_path / "other" / "reads.bam", "did you hear me")
+
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(include=r"sample/.*"),
+        )
+
+        self.assertSetEqual(
+            {p.key for p in list_s3_paths(destination_path)},
+            {"destination/path/sample/reads.bam"},
+        )
+
+    def test__sync_data__local_to_s3__filtered__filter_root_anchors_patterns(self):
+        fs = self.setUpLocalFS()
+        self.setUpBucket()
+        root_path = fs / "source"
+        source_path = root_path / "sampleA"
+        destination_path = self.get_s3_path("destination/path/")
+        self.put_file(source_path / "reads.bam", "hello")
+        self.put_file(source_path / "notes.txt", "did you hear me")
+
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(include=r"sampleA/.*\.bam"),
+            filter_root=str(root_path),
+        )
+
+        self.assertSetEqual(
+            {p.key for p in list_s3_paths(destination_path)}, {"destination/path/reads.bam"}
+        )
+
+    def test__sync_data__delete__false__retains_unmatched_destination_files(self):
+        """`delete` is the gate on the filtered-sync-deletes-extra-files hazard."""
+        self.setUpBucket()
+        source_path = self.get_s3_path("source/path/")
+        destination_path = self.get_s3_path("destination/path/")
+        self.put_object("source/path/a.bam", "hello")
+        self.put_object("destination/path/stale.txt", "i was here first")
+
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            delete=False,
+        )
+
+        self.assertSetEqual(
+            {p.key for p in list_s3_paths(destination_path)},
+            {"destination/path/a.bam", "destination/path/stale.txt"},
+        )
+
+    def test__sync_data__delete__true__removes_filtered_out_destination_files(self):
+        """Documented hazard: a filtered sync with delete=True mirrors, so it deletes."""
+        self.setUpBucket()
+        source_path = self.get_s3_path("source/path/")
+        destination_path = self.get_s3_path("destination/path/")
+        self.put_object("source/path/a.bam", "hello")
+        self.put_object("source/path/b.txt", "did you hear me")
+        # An earlier unfiltered copy already sitting at the destination.
+        self.put_object("destination/path/b.txt", "did you hear me")
+
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(include=r".*\.bam"),
+            delete=True,
+        )
+
+        self.assertSetEqual(
+            {p.key for p in list_s3_paths(destination_path)}, {"destination/path/a.bam"}
+        )
+
+    def test__sync_data__local_to_local__filtered__raises(self):
+        # Filtering is not implemented for this direction, and copying everything
+        # anyway would hand back data the caller explicitly excluded. Reject the
+        # request instead -- a warning in a Batch job log is too easy to miss.
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path / "reads.bam", "hello")
+        self.put_file(source_path / "notes.txt", "did you hear me")
+
+        with self.assertRaises(ValueError) as ctx:
+            sync_data(
+                source_path=source_path,
+                destination_path=destination_path,
+                filter_config=DataSyncFilterConfig(include=r".*\.bam"),
+            )
+
+        self.assertIn("not supported for local -> local", str(ctx.exception))
+        # Nothing was copied -- the request failed before any transfer.
+        self.assertFalse(destination_path.exists())
+
+    def test__sync_data__local_to_local__filtered_with_exclude__raises(self):
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path / "reads.bam", "hello")
+
+        with self.assertRaises(ValueError):
+            sync_data(
+                source_path=source_path,
+                destination_path=destination_path,
+                filter_config=DataSyncFilterConfig(exclude=r".*\.bam"),
+            )
+
+    def test__sync_data__local_to_local__empty_filter_config__succeeds(self):
+        # An empty filter config filters nothing, so it must not be rejected.
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path / "reads.bam", "hello")
+
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(),
+        )
+
+        self.assertPathsEqual(source_path, destination_path, 1)
+
+    def test__sync_data__local_to_local__no_filters__succeeds(self):
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path / "reads.bam", "hello")
+
+        sync_data(source_path=source_path, destination_path=destination_path)
+
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def assertPathsEqual(
         self, src_path: Path | S3Path, dst_path: Path | S3Path, expected_num_files: int

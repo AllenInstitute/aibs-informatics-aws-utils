@@ -200,11 +200,14 @@ class S3Tests(AwsBaseTest):
 
     def test__list_s3_paths__all_cases(self):
         ## Setup
-        s3_path = self.get_s3_path("path/to/object")
+        # Patterns are matched against the key relative to the listing root, so the
+        # root is a folder prefix here and the relative keys are `object_a`,
+        # `object-b` and `object/a`.
+        s3_path = self.get_s3_path("path/to/")
         s3_path_a = self.get_s3_path("path/to/object_a")
         s3_path_b = self.get_s3_path("path/to/object-b")
         s3_path_c = self.get_s3_path("path/to/object/a")
-        s3_path_d = self.get_s3_path("path/to/another/object_d")
+        s3_path_d = self.get_s3_path("path/other/object_d")
 
         contents_a = "Hello, it's me"
         contents_b = "I was wondering if after all these years you'd like to meet"
@@ -256,15 +259,68 @@ class S3Tests(AwsBaseTest):
 
         # 3. include provided - match; exclude provided - no match
         s3_paths_all_filters_3 = list_s3_paths(
-            s3_path, include=[re.compile(r"_a")], exclude=missing_patterns
+            s3_path, include=[re.compile(r".*_a")], exclude=missing_patterns
         )
         self.assertListEqual(sorted(s3_paths_all_filters_3), [s3_path_a])
 
         # 4. include provided - match; exclude provided - match
         s3_paths_all_filters_4 = list_s3_paths(
-            s3_path, include=[re.compile(".+")], exclude=[re.compile(r"_a")]
+            s3_path, include=[re.compile(".+")], exclude=[re.compile(r".*_a")]
         )
         self.assertListEqual(sorted(s3_paths_all_filters_4), sorted([s3_path_b, s3_path_c]))
+
+    def test__list_s3_paths__patterns_are_fullmatched(self):
+        """Patterns must describe the whole relative key, not a fragment of it."""
+        s3_path = self.get_s3_path("run1/")
+        bam = self.get_s3_path("run1/sampleA/reads.bam")
+        txt = self.get_s3_path("run1/sampleA/notes.txt")
+        self.put_object(bam.key, "bam")
+        self.put_object(txt.key, "txt")
+
+        # A bare fragment would have matched under the old `.match()` behavior.
+        self.assertListEqual(list_s3_paths(s3_path, include=[re.compile("sampleA")]), [])
+        self.assertListEqual(list_s3_paths(s3_path, include=[re.compile(r".*\.bam")]), [bam])
+        self.assertListEqual(
+            sorted(list_s3_paths(s3_path, include=[re.compile("sampleA/.*")])), sorted([bam, txt])
+        )
+
+    def test__list_s3_paths__accepts_str_patterns(self):
+        """Patterns may be given as plain strings, not just compiled patterns."""
+        s3_path = self.get_s3_path("run1/")
+        bam = self.get_s3_path("run1/reads.bam")
+        txt = self.get_s3_path("run1/notes.txt")
+        self.put_object(bam.key, "bam")
+        self.put_object(txt.key, "txt")
+
+        self.assertListEqual(list_s3_paths(s3_path, include=r".*\.bam"), [bam])
+        self.assertListEqual(list_s3_paths(s3_path, exclude=[r".*\.bam"]), [txt])
+
+    def test__list_s3_paths__explicit_filter_root_anchors_patterns(self):
+        """Listing a sub-prefix keeps working when the original root is passed.
+
+        This is the prepare/batch split: a sync of `run1/` fans out into
+        sub-requests rooted at `run1/sampleA/`, and each sub-request re-lists from
+        its own root. Without an explicit anchor, patterns written against `run1/`
+        stop matching entirely.
+        """
+        root = self.get_s3_path("run1/")
+        sub_prefix = self.get_s3_path("run1/sampleA/")
+        bam = self.get_s3_path("run1/sampleA/reads.bam")
+        txt = self.get_s3_path("run1/sampleA/notes.txt")
+        self.put_object(bam.key, "bam")
+        self.put_object(txt.key, "txt")
+
+        pattern = [re.compile(r"sampleA/.*\.bam")]
+
+        # Written against the original root, the pattern matches when listing it.
+        self.assertListEqual(list_s3_paths(root, include=pattern), [bam])
+
+        # Listing the sub-prefix without an anchor, relative keys are now
+        # `reads.bam` / `notes.txt` and the pattern matches nothing.
+        self.assertListEqual(list_s3_paths(sub_prefix, include=pattern), [])
+
+        # Passing the original root back in restores the intended behavior.
+        self.assertListEqual(list_s3_paths(sub_prefix, include=pattern, filter_root=root), [bam])
 
     def test__is_folder__is_object__is_object_prefix__is_folder_placeholder_object__work(self):
         ## Setup

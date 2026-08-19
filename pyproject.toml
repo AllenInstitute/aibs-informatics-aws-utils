@@ -20,7 +20,7 @@ requires-python = ">=3.11"
 
 dependencies = [
     "boto3~=1.35",
-    "aibs-informatics-core>=1.0.1,<2",
+    "aibs-informatics-core~=1.1",
     "tenacity~=9.0",
 ]
 
