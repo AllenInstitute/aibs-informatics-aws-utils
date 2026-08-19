@@ -245,15 +245,18 @@ class DataSyncOperations(LoggingMixin):
         #   `sync_paths`; it delegates to `copy_path`/`move_path`, which copy a
         #   tree wholesale and take no patterns. Supporting filters here means
         #   either teaching those helpers about patterns or walking the source
-        #   and transferring file by file. Until then a filtered local -> local
-        #   sync copies *everything*, so warn loudly rather than let a silently
-        #   complete full copy look like a successful filtered one.
+        #   and transferring file by file. Until then, reject a filtered request
+        #   rather than quietly copying everything: a warning about ignored
+        #   filters is easy to lose in Batch job logs, and the outcome it warns
+        #   about -- data the caller explicitly excluded, copied anyway -- is the
+        #   exact failure this feature exists to prevent. Unfiltered
+        #   local -> local sync is unaffected.
         if filter_config is not None and (filter_config.include or filter_config.exclude):
-            self.logger.warning(
-                f"Include/exclude filters are NOT supported for local -> local sync "
+            raise ValueError(
+                f"Include/exclude filters are not supported for local -> local sync "
                 f"({source_path} -> {destination_path}). "
-                f"include={filter_config.include}, exclude={filter_config.exclude} "
-                f"will be IGNORED and the full source will be copied."
+                f"Got include={filter_config.include}, exclude={filter_config.exclude}. "
+                f"Remove the filters or route the transfer through S3."
             )
 
         self.logger.info(f"Copying local content from {source_path} -> {destination_path}")

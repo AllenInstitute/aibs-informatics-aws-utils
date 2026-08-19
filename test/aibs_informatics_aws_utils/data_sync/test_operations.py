@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-from unittest import mock
 
 import moto
 from aibs_informatics_core.models.aws.s3 import S3Path
@@ -8,7 +7,7 @@ from aibs_informatics_core.models.data_sync import DataSyncFilterConfig, RemoteT
 from aibs_informatics_core.utils.os_operations import find_all_paths
 from pytest import mark
 
-from aibs_informatics_aws_utils.data_sync.operations import DataSyncOperations, sync_data
+from aibs_informatics_aws_utils.data_sync.operations import sync_data
 from aibs_informatics_aws_utils.s3 import get_s3_client, get_s3_resource, is_object, list_s3_paths
 from test.aibs_informatics_aws_utils.base import AwsBaseTest
 
@@ -660,44 +659,64 @@ class OperationsTests(AwsBaseTest):
             {p.key for p in list_s3_paths(destination_path)}, {"destination/path/a.bam"}
         )
 
-    def test__sync_data__local_to_local__filtered__warns_and_copies_everything(self):
+    def test__sync_data__local_to_local__filtered__raises(self):
+        # Filtering is not implemented for this direction, and copying everything
+        # anyway would hand back data the caller explicitly excluded. Reject the
+        # request instead -- a warning in a Batch job log is too easy to miss.
         fs = self.setUpLocalFS()
         source_path = fs / "source"
         destination_path = fs / "destination"
         self.put_file(source_path / "reads.bam", "hello")
         self.put_file(source_path / "notes.txt", "did you hear me")
 
-        with self.assertLogs(
-            "aibs_informatics_aws_utils.data_sync.operations", level="WARNING"
-        ) as logs:
+        with self.assertRaises(ValueError) as ctx:
             sync_data(
                 source_path=source_path,
                 destination_path=destination_path,
                 filter_config=DataSyncFilterConfig(include=r".*\.bam"),
             )
 
-        self.assertTrue(
-            any("NOT supported for local -> local" in message for message in logs.output),
-            f"expected an unsupported-filter warning, got: {logs.output}",
-        )
-        # Deliberately unimplemented: the full source is copied regardless.
-        self.assertPathsEqual(source_path, destination_path, 2)
+        self.assertIn("not supported for local -> local", str(ctx.exception))
+        # Nothing was copied -- the request failed before any transfer.
+        self.assertFalse(destination_path.exists())
 
-    def test__sync_data__local_to_local__no_filters__does_not_warn(self):
+    def test__sync_data__local_to_local__filtered_with_exclude__raises(self):
         fs = self.setUpLocalFS()
         source_path = fs / "source"
         destination_path = fs / "destination"
         self.put_file(source_path / "reads.bam", "hello")
 
-        with mock.patch.object(DataSyncOperations, "logger") as mock_logger:
-            sync_data(source_path=source_path, destination_path=destination_path)
-
-        self.assertFalse(
-            any(
-                "NOT supported for local -> local" in str(call)
-                for call in mock_logger.warning.call_args_list
+        with self.assertRaises(ValueError):
+            sync_data(
+                source_path=source_path,
+                destination_path=destination_path,
+                filter_config=DataSyncFilterConfig(exclude=r".*\.bam"),
             )
+
+    def test__sync_data__local_to_local__empty_filter_config__succeeds(self):
+        # An empty filter config filters nothing, so it must not be rejected.
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path / "reads.bam", "hello")
+
+        sync_data(
+            source_path=source_path,
+            destination_path=destination_path,
+            filter_config=DataSyncFilterConfig(),
         )
+
+        self.assertPathsEqual(source_path, destination_path, 1)
+
+    def test__sync_data__local_to_local__no_filters__succeeds(self):
+        fs = self.setUpLocalFS()
+        source_path = fs / "source"
+        destination_path = fs / "destination"
+        self.put_file(source_path / "reads.bam", "hello")
+
+        sync_data(source_path=source_path, destination_path=destination_path)
+
+        self.assertPathsEqual(source_path, destination_path, 1)
 
     def assertPathsEqual(
         self, src_path: Path | S3Path, dst_path: Path | S3Path, expected_num_files: int
